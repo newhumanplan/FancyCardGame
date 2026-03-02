@@ -62,3 +62,7 @@ func duplicate() -> Unit:
 	var new_unit = Unit.new(name, max_hp, attack, defense, speed, crit_rate, crit_damage)
 	new_unit.current_hp = current_hp
 	return new_unit
+
+## 获取状态文本描述
+func get_stats_text() -> String:
+	return "HP: %d/%d ATK: %d DEF: %d SPD: %d" % [current_hp, max_hp, attack, defense, speed]
