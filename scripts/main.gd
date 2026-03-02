@@ -137,8 +137,16 @@ func _on_start_button_pressed() -> void:
 	# 重置波次索引
 	current_enemy_index = 0
 	
-	# 创建玩家单位：战士
-	current_player = Unit.new("战士", 120, 15, 8, 10, 0.1, 1.5)
+	# 创建玩家单位：战士（应用装备加成）
+	var base_atk := 15
+	var base_def := 8
+	current_player = Unit.new(
+		"战士", 
+		120, 
+		base_atk + equipment.get_attack_bonus(),
+		base_def + equipment.get_defense_bonus(),
+		10, 0.1, 1.5
+	)
 	
 	# 显示关卡信息
 	var stage_data = stage_manager.get_current_stage_data()
@@ -213,6 +221,9 @@ func _open_shop() -> void:
 
 ## 商店关闭回调
 func _on_shop_closed() -> void:
+	# 刷新商店物品（新关卡）
+	shop.refresh_shop()
+	
 	# 显示主 UI
 	$VBox.visible = true
 	character_panel.visible = true
@@ -248,6 +259,11 @@ func _change_to_combat(player: Unit, enemy: Unit) -> void:
 
 ## 战斗结束回调
 func _on_combat_ended(victory: bool) -> void:
+	# 释放战斗场景，防止内存泄漏
+	var combat = get_tree().get_first_node_in_group("combat")
+	if combat:
+		combat.queue_free()
+	
 	if victory:
 		status_label.text = "🎉 第 %d 波战斗胜利！" % (current_enemy_index + 1)
 		
@@ -263,7 +279,10 @@ func _on_combat_ended(victory: bool) -> void:
 			# 所有敌人已击败，进入商店
 			_on_all_waves_complete()
 	else:
-		status_label.text = "💀 失败... 请提升实力后再来"
+		# 战斗失败惩罚：扣除 10% 金币
+		var penalty = int(GoldManager.get_gold() * 0.1)
+		GoldManager.spend_gold(penalty)
+		status_label.text = "💀 失败... 损失 %d 金币，请提升实力后再来" % penalty
 		# 显示主 UI
 		$VBox.visible = true
 		character_panel.visible = true
