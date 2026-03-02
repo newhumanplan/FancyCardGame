@@ -1,0 +1,117 @@
+[gd_scene load_steps=4 format=3 uid="uid://backpack_scene"]
+
+[ext_resource type="Script" path="res://scripts/backpack_ui.gd" id="1_backpack_ui"]
+[ext_resource type="Script" path="res://scripts/inventory_slot.gd" id="2_slot"]
+[ext_resource type="Script" path="res://scripts/item_tooltip.gd" id="3_tooltip"]
+
+[node name="BackpackUI" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_backpack_ui")
+
+[node name="Panel" type="Panel" parent="."]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -350.0
+offset_top = -280.0
+offset_right = 350.0
+offset_bottom = 280.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="VBox" type="VBoxContainer" parent="Panel"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 10.0
+offset_top = 10.0
+offset_right = -10.0
+offset_bottom = -10.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="TitleLabel" type="Label" parent="Panel/VBox"]
+layout_mode = 2
+text = "背包"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="HSeparator" type="HSeparator" parent="Panel/VBox"]
+layout_mode = 2
+
+[node name="GridContainer" type="GridContainer" parent="Panel/VBox"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/h_separation = 4
+theme_override_constants/v_separation = 4
+columns = 8
+
+[node name="HSeparator2" type="HSeparator" parent="Panel/VBox"]
+layout_mode = 2
+
+[node name="CloseButton" type="Button" parent="Panel/VBox"]
+layout_mode = 2
+text = "关闭"
+
+[node name="ItemTooltip" type="Control" parent="."]
+layout_mode = 1
+anchors_preset = 0
+script = ExtResource("3_tooltip")
+
+[node name="Panel" type="Panel" parent="ItemTooltip"]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -100.0
+offset_top = -50.0
+offset_right = 100.0
+offset_bottom = 50.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="VBox" type="VBoxContainer" parent="ItemTooltip/Panel"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 8.0
+offset_top = 8.0
+offset_right = -8.0
+offset_bottom = -8.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="NameLabel" type="Label" parent="ItemTooltip/Panel/VBox"]
+layout_mode = 2
+text = "物品名称"
+
+[node name="TypeLabel" type="Label" parent="ItemTooltip/Panel/VBox"]
+layout_mode = 2
+text = "类型"
+
+[node name="DescriptionLabel" type="RichTextLabel" parent="ItemTooltip/Panel/VBox"]
+layout_mode = 2
+size_flags_vertical = 3
+bbcode_enabled = true
+text = "物品描述"
+fit_content = true
+
+[node name="RarityLabel" type="Label" parent="ItemTooltip/Panel/VBox"]
+layout_mode = 2
+text = "稀有度"
+
+[node name="EffectLabel" type="Label" parent="ItemTooltip/Panel/VBox"]
+layout_mode = 2
+text = "效果"

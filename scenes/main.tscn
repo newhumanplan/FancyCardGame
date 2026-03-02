@@ -10,30 +10,33 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
+script = ExtResource("1_main")
 
 [node name="CombatSystem" type="Node" parent="."]
 script = ExtResource("2_combat")
 
 [node name="VBox" type="VBoxContainer" parent="."]
 layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -150.0
+offset_top = -50.0
+offset_right = 150.0
+offset_bottom = 50.0
 grow_horizontal = 2
 grow_vertical = 2
-alignment = 1
 
-[node name="Title" type="Label" parent="VBox"]
+[node name="TitleLabel" type="Label" parent="VBox"]
 layout_mode = 2
 text = "🎮 FancyCardGame"
 horizontal_alignment = 1
 vertical_alignment = 1
 
-[node name="Description" type="Label" parent="VBox"]
+[node name="HSeparator" type="HSeparator" parent="VBox"]
 layout_mode = 2
-text = "战士 vs 史莱姆"
-horizontal_alignment = 1
-vertical_alignment = 1
 
 [node name="StartButton" type="Button" parent="VBox"]
 layout_mode = 2
@@ -41,5 +44,6 @@ text = "开始战斗"
 
 [node name="StatusLabel" type="Label" parent="VBox"]
 layout_mode = 2
-text = "点击上方按钮开始战斗"
+text = "点击上方按钮开始"
 horizontal_alignment = 1
+vertical_alignment = 1
