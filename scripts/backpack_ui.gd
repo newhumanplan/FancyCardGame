@@ -75,21 +75,13 @@ func refresh() -> void:
 		slot_controls.append(slot)
 
 ## 创建单个格子
-func _create_slot(index: int) -> Control:
-	var slot = Control.new()
-	slot.custom_minimum_size = Vector2(SLOT_SIZE, SLOT_SIZE)
-	slot.script = load("res://scripts/inventory_slot.gd")
+func _create_slot(index: int) -> InventorySlot:
+	# 使用 InventorySlot 类创建格子
+	var slot := InventorySlot.new()
 	slot.slot_index = index
+	slot.custom_minimum_size = Vector2(SLOT_SIZE, SLOT_SIZE)
 	
-	# 背景
-	var bg = TextureRect.new()
-	bg.texture = _get_slot_bg_texture()
-	bg.stretch_mode = TextureRect.STRETCH_TILE
-	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
-	bg.modulate = Color(0.3, 0.3, 0.3, 0.8)
-	slot.add_child(bg)
-	
-	# 物品图标
+	# 设置物品
 	var item = inventory.get_item(index)
 	if item:
 		slot.set_item(item)

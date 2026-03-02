@@ -20,8 +20,15 @@ var icon: TextureRect
 ## 名称标签
 var name_label: Label
 
-## 父级装备面板
-var equipment_panel: Control
+## 父级装备面板（角色面板）
+var character_panel: CharacterPanelUI
+
+## 父级装备面板（兼容旧名称）
+var equipment_panel: Control:
+	get:
+		return character_panel
+	set(value):
+		character_panel = value as CharacterPanelUI
 
 ## 初始化
 func _ready() -> void:
@@ -106,10 +113,27 @@ func _on_mouse_entered() -> void:
 	# 高亮
 	if bg:
 		bg.modulate = Color(1.2, 1.2, 1.2, 1.0)
+	
+	# 显示 tooltip
+	if current_item and character_panel:
+		var tooltip = character_panel.find_child("ItemTooltip", true, false)
+		if tooltip:
+			tooltip.visible = true
+			var global_pos = get_global_mouse_position()
+			tooltip.position = global_pos + Vector2(20, 0)
+			var tooltip_ui = tooltip as ItemTooltipUI
+			if tooltip_ui:
+				tooltip_ui.set_item(current_item)
 
 ## 鼠标离开
 func _on_mouse_exited() -> void:
 	bg.modulate = Color(1, 1, 1, 1.0)
+	
+	# 隐藏 tooltip
+	if character_panel:
+		var tooltip = character_panel.find_child("ItemTooltip", true, false)
+		if tooltip:
+			tooltip.visible = false
 
 ## 开始拖拽
 func _get_drag_data(_at_position: Vector2) -> Variant:
@@ -153,5 +177,28 @@ func _can_drop_data(_at_position: Vector2, data: Variant) -> bool:
 
 ## 处理放置
 func _drop_data(_at_position: Vector2, data: Variant) -> void:
-	# 由父级处理
-	pass
+	if not character_panel:
+		return
+	
+	var item = data.get("item")
+	if not item:
+		return
+	
+	# 检查物品类型是否匹配槽位
+	match slot_type:
+		0:  # 武器
+			if not item is Weapon:
+				return
+		1:  # 护甲
+			if not item is Armor:
+				return
+	
+	# 从背包拖入
+	if data.has("slot_index"):
+		var from_slot = data["slot_index"]
+		character_panel.handle_equipment_drop(slot_type, from_slot, item)
+	# 从另一个装备槽拖入（交换）
+	elif data.has("from_equipment") and data["from_equipment"]:
+		var from_type = data.get("slot_type", -1)
+		if from_type != slot_type:
+			character_panel.handle_equipment_drop(slot_type, from_type, item)

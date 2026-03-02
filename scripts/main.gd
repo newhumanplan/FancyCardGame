@@ -6,36 +6,55 @@ extends Control
 ## 引用 Combat 系统节点
 @onready var combat_system: Node = $CombatSystem
 @onready var start_button: Button = $VBox/StartButton
+@onready var shop_button: Button = $VBox/ShopButton
 @onready var status_label: Label = $VBox/StatusLabel
+@onready var gold_label: Label = $VBox/GoldLabel
 
 ## 预加载场景
 var combat_scene: PackedScene
 var character_panel_scene: PackedScene
+var shop_scene: PackedScene
 
 ## 背包和装备
 var inventory: Inventory
 var equipment: Equipment
+var shop: Shop
 
 ## 角色面板实例
 var character_panel = null
+var shop_ui = null
 
 func _ready() -> void:
 	# 加载场景
 	combat_scene = load("res://scenes/combat.tscn")
 	character_panel_scene = load("res://scenes/character_panel.tscn")
+	shop_scene = load("res://scenes/shop.tscn")
 	
 	# 初始化背包和装备
 	inventory = Inventory.new()
 	equipment = Equipment.new()
+	shop = Shop.new()
+	add_child(shop)
+	
+	# 初始化金币（战士初始金币 100）
+	GoldManager.reset()
+	_update_gold_display()
+	
+	# 连接金币变化信号
+	GoldManager.gold_changed.connect(_on_gold_changed)
 	
 	# 添加初始装备（战士：铁剑 + 皮甲）
 	_add_initial_items()
 	
 	# 连接按钮信号
 	start_button.pressed.connect(_on_start_button_pressed)
+	shop_button.pressed.connect(_on_shop_button_pressed)
 	
 	# 创建角色面板
 	_create_character_panel()
+	
+	# 创建商店 UI（隐藏）
+	_create_shop_ui()
 	
 	print("FancyCardGame 已就绪！")
 	status_label.text = "点击上方按钮开始战斗"
@@ -81,6 +100,17 @@ func _create_character_panel() -> void:
 	# 放置在右侧
 	character_panel.position = Vector2(600, 100)
 
+## 创建商店 UI
+func _create_shop_ui() -> void:
+	shop_ui = shop_scene.instantiate()
+	add_child(shop_ui)
+	shop_ui.set_data(shop, inventory, GoldManager)
+	shop_ui.visible = false
+	
+	# 连接商店关闭信号
+	if shop_ui.has_signal("shop_closed"):
+		shop_ui.shop_closed.connect(_on_shop_closed)
+
 ## 开始战斗按钮回调
 func _on_start_button_pressed() -> void:
 	# 创建测试单位：战士 vs 史莱姆
@@ -92,6 +122,25 @@ func _on_start_button_pressed() -> void:
 	
 	# 切换到战斗场景
 	_change_to_combat(warrior, slime)
+
+## 商店按钮回调
+func _on_shop_button_pressed() -> void:
+	_open_shop()
+
+## 打开商店
+func _open_shop() -> void:
+	if shop_ui:
+		shop_ui.visible = true
+		shop_ui.refresh()
+		# 隐藏其他 UI
+		$VBox.visible = false
+		character_panel.visible = false
+
+## 商店关闭回调
+func _on_shop_closed() -> void:
+	# 显示主 UI
+	$VBox.visible = true
+	character_panel.visible = true
 
 ## 切换到战斗场景
 func _change_to_combat(player: Unit, enemy: Unit) -> void:
@@ -121,13 +170,19 @@ func _change_to_combat(player: Unit, enemy: Unit) -> void:
 func _on_combat_ended(victory: bool) -> void:
 	if victory:
 		status_label.text = "🎉 胜利！"
+		# 战斗胜利后打开商店
+		await get_tree().create_timer(1.0).timeout
+		_open_shop()
 	else:
 		status_label.text = "💀 失败..."
-	
-	# 显示主 UI
-	$VBox.visible = true
-	character_panel.visible = true
-	
-	# 延迟后重新加载场景（清除战斗状态）
-	await get_tree().create_timer(2.0).timeout
-	get_tree().reload_current_scene()
+		# 显示主 UI
+		$VBox.visible = true
+		character_panel.visible = true
+
+## 金币变化回调
+func _on_gold_changed(_amount: int) -> void:
+	_update_gold_display()
+
+## 更新金币显示
+func _update_gold_display() -> void:
+	gold_label.text = "金币: %d" % GoldManager.get_gold()

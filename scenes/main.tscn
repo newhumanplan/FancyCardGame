@@ -23,9 +23,9 @@ anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
 offset_left = -150.0
-offset_top = -50.0
+offset_top = -80.0
 offset_right = 150.0
-offset_bottom = 50.0
+offset_bottom = 80.0
 grow_horizontal = 2
 grow_vertical = 2
 
@@ -35,12 +35,22 @@ text = "🎮 FancyCardGame"
 horizontal_alignment = 1
 vertical_alignment = 1
 
+[node name="GoldLabel" type="Label" parent="VBox"]
+layout_mode = 2
+text = "金币: 100"
+horizontal_alignment = 1
+vertical_alignment = 1
+
 [node name="HSeparator" type="HSeparator" parent="VBox"]
 layout_mode = 2
 
 [node name="StartButton" type="Button" parent="VBox"]
 layout_mode = 2
 text = "开始战斗"
+
+[node name="ShopButton" type="Button" parent="VBox"]
+layout_mode = 2
+text = "商店"
 
 [node name="StatusLabel" type="Label" parent="VBox"]
 layout_mode = 2

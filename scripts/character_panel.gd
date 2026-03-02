@@ -72,6 +72,7 @@ func _setup_equipment_slots() -> void:
 		slot.slot_type = i
 		slot.slot_name = slot_names[i]
 		slot.custom_minimum_size = Vector2(80, 80)
+		slot.character_panel = self  # 设置父级引用
 		equipment_grid.add_child(slot)
 		equipment_slots.append(slot)
 
@@ -115,3 +116,55 @@ func _on_backpack_button_pressed() -> void:
 ## 关闭背包
 func _on_backpack_close() -> void:
 	backpack_panel.visible = false
+
+## 处理装备槽放置物品（从背包拖入）
+func handle_equipment_drop(slot_type: int, from_slot_index: int, item: Item) -> bool:
+	if not equipment or not inventory:
+		return false
+	
+	# 检查物品类型是否匹配槽位
+	match slot_type:
+		0:  # 武器
+			if not item is Weapon:
+				return false
+		1:  # 护甲
+			if not item is Armor:
+				return false
+		2, 3:  # 饰品/护符
+			pass  # 暂不限制类型
+	
+	# 执行装备
+	var old_item = equipment.get_equipment(slot_type as Equipment.EquipmentSlot)
+	equipment.equip_item(item)
+	
+	# 如果有旧装备，放回背包
+	if old_item:
+		inventory.add_item(old_item)
+	
+	# 从原背包格子移除
+	inventory.remove_item(from_slot_index)
+	
+	return true
+
+## 处理背包放置物品（从装备拖入）
+func handle_inventory_drop(from_slot_type: int, item: Item) -> bool:
+	if not equipment or not inventory:
+		return false
+	
+	# 找背包中的空位
+	var empty_slot = inventory.find_empty_slot()
+	if empty_slot == -1:
+		return false  # 背包已满
+	
+	# 卸下装备
+	var slot = from_slot_type as Equipment.EquipmentSlot
+	equipment.unequip_item(slot)
+	
+	# 放入背包
+	inventory.slots[empty_slot] = item
+	
+	return true
+
+## 获取 Tooltip 节点
+func get_tooltip() -> Control:
+	return find_child("ItemTooltip", true, false)

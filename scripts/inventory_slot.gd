@@ -131,20 +131,11 @@ func _on_mouse_entered() -> void:
 	if current_item and backpack_ui:
 		var global_pos = get_global_mouse_position()
 		backpack_ui.show_tooltip(current_item, global_pos)
-	
-	# 高亮效果
-	if bg and bg.theme_stylebox:
-		var style = bg.theme_stylebox.duplicate()
-		style.border_color = Color(1, 1, 1, 1)
-		bg.add_theme_stylebox_override("hover", style)
 
 ## 鼠标离开
 func _on_mouse_exited() -> void:
 	if backpack_ui:
 		backpack_ui.hide_tooltip()
-	
-	# 移除高亮
-	bg.remove_theme_stylebox_override("hover")
 
 ## 开始拖拽
 func _get_drag_data(_at_position: Vector2) -> Variant:
@@ -173,15 +164,31 @@ func _get_drag_data(_at_position: Vector2) -> Variant:
 
 ## 放置拖拽
 func _can_drop_data(_at_position: Vector2, data: Variant) -> bool:
-	return data.has("slot_index") and data.has("item")
+	# 来自背包格子
+	if data.has("slot_index") and data.has("item"):
+		return true
+	# 来自装备槽
+	if data.has("from_equipment") and data["from_equipment"]:
+		return true
+	return false
 
 ## 处理放置
 func _drop_data(_at_position: Vector2, data: Variant) -> void:
 	if not backpack_ui or not backpack_ui.inventory:
 		return
 	
-	var from_slot = data["slot_index"]
-	var to_slot = slot_index
-	
-	# 交换物品
-	backpack_ui.inventory.swap_items(from_slot, to_slot)
+	# 来自背包格子 - 交换
+	if data.has("slot_index"):
+		var from_slot = data["slot_index"]
+		var to_slot = slot_index
+		backpack_ui.inventory.swap_items(from_slot, to_slot)
+	# 来自装备槽 - 卸下到背包
+	elif data.has("from_equipment") and data["from_equipment"]:
+		var item = data.get("item")
+		var from_type = data.get("slot_type", -1)
+		
+		# 通过 character_panel 处理卸下
+		var char_panel = backpack_ui.find_parent("CharacterPanelUI")
+		if char_panel and char_panel.handle_inventory_drop(from_type, item):
+			# 刷新背包
+			backpack_ui.refresh()
