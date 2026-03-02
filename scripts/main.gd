@@ -9,6 +9,10 @@ extends Control
 @onready var shop_button: Button = $VBox/ShopButton
 @onready var status_label: Label = $VBox/StatusLabel
 @onready var gold_label: Label = $VBox/GoldLabel
+@onready var stage_label: Label = $VBox/StageLabel
+
+## 关卡管理器 (从场景中获取)
+@onready var stage_manager: StageManager = $StageManager
 
 ## 预加载场景
 var combat_scene: PackedScene
@@ -23,6 +27,11 @@ var shop: Shop
 ## 角色面板实例
 var character_panel = null
 var shop_ui = null
+
+## 波次战斗系统
+var stage_enemies: Array[Unit] = []
+var current_enemy_index: int = 0
+var current_player: Unit = null
 
 func _ready() -> void:
 	# 加载场景
@@ -39,9 +48,14 @@ func _ready() -> void:
 	# 初始化金币（战士初始金币 100）
 	GoldManager.reset()
 	_update_gold_display()
+	_update_stage_display()
 	
 	# 连接金币变化信号
 	GoldManager.gold_changed.connect(_on_gold_changed)
+	
+	# 连接关卡信号
+	stage_manager.stage_changed.connect(_on_stage_changed)
+	stage_manager.game_complete.connect(_on_game_complete)
 	
 	# 添加初始装备（战士：铁剑 + 皮甲）
 	_add_initial_items()
@@ -113,15 +127,76 @@ func _create_shop_ui() -> void:
 
 ## 开始战斗按钮回调
 func _on_start_button_pressed() -> void:
-	# 创建测试单位：战士 vs 史莱姆
-	var warrior = Unit.new("战士", 120, 15, 8, 10, 0.1, 1.5)
-	var slime = Unit.new("史莱姆", 80, 8, 3, 5, 0.05, 1.5)
+	# 获取当前关卡的敌人
+	stage_enemies = stage_manager.generate_enemies_for_stage()
 	
-	print("初始化战斗: %s vs %s" % [warrior.name, slime.name])
-	status_label.text = "战斗进行中..."
+	if stage_enemies.is_empty():
+		status_label.text = "没有敌人配置！"
+		return
+	
+	# 重置波次索引
+	current_enemy_index = 0
+	
+	# 创建玩家单位：战士
+	current_player = Unit.new("战士", 120, 15, 8, 10, 0.1, 1.5)
+	
+	# 显示关卡信息
+	var stage_data = stage_manager.get_current_stage_data()
+	var stage_name = stage_data.get("name", "未知关卡")
+	var difficulty = stage_data.get("difficulty", "easy")
+	status_label.text = "第 %d 关: %s [%s]" % [stage_manager.current_stage, stage_name, difficulty]
+	
+	# 开始第一波战斗
+	_start_next_wave()
+
+## 开始下一波战斗
+func _start_next_wave() -> void:
+	if current_enemy_index >= stage_enemies.size():
+		# 所有敌人已击败，进入商店
+		_on_all_waves_complete()
+		return
+	
+	var enemy = stage_enemies[current_enemy_index]
+	
+	# 波次间恢复 20% HP（如果玩家已受伤）
+	if current_player.current_hp < current_player.max_hp:
+		var heal_amount = int(current_player.max_hp * 0.2)
+		current_player.current_hp = min(current_player.current_hp + heal_amount, current_player.max_hp)
+		print("波次间恢复 %d HP，当前 HP: %d" % [heal_amount, current_player.current_hp])
+	
+	# 更新状态标签显示波次信息
+	status_label.text = "第 %d 波 / 共 %d 波 - %s" % [current_enemy_index + 1, stage_enemies.size(), enemy.name]
 	
 	# 切换到战斗场景
-	_change_to_combat(warrior, slime)
+	_change_to_combat(current_player, enemy)
+
+## 所有波次完成回调
+func _on_all_waves_complete() -> void:
+	status_label.text = "🎉 本关所有敌人已击败！"
+	
+	# 获得关卡奖励
+	var stage_data = stage_manager.get_current_stage_data()
+	var gold_reward = stage_data.get("gold_reward", 0)
+	GoldManager.add_gold(gold_reward)
+	print("获得金币: %d" % gold_reward)
+	
+	# 完成关卡
+	stage_manager.complete_stage()
+	
+	# 检查是否通关
+	if stage_manager.is_game_complete():
+		await get_tree().create_timer(1.0).timeout
+		stage_manager.game_complete.emit()
+		status_label.text = "🎉 恭喜通关！你是真正的英雄！"
+		start_button.text = "重新开始"
+		start_button.pressed.disconnect(_on_start_button_pressed)
+		start_button.pressed.connect(_on_restart_game_pressed)
+		$VBox.visible = true
+		character_panel.visible = true
+	else:
+		# 进入商店，然后下一关
+		await get_tree().create_timer(1.0).timeout
+		_open_shop()
 
 ## 商店按钮回调
 func _on_shop_button_pressed() -> void:
@@ -141,6 +216,11 @@ func _on_shop_closed() -> void:
 	# 显示主 UI
 	$VBox.visible = true
 	character_panel.visible = true
+	
+	# 如果不是最后一关，进入下一关
+	if not stage_manager.is_game_complete():
+		stage_manager.next_stage()
+		status_label.text = "准备进入第 %d 关！" % stage_manager.current_stage
 
 ## 切换到战斗场景
 func _change_to_combat(player: Unit, enemy: Unit) -> void:
@@ -169,12 +249,21 @@ func _change_to_combat(player: Unit, enemy: Unit) -> void:
 ## 战斗结束回调
 func _on_combat_ended(victory: bool) -> void:
 	if victory:
-		status_label.text = "🎉 胜利！"
-		# 战斗胜利后打开商店
-		await get_tree().create_timer(1.0).timeout
-		_open_shop()
+		status_label.text = "🎉 第 %d 波战斗胜利！" % (current_enemy_index + 1)
+		
+		# 增加波次索引
+		current_enemy_index += 1
+		
+		# 检查是否还有敌人
+		if current_enemy_index < stage_enemies.size():
+			# 还有敌人，开始下一波（延迟一下让玩家看到胜利消息）
+			await get_tree().create_timer(1.0).timeout
+			_start_next_wave()
+		else:
+			# 所有敌人已击败，进入商店
+			_on_all_waves_complete()
 	else:
-		status_label.text = "💀 失败..."
+		status_label.text = "💀 失败... 请提升实力后再来"
 		# 显示主 UI
 		$VBox.visible = true
 		character_panel.visible = true
@@ -186,3 +275,31 @@ func _on_gold_changed(_amount: int) -> void:
 ## 更新金币显示
 func _update_gold_display() -> void:
 	gold_label.text = "金币: %d" % GoldManager.get_gold()
+
+## 更新关卡显示
+func _update_stage_display() -> void:
+	stage_label.text = stage_manager.get_progress_text()
+
+## 关卡变化回调
+func _on_stage_changed(stage_num: int) -> void:
+	_update_stage_display()
+	status_label.text = "第 %d 关已解锁！" % stage_num
+
+## 游戏完成回调
+func _on_game_complete() -> void:
+	status_label.text = "🎉 恭喜通关！你是真正的英雄！"
+	start_button.text = "重新开始"
+	start_button.pressed.disconnect(_on_start_button_pressed)
+	start_button.pressed.connect(_on_restart_game_pressed)
+	# 显示胜利特效或弹窗
+
+## 重新开始游戏
+func _on_restart_game_pressed() -> void:
+	stage_manager.reset_stages()
+	GoldManager.reset()
+	_update_gold_display()
+	_update_stage_display()
+	status_label.text = "点击上方按钮开始战斗"
+	start_button.text = "开始战斗"
+	start_button.pressed.disconnect(_on_restart_game_pressed)
+	start_button.pressed.connect(_on_start_button_pressed)

@@ -1,7 +1,8 @@
-[gd_scene load_steps=3 format=3 uid="uid://main_scene"]
+[gd_scene load_steps=4 format=3 uid="uid://main_scene"]
 
 [ext_resource type="Script" path="res://scripts/main.gd" id="1_main"]
 [ext_resource type="Script" path="res://scripts/combat.gd" id="2_combat"]
+[ext_resource type="Script" path="res://scripts/stage_manager.gd" id="3_stage"]
 
 [node name="Main" type="Control"]
 layout_mode = 3
@@ -14,6 +15,9 @@ script = ExtResource("1_main")
 
 [node name="CombatSystem" type="Node" parent="."]
 script = ExtResource("2_combat")
+
+[node name="StageManager" type="Node" parent="."]
+script = ExtResource("3_stage")
 
 [node name="VBox" type="VBoxContainer" parent="."]
 layout_mode = 1
@@ -38,6 +42,12 @@ vertical_alignment = 1
 [node name="GoldLabel" type="Label" parent="VBox"]
 layout_mode = 2
 text = "金币: 100"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="StageLabel" type="Label" parent="VBox"]
+layout_mode = 2
+text = "第 1 关 / 共 5 关"
 horizontal_alignment = 1
 vertical_alignment = 1
 

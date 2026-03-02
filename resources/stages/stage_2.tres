@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="StageData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://resources/stage_data.gd" id="1_stage_data"]
+
+[resource]
+script = ExtResource("1_stage_data")
+stage_number = 2
+stage_name = "哥布林营地"
+description = "一群危险的哥布林占据了这条路。"
+enemy_count = 3
+enemy_types = ["goblin", "goblin", "goblin"]
+gold_reward = 50
+item_rewards = ["health_potion", "mana_potion"]
+difficulty = "medium"

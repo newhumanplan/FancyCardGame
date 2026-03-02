@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="StageData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://resources/stage_data.gd" id="1_stage_data"]
+
+[resource]
+script = ExtResource("1_stage_data")
+stage_number = 3
+stage_name = "骷髅洞穴"
+description = "这里有大量骷髅战士把守。"
+enemy_count = 4
+enemy_types = ["skeleton", "skeleton", "goblin", "goblin"]
+gold_reward = 80
+item_rewards = ["health_potion", "iron_sword", "leather_armor"]
+difficulty = "hard"

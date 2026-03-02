@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="StageData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://resources/stage_data.gd" id="1_stage_data"]
+
+[resource]
+script = ExtResource("1_stage_data")
+stage_number = 1
+stage_name = "新手森林"
+description = "这里是史莱姆的栖息地，适合新手练习战斗技巧。"
+enemy_count = 2
+enemy_types = ["slime", "slime"]
+gold_reward = 30
+item_rewards = ["health_potion"]
+difficulty = "easy"

@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="StageData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://resources/stage_data.gd" id="1_stage_data"]
+
+[resource]
+script = ExtResource("1_stage_data")
+stage_number = 5
+stage_name = "龙之巢穴"
+description = "最终的挑战！击败恶龙，成为真正的英雄！"
+enemy_count = 2
+enemy_types = ["dragon", "goblin"]
+gold_reward = 300
+item_rewards = ["dragon_sword", "dragon_armor", "legendary_potion"]
+difficulty = "boss"
