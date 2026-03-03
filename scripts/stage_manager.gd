@@ -1,6 +1,9 @@
 extends Node
 class_name StageManager
 
+## 预加载资源类型
+const UnitResource = preload("res://resources/unit.gd")
+
 ## 关卡管理器
 ## 负责管理游戏关卡流程、关卡数据和进度
 
@@ -130,12 +133,12 @@ func get_enemy_config(enemy_type: String) -> Dictionary:
 	return configs.get(enemy_type, {"name": enemy_type, "hp": 50, "attack": 10, "defense": 5, "speed": 5})
 
 ## 根据关卡生成敌人
-func generate_enemies_for_stage() -> Array[Unit]:
+func generate_enemies_for_stage() -> Array:
 	var stage := get_current_stage_data()
 	if stage.is_empty():
 		return []
 	
-	var enemies: Array[Unit] = []
+	var enemies: Array = []
 	var enemy_types: Array = stage.get("enemy_types", [])
 	
 	for i in range(enemy_types.size()):
@@ -161,7 +164,7 @@ func generate_enemies_for_stage() -> Array[Unit]:
 				atk_mult = 1.5
 				def_mult = 1.4
 		
-		var enemy := Unit.new(
+		var enemy := UnitResource.new(
 			config.get("name", enemy_type) + " Lv." + str(current_stage),
 			int(config.get("hp", 50) * hp_mult),
 			int(config.get("attack", 10) * atk_mult),

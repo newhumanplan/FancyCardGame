@@ -26,7 +26,7 @@ func _ready() -> void:
 	description_label.bbcode_enabled = true
 
 ## 设置物品
-func set_item(item: Item) -> void:
+func set_item(item) -> void:
 	if not item:
 		return
 	
@@ -47,11 +47,11 @@ func set_item(item: Item) -> void:
 	# 效果值
 	if item.effect_value > 0:
 		match item.type:
-			Item.ItemType.WEAPON:
+			0:  # WEAPON
 				effect_label.text = "攻击力: +%d" % item.effect_value
-			Item.ItemType.ARMOR:
+			1:  # ARMOR
 				effect_label.text = "防御力: +%d" % item.effect_value
-			Item.ItemType.CONSUMABLE:
+			2:  # CONSUMABLE
 				effect_label.text = "效果: +%d" % item.effect_value
 			_:
 				effect_label.text = ""

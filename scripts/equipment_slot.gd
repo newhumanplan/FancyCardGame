@@ -9,7 +9,7 @@ extends Control
 @export var slot_name: String = "武器"
 
 ## 当前装备的物品
-var current_item: Item = null
+var current_item
 
 ## 背景
 var bg: TextureRect
@@ -21,14 +21,14 @@ var icon: TextureRect
 var name_label: Label
 
 ## 父级装备面板（角色面板）
-var character_panel: CharacterPanelUI
+var character_panel
 
 ## 父级装备面板（兼容旧名称）
-var equipment_panel: Control:
+var equipment_panel:
 	get:
 		return character_panel
 	set(value):
-		character_panel = value as CharacterPanelUI
+		character_panel = value
 
 ## 初始化
 func _ready() -> void:
@@ -49,7 +49,7 @@ func _setup_ui() -> void:
 	# 图标
 	icon = TextureRect.new()
 	icon.set_anchors_preset(Control.PRESET_FULL_RECT)
-	icon.expand_mode = TextureRect.EXPAND_FIT_CONTENT
+	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	icon.modulate.a = 0.3
 	icon.mouse_entered.connect(_on_mouse_entered)
@@ -90,10 +90,10 @@ func _add_stylebox_bg(texture_rect: TextureRect) -> void:
 	texture_rect.add_theme_stylebox_override("normal", style)
 
 ## 设置物品
-func set_item(item: Item) -> void:
+func set_item(item) -> void:
 	current_item = item
 	
-	if item:
+	if item and icon:
 		# 加载图标
 		if item.icon_path != "":
 			var texture = load(item.icon_path) as Texture2D
@@ -104,7 +104,7 @@ func set_item(item: Item) -> void:
 				icon.modulate.a = 0.3
 		else:
 			icon.modulate.a = 0.3
-	else:
+	elif icon:
 		icon.texture = null
 		icon.modulate.a = 0.3
 
@@ -143,7 +143,7 @@ func _get_drag_data(_at_position: Vector2) -> Variant:
 	# 创建拖拽预览
 	var preview = TextureRect.new()
 	preview.texture = icon.texture
-	preview.expand_mode = TextureRect.EXPAND_FIT_CONTENT
+	preview.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	preview.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	preview.custom_minimum_size = Vector2(48, 48)
 	preview.modulate = Color(1, 1, 1, 0.8)

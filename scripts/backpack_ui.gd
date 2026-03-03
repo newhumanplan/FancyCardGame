@@ -12,13 +12,13 @@ extends Control
 @onready var title_label: Label = $Panel/VBox/TitleLabel
 
 ## 物品详情提示框
-@onready var tooltip: Control = $ItemTooltip
+@onready var tooltip: Control = get_node("../ItemTooltip")
 
 ## 背包数据
-var inventory: Inventory
+var inventory
 
 ## 格子数组
-var slot_controls: Array[Control] = []
+var slot_controls = []
 
 ## 拖拽状态
 var dragging_slot: int = -1
@@ -33,7 +33,8 @@ const SLOT_SPACING: int = 4
 ## 初始化
 func _ready() -> void:
 	# 初始化提示框
-	tooltip.visible = false
+	if tooltip:
+		tooltip.visible = false
 	
 	# 连接关闭按钮
 	var close_button = $Panel/VBox/CloseButton
@@ -53,7 +54,7 @@ func _setup_connections() -> void:
 			inventory.inventory_changed.connect(_on_inventory_changed)
 
 ## 设置背包数据
-func set_inventory(inv: Inventory) -> void:
+func set_inventory(inv) -> void:
 	inventory = inv
 	_setup_connections()
 	refresh()
@@ -70,21 +71,54 @@ func refresh() -> void:
 	
 	# 创建新格子
 	for i in range(inventory.TOTAL_SLOTS):
-		var slot := _create_slot(i)
+		var slot: Control = _create_slot(i)
 		grid_container.add_child(slot)
 		slot_controls.append(slot)
 
 ## 创建单个格子
-func _create_slot(index: int) -> InventorySlot:
-	# 使用 InventorySlot 类创建格子
-	var slot := InventorySlot.new()
-	slot.slot_index = index
+func _create_slot(index: int) -> Control:
+	# 创建一个简单的格子 Control
+	var slot := Control.new()
 	slot.custom_minimum_size = Vector2(SLOT_SIZE, SLOT_SIZE)
+	slot.set_meta("slot_index", index)
+	
+	# 背景
+	var bg := TextureRect.new()
+	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
+	bg.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	bg.stretch_mode = TextureRect.STRETCH_TILE
+	var style = StyleBoxFlat.new()
+	style.bg_color = Color(0.2, 0.2, 0.25, 0.9)
+	style.border_width_left = 1
+	style.border_width_top = 1
+	style.border_width_right = 1
+	style.border_width_bottom = 1
+	style.border_color = Color(0.4, 0.4, 0.5, 1.0)
+	style.corner_radius_top_left = 4
+	style.corner_radius_top_right = 4
+	style.corner_radius_bottom_left = 4
+	style.corner_radius_bottom_right = 4
+	bg.add_theme_stylebox_override("normal", style)
+	slot.add_child(bg)
+	
+	# 图标
+	var icon := TextureRect.new()
+	icon.set_anchors_preset(Control.PRESET_FULL_RECT)
+	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	icon.modulate.a = 0.3
+	slot.add_child(icon)
 	
 	# 设置物品
 	var item = inventory.get_item(index)
-	if item:
-		slot.set_item(item)
+	if item and item.icon_path != "":
+		var texture = load(item.icon_path) as Texture2D
+		if texture:
+			icon.texture = texture
+			icon.modulate.a = 1.0
+	
+	# 保存引用
+	slot.set_meta("icon", icon)
 	
 	return slot
 
@@ -113,7 +147,7 @@ func _on_inventory_changed(slot_index: int) -> void:
 	refresh()
 
 ## 显示物品提示框
-func show_tooltip(item: Item, position: Vector2) -> void:
+func show_tooltip(item, position: Vector2) -> void:
 	if not item:
 		tooltip.visible = false
 		return

@@ -28,14 +28,14 @@ extends Control
 ## 战斗日志
 @onready var combat_log: RichTextLabel = $"../VBox/CombatLog"
 
-## 引用 Combat 系统
-var combat: Combat
+## 引用 Combat 系统（动态加载避免循环依赖）
+var combat
 
 ## 玩家单位引用
-var player: Unit
+var player
 
 ## 敌人单位引用
-var enemy: Unit
+var enemy
 
 ## 是否正在等待敌人回合
 var waiting_for_enemy: bool = false
@@ -49,7 +49,7 @@ func _ready() -> void:
 	set_buttons_enabled(false)
 
 ## 初始化 UI
-func init(combat_system: Combat, p_player: Unit, p_enemy: Unit) -> void:
+func init(combat_system, p_player, p_enemy) -> void:
 	combat = combat_system
 	player = p_player
 	enemy = p_enemy
@@ -89,21 +89,16 @@ func _update_unit_display() -> void:
 func _update_phase_display() -> void:
 	var phase_name := ""
 	match combat.current_phase:
-		Combat.CombatPhase.PREPARATION:
-			phase_name = "准备阶段"
-		Combat.CombatPhase.PLAYER_TURN:
-			phase_name = "你的回合"
-		Combat.CombatPhase.ENEMY_TURN:
-			phase_name = "敌人回合"
-		Combat.CombatPhase.VICTORY:
-			phase_name = "胜利！"
-		Combat.CombatPhase.DEFEAT:
-			phase_name = "失败..."
+		0: phase_name = "准备阶段"  # PREPARATION
+		1: phase_name = "你的回合"  # PLAYER_TURN
+		2: phase_name = "敌人回合"  # ENEMY_TURN
+		3: phase_name = "胜利！"  # VICTORY
+		4: phase_name = "失败..."  # DEFEAT
 	phase_label.text = phase_name
 
 ## 更新按钮状态
 func _update_button_state() -> void:
-	var is_player_turn := combat.current_phase == Combat.CombatPhase.PLAYER_TURN
+	var is_player_turn: bool = combat.current_phase == 1  # PLAYER_TURN = 1
 	set_buttons_enabled(is_player_turn)
 
 ## 设置按钮启用状态
@@ -117,7 +112,7 @@ func add_log(message: String) -> void:
 
 ## 攻击按钮回调
 func _on_attack_pressed() -> void:
-	if not combat or combat.current_phase != Combat.CombatPhase.PLAYER_TURN:
+	if not combat or combat.current_phase != 1:  # PLAYER_TURN = 1
 		return
 	
 	set_buttons_enabled(false)
@@ -128,7 +123,7 @@ func _on_attack_pressed() -> void:
 
 ## 技能按钮回调
 func _on_skill_pressed() -> void:
-	if not combat or combat.current_phase != Combat.CombatPhase.PLAYER_TURN:
+	if not combat or combat.current_phase != 1:  # PLAYER_TURN = 1
 		return
 	
 	set_buttons_enabled(false)
@@ -139,15 +134,16 @@ func _on_skill_pressed() -> void:
 	_update_unit_display()
 
 ## 阶段变化回调
-func _on_phase_changed(phase: Combat.CombatPhase) -> void:
+func _on_phase_changed(phase) -> void:
 	_update_phase_display()
-	
-	if phase == Combat.CombatPhase.ENEMY_TURN:
+
+	# CombatPhase: 0=PREPARATION, 1=PLAYER_TURN, 2=ENEMY_TURN, 3=VICTORY, 4=DEFEAT
+	if phase == 2:  # ENEMY_TURN
 		waiting_for_enemy = true
 		# 延迟执行敌人回合，模拟思考时间
 		await get_tree().create_timer(1.0).timeout
 		_execute_enemy_turn()
-	elif phase == Combat.CombatPhase.PLAYER_TURN:
+	elif phase == 1:  # PLAYER_TURN
 		waiting_for_enemy = false
 		_update_button_state()
 
@@ -163,12 +159,12 @@ func _execute_enemy_turn() -> void:
 	_update_unit_display()
 
 ## 伤害结算回调
-func _on_damage_dealt(target: Unit, damage: int, is_crit: bool) -> void:
+func _on_damage_dealt(target, damage: int, is_crit: bool) -> void:
 	var crit_text := " (暴击!)" if is_crit else ""
 	add_log("%s 受到 %d 伤害%s" % [target.name, damage, crit_text])
 
 ## 单位死亡回调
-func _on_unit_defeated(unit: Unit) -> void:
+func _on_unit_defeated(unit) -> void:
 	add_log("%s 被击败！" % unit.name)
 
 ## 战斗结束回调

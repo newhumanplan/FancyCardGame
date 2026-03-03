@@ -14,7 +14,7 @@ const GRID_HEIGHT: int = 6
 const TOTAL_SLOTS: int = GRID_WIDTH * GRID_HEIGHT
 
 ## 背包数据：数组，每个元素可以是 null 或 Item
-var slots: Array[Item] = []
+var slots = []
 
 ## 信号：背包变化
 signal inventory_changed(slot_index: int)
@@ -39,7 +39,7 @@ func find_empty_slot() -> int:
 	return -1
 
 ## 添加物品到背包
-func add_item(item: Item) -> bool:
+func add_item(item) -> bool:
 	var slot_index := find_empty_slot()
 	if slot_index == -1:
 		return false  # 背包已满
@@ -53,7 +53,7 @@ func remove_item(slot_index: int) -> Item:
 	if slot_index < 0 or slot_index >= slots.size():
 		return null
 	
-	var item := slots[slot_index]
+	var item: Item = slots[slot_index]
 	slots[slot_index] = null
 	inventory_changed.emit(slot_index)
 	return item
@@ -69,7 +69,7 @@ func swap_items(slot_a: int, slot_b: int) -> bool:
 	if slot_a < 0 or slot_a >= slots.size() or slot_b < 0 or slot_b >= slots.size():
 		return false
 	
-	var temp := slots[slot_a]
+	var temp: Item = slots[slot_a]
 	slots[slot_a] = slots[slot_b]
 	slots[slot_b] = temp
 	
@@ -78,12 +78,12 @@ func swap_items(slot_a: int, slot_b: int) -> bool:
 	return true
 
 ## 使用格子中的物品
-func use_item(slot_index: int, target: Unit) -> bool:
-	var item := get_item(slot_index)
+func use_item(slot_index: int, target) -> bool:
+	var item = get_item(slot_index)
 	if item == null or not item.usable:
 		return false
 	
-	var success := item.use(target)
+	var success: bool = item.use(target)
 	if success and item.uses_remaining <= 0:
 		remove_item(slot_index)
 	
@@ -98,8 +98,8 @@ func get_item_count() -> int:
 	return count
 
 ## 获取所有物品列表
-func get_all_items() -> Array[Item]:
-	var items: Array[Item] = []
+func get_all_items():
+	var items = []
 	for slot in slots:
 		if slot != null:
 			items.append(slot)

@@ -21,34 +21,34 @@ var slots: Dictionary = {
 }
 
 ## 信号：装备变化
-signal equipment_changed(slot: EquipmentSlot)
+signal equipment_changed(slot)
 
 ## 构造函数
 func _init() -> void:
 	pass
 
 ## 获取装备
-func get_equipment(slot: EquipmentSlot) -> Item:
+func get_equipment(slot):
 	return slots.get(slot, null)
 
 ## 获取武器
-func get_weapon() -> Weapon:
-	return slots.get(EquipmentSlot.WEAPON, null) as Weapon
+func get_weapon():
+	return slots.get(EquipmentSlot.WEAPON, null)
 
 ## 获取护甲
-func get_armor() -> Armor:
-	return slots.get(EquipmentSlot.ARMOR, null) as Armor
+func get_armor():
+	return slots.get(EquipmentSlot.ARMOR, null)
 
 ## 获取饰品
-func get_accessory() -> Item:
+func get_accessory():
 	return slots.get(EquipmentSlot.ACCESSORY, null)
 
 ## 获取护符
-func get_amulet() -> Item:
+func get_amulet():
 	return slots.get(EquipmentSlot.AMULET, null)
 
 ## 装备物品
-func equip_item(item: Item) -> bool:
+func equip_item(item) -> bool:
 	if not item:
 		return false
 	
@@ -64,14 +64,14 @@ func equip_item(item: Item) -> bool:
 	return true
 
 ## 卸下装备
-func unequip_item(slot: EquipmentSlot) -> Item:
+func unequip_item(slot):
 	var item = slots.get(slot, null)
 	slots[slot] = null
 	equipment_changed.emit(slot)
 	return item
 
 ## 切换装备（从背包格子）
-func swap_equipment(slot: EquipmentSlot, inventory: Inventory, inventory_slot: int) -> bool:
+func swap_equipment(slot, inventory, inventory_slot: int) -> bool:
 	var current_item = slots.get(slot, null)
 	var new_item = inventory.get_item(inventory_slot)
 	
@@ -88,25 +88,25 @@ func swap_equipment(slot: EquipmentSlot, inventory: Inventory, inventory_slot: i
 	return true
 
 ## 获取物品对应的槽位
-func _get_slot_for_item(item: Item) -> EquipmentSlot:
+func _get_slot_for_item(item) -> int:
 	match item.type:
-		Item.ItemType.WEAPON:
+		0:  # WEAPON
 			return EquipmentSlot.WEAPON
-		Item.ItemType.ARMOR:
+		1:  # ARMOR
 			return EquipmentSlot.ARMOR
-		Item.ItemType.CONSUMABLE, Item.ItemType.MATERIAL:
+		2, 3:  # CONSUMABLE, MATERIAL
 			return EquipmentSlot.ACCESSORY  # 暂不支持
 	return EquipmentSlot.ACCESSORY
 
 ## 检查物品是否可以装备到指定槽位
-func _can_equip_to_slot(item: Item, slot: EquipmentSlot) -> bool:
+func _can_equip_to_slot(item, slot) -> bool:
 	match slot:
 		EquipmentSlot.WEAPON:
 			return item is Weapon
 		EquipmentSlot.ARMOR:
 			return item is Armor
 		EquipmentSlot.ACCESSORY, EquipmentSlot.AMULET:
-			return item.type == Item.ItemType.MATERIAL
+			return item.type == 3  # MATERIAL
 	return false
 
 ## 计算总攻击力加成
@@ -124,8 +124,8 @@ func get_defense_bonus() -> int:
 	return bonus
 
 ## 获取所有装备
-func get_all_equipment() -> Array[Item]:
-	var items: Array[Item] = []
+func get_all_equipment():
+	var items = []
 	for slot in slots.values():
 		if slot:
 			items.append(slot)

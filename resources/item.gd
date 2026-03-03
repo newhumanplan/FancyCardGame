@@ -53,7 +53,7 @@ func _init(
     uses_remaining = p_uses
 
 ## 使用物品（需要在子类中实现具体逻辑）
-func use(target: Unit) -> bool:
+func use(target) -> bool:
     if not usable:
         return false
     
@@ -102,64 +102,3 @@ func get_rarity_name() -> String:
         4: return "史诗"
         5: return "传说"
         _: return "未知"
-
-
-## 武器类型
-class_name Weapon
-extends Item
-
-func _init(
-    p_name: String = "武器",
-    p_attack: int = 0,
-    p_rarity: int = 1
-).(
-    p_name,
-    "",
-    ItemType.WEAPON,
-    p_attack,
-    p_rarity,
-    false,
-    1
-) -> void:
-    pass
-
-
-## 护甲类型
-class_name Armor
-extends Item
-
-func _init(
-    p_name: String = "护甲",
-    p_defense: int = 0,
-    p_rarity: int = 1
-).(
-    p_name,
-    "",
-    ItemType.ARMOR,
-    p_defense,
-    p_rarity,
-    false,
-    1
-) -> void:
-    pass
-
-
-## 消耗品类型
-class_name Consumable
-extends Item
-
-func _init(
-    p_name: String = "消耗品",
-    p_effect: int = 0,
-    p_uses: int = 1,
-    p_rarity: int = 1
-).(
-    p_name,
-    "",
-    ItemType.CONSUMABLE,
-    p_effect,
-    p_rarity,
-    true,
-    p_uses
-) -> void:
-    pass

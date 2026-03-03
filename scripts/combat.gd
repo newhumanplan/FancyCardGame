@@ -2,6 +2,9 @@
 class_name Combat
 extends Node
 
+## 预加载资源类型
+const Unit = preload("res://resources/unit.gd")
+
 ## 战斗阶段枚举
 enum CombatPhase {
     PREPARATION,  # 准备阶段
@@ -53,7 +56,7 @@ func init_combat(p_player: Unit, p_enemy: Unit) -> void:
 ## 暴击：5%概率，150%伤害
 func calculate_damage(attacker: Unit, defender: Unit, skill_mult: float = 1.0) -> DamageResult:
     # 基础伤害 = 攻击力 - 防御力 × 0.5
-    var base_damage := max(1, attacker.attack - int(defender.defense * 0.5))
+    var base_damage: int = max(1, attacker.attack - int(defender.defense * 0.5))
     
     # 随机系数 (0.9 - 1.1)
     var random_factor := randf_range(0.9, 1.1)

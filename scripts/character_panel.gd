@@ -14,13 +14,13 @@ extends Control
 @onready var backpack_panel: Control = $BackpackPanel
 
 ## 装备数据
-var equipment: Equipment
+var equipment
 
 ## 背包数据
-var inventory: Inventory
+var inventory
 
 ## 装备槽位数组
-var equipment_slots: Array[Control] = []
+var equipment_slots = []
 
 ## 初始化
 func _ready() -> void:
@@ -28,7 +28,7 @@ func _ready() -> void:
 	backpack_button.pressed.connect(_on_backpack_button_pressed)
 	
 	# 连接背包关闭按钮
-	var backpack_ui = backpack_panel as BackpackUI
+	var backpack_ui = backpack_panel 
 	if backpack_ui:
 		var close_btn = backpack_ui.find_child("CloseButton", true, false)
 		if close_btn:
@@ -41,20 +41,20 @@ func _ready() -> void:
 	backpack_panel.visible = false
 
 ## 设置装备数据
-func set_equipment(eq: Equipment) -> void:
+func set_equipment(eq) -> void:
 	equipment = eq
 	if equipment:
 		equipment.equipment_changed.connect(_on_equipment_changed)
 	_refresh_equipment()
 
 ## 设置背包数据
-func set_inventory(inv: Inventory) -> void:
+func set_inventory(inv) -> void:
 	inventory = inv
 	if inventory:
 		inventory.inventory_changed.connect(_on_inventory_changed)
 		
 		# 设置给背包 UI
-		var backpack_ui = backpack_panel as BackpackUI
+		var backpack_ui = backpack_panel 
 		if backpack_ui:
 			backpack_ui.set_inventory(inv)
 
@@ -93,7 +93,7 @@ func _refresh_equipment() -> void:
 
 ## 刷新背包显示
 func _refresh_inventory() -> void:
-	var backpack_ui = backpack_panel as BackpackUI
+	var backpack_ui = backpack_panel 
 	if backpack_ui:
 		backpack_ui.refresh()
 
@@ -118,23 +118,23 @@ func _on_backpack_close() -> void:
 	backpack_panel.visible = false
 
 ## 处理装备槽放置物品（从背包拖入）
-func handle_equipment_drop(slot_type: int, from_slot_index: int, item: Item) -> bool:
+func handle_equipment_drop(slot_type: int, from_slot_index: int, item) -> bool:
 	if not equipment or not inventory:
 		return false
 	
 	# 检查物品类型是否匹配槽位
 	match slot_type:
 		0:  # 武器
-			if not item is Weapon:
+			if not item :
 				return false
 		1:  # 护甲
-			if not item is Armor:
+			if not item :
 				return false
 		2, 3:  # 饰品/护符
 			pass  # 暂不限制类型
 	
 	# 执行装备
-	var old_item = equipment.get_equipment(slot_type as Equipment.EquipmentSlot)
+	var old_item = equipment.get_equipment(slot_type )
 	equipment.equip_item(item)
 	
 	# 如果有旧装备，放回背包
@@ -147,7 +147,7 @@ func handle_equipment_drop(slot_type: int, from_slot_index: int, item: Item) -> 
 	return true
 
 ## 处理背包放置物品（从装备拖入）
-func handle_inventory_drop(from_slot_type: int, item: Item) -> bool:
+func handle_inventory_drop(from_slot_type: int, item) -> bool:
 	if not equipment or not inventory:
 		return false
 	
@@ -157,7 +157,7 @@ func handle_inventory_drop(from_slot_type: int, item: Item) -> bool:
 		return false  # 背包已满
 	
 	# 卸下装备
-	var slot = from_slot_type as Equipment.EquipmentSlot
+	var slot = from_slot_type 
 	equipment.unequip_item(slot)
 	
 	# 放入背包
@@ -166,5 +166,5 @@ func handle_inventory_drop(from_slot_type: int, item: Item) -> bool:
 	return true
 
 ## 获取 Tooltip 节点
-func get_tooltip() -> Control:
+func get_item_tooltip():
 	return find_child("ItemTooltip", true, false)

@@ -3,6 +3,15 @@ extends Control
 ## 主场景脚本
 ## 负责初始化游戏并管理场景切换
 
+## 动态加载的类（避免循环依赖）
+var UnitClass
+var InventoryClass
+var EquipmentClass
+var ShopClass
+var WeaponClass
+var ArmorClass
+var ConsumableClass
+
 ## 引用 Combat 系统节点
 @onready var combat_system: Node = $CombatSystem
 @onready var start_button: Button = $VBox/StartButton
@@ -12,7 +21,7 @@ extends Control
 @onready var stage_label: Label = $VBox/StageLabel
 
 ## 关卡管理器 (从场景中获取)
-@onready var stage_manager: StageManager = $StageManager
+@onready var stage_manager = $StageManager
 
 ## 预加载场景
 var combat_scene: PackedScene
@@ -20,29 +29,38 @@ var character_panel_scene: PackedScene
 var shop_scene: PackedScene
 
 ## 背包和装备
-var inventory: Inventory
-var equipment: Equipment
-var shop: Shop
+var inventory
+var equipment
+var shop
 
 ## 角色面板实例
 var character_panel = null
 var shop_ui = null
 
 ## 波次战斗系统
-var stage_enemies: Array[Unit] = []
+var stage_enemies: Array = []
 var current_enemy_index: int = 0
-var current_player: Unit = null
+var current_player = null
 
 func _ready() -> void:
 	# 加载场景
 	combat_scene = load("res://scenes/combat.tscn")
 	character_panel_scene = load("res://scenes/character_panel.tscn")
 	shop_scene = load("res://scenes/shop.tscn")
-	
+
+	# 动态加载类（避免循环依赖）
+	UnitClass = load("res://resources/unit.gd")
+	InventoryClass = load("res://scripts/inventory.gd")
+	EquipmentClass = load("res://scripts/equipment.gd")
+	ShopClass = load("res://scripts/shop.gd")
+	WeaponClass = load("res://resources/weapon.gd")
+	ArmorClass = load("res://resources/armor.gd")
+	ConsumableClass = load("res://resources/consumable.gd")
+
 	# 初始化背包和装备
-	inventory = Inventory.new()
-	equipment = Equipment.new()
-	shop = Shop.new()
+	inventory = InventoryClass.new()
+	equipment = EquipmentClass.new()
+	shop = ShopClass.new()
 	add_child(shop)
 	
 	# 初始化金币（战士初始金币 100）
@@ -76,27 +94,27 @@ func _ready() -> void:
 ## 添加初始物品
 func _add_initial_items() -> void:
 	# 铁剑
-	var iron_sword = Weapon.new("铁剑", 10, 1)
+	var iron_sword = WeaponClass.new("铁剑", 10, 1)
 	iron_sword.icon_path = "res://assets/items/iron_sword.png"
 	iron_sword.description = "新手战士的标准武器"
 	inventory.add_item(iron_sword)
 	equipment.equip_item(iron_sword)
-	
+
 	# 皮甲
-	var leather_armor = Armor.new("皮甲", 5, 1)
+	var leather_armor = ArmorClass.new("皮甲", 5, 1)
 	leather_armor.icon_path = "res://assets/items/leather_armor.png"
 	leather_armor.description = "提供基本防护的皮制护甲"
 	inventory.add_item(leather_armor)
 	equipment.equip_item(leather_armor)
-	
+
 	# 治疗药水
-	var health_potion = Consumable.new("治疗药水", 30, 3, 1)
+	var health_potion = ConsumableClass.new("治疗药水", 30, 3, 1)
 	health_potion.icon_path = "res://assets/items/health_potion.png"
 	health_potion.description = "恢复 30 点生命值"
 	inventory.add_item(health_potion)
-	
+
 	# 匕首
-	var dagger = Weapon.new("匕首", 6, 1)
+	var dagger = WeaponClass.new("匕首", 6, 1)
 	dagger.icon_path = "res://assets/items/dagger.png"
 	dagger.description = "轻便的副手武器"
 	inventory.add_item(dagger)
@@ -140,9 +158,9 @@ func _on_start_button_pressed() -> void:
 	# 创建玩家单位：战士（应用装备加成）
 	var base_atk := 15
 	var base_def := 8
-	current_player = Unit.new(
-		"战士", 
-		120, 
+	current_player = UnitClass.new(
+		"战士",
+		120,
 		base_atk + equipment.get_attack_bonus(),
 		base_def + equipment.get_defense_bonus(),
 		10, 0.1, 1.5
@@ -234,7 +252,7 @@ func _on_shop_closed() -> void:
 		status_label.text = "准备进入第 %d 关！" % stage_manager.current_stage
 
 ## 切换到战斗场景
-func _change_to_combat(player: Unit, enemy: Unit) -> void:
+func _change_to_combat(player, enemy) -> void:
 	# 实例化战斗场景
 	var combat = combat_scene.instantiate()
 	

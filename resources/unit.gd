@@ -57,9 +57,9 @@ func get_crit_damage() -> int:
 		return int(crit_damage * 100)  # 返回暴击标记（实际计算在伤害公式中处理）
 	return 100  # 正常伤害标记
 
-## 克隆单位
-func duplicate() -> Unit:
-	var new_unit = Unit.new(name, max_hp, attack, defense, speed, crit_rate, crit_damage)
+## 克隆单位（重命名避免与 Resource.duplicate() 冲突）
+func clone():
+	var new_unit = get_script().new(name, max_hp, attack, defense, speed, crit_rate, crit_damage)
 	new_unit.current_hp = current_hp
 	return new_unit
 

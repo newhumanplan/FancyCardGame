@@ -1,6 +1,5 @@
 ## 金币管理器
 ## 自动加载单例，负责管理玩家金币
-class_name GoldManager
 extends Node
 
 ## 当前金币数量

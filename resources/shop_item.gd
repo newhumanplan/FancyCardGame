@@ -23,15 +23,14 @@ func _init(
 	p_uses: int = 1,
 	p_price: int = 0,
 	p_stock: int = -1
-).(
-	p_name,
-	p_description,
-	p_type,
-	p_effect_value,
-	p_rarity,
-	p_usable,
-	p_uses
-) -> void:
+):
+	name = p_name
+	description = p_description
+	type = p_type
+	effect_value = p_effect_value
+	rarity = p_rarity
+	usable = p_usable
+	uses_remaining = p_uses
 	price = p_price
 	stock = p_stock
 

@@ -15,9 +15,9 @@ extends Control
 @onready var panel: Panel = $Panel
 
 ## 商店数据
-var shop: Shop
-var inventory: Inventory
-var gold_manager: GoldManager
+var shop
+var inventory
+var gold_manager
 
 ## 商店格子数组
 var shop_slot_controls: Array[Control] = []
@@ -39,7 +39,7 @@ func _ready() -> void:
 	refresh()
 
 ## 设置商店数据
-func set_data(shop_ref: Shop, inventory_ref: Inventory, gold_ref: GoldManager) -> void:
+func set_data(shop_ref, inventory_ref, gold_ref) -> void:
 	shop = shop_ref
 	inventory = inventory_ref
 	gold_manager = gold_ref
@@ -106,7 +106,7 @@ func _create_shop_slot(index: int) -> Control:
 	_setup_slot_style(bg, Color(0.15, 0.15, 0.2, 0.9))
 	
 	# 物品
-	var shop_item: ShopItem = shop.shop_items[index]
+	var shop_item = shop.shop_items[index]
 	if shop_item:
 		# 物品图标区域
 		var icon := Label.new()
@@ -154,7 +154,7 @@ func _create_inventory_slot(index: int) -> Control:
 	_setup_slot_style(bg, Color(0.2, 0.2, 0.25, 0.9))
 	
 	# 物品
-	var item: Item = inventory.get_item(index)
+	var item = inventory.get_item(index)
 	if item:
 		# 物品图标
 		var icon := Label.new()
@@ -202,28 +202,24 @@ func _setup_slot_style(panel: Panel, color: Color) -> void:
 	panel.add_theme_stylebox_override("panel", style)
 
 ## 获取物品类型对应的 Emoji
-func _get_item_emoji(type: Item.ItemType) -> String:
+func _get_item_emoji(type) -> String:
 	match type:
-		Item.ItemType.WEAPON: return "⚔️"
-		Item.ItemType.ARMOR: return "🛡️"
-		Item.ItemType.CONSUMABLE: return "🧪"
-		Item.ItemType.MATERIAL: return "💎"
+		0: return "⚔️"  # WEAPON
+		1: return "🛡️"  # ARMOR
+		2: return "🧪"  # CONSUMABLE
+		3: return "💎"  # MATERIAL
 		_: return "📦"
 
 ## 计算出售价格
-func _calculate_sell_price(item: Item) -> int:
+func _calculate_sell_price(item) -> int:
 	if not shop:
 		return 0
 	var base_price := 10
 	match item.type:
-		Item.ItemType.WEAPON:
-			base_price = 10 + item.effect_value * 3
-		Item.ItemType.ARMOR:
-			base_price = 10 + item.effect_value * 3
-		Item.ItemType.CONSUMABLE:
-			base_price = 5 + item.effect_value
-		Item.ItemType.MATERIAL:
-			base_price = 5
+		0: base_price = 10 + item.effect_value * 3  # WEAPON
+		1: base_price = 10 + item.effect_value * 3  # ARMOR
+		2: base_price = 5 + item.effect_value  # CONSUMABLE
+		3: base_price = 5  # MATERIAL
 	base_price *= (1 + item.rarity * 0.2)
 	return int(base_price * 0.5)
 

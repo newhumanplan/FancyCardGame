@@ -6,7 +6,7 @@ extends Control
 var slot_index: int = -1
 
 ## 当前物品
-var current_item: Item = null
+var current_item
 
 ## 背景
 var bg: TextureRect
@@ -24,11 +24,11 @@ var count_label: Label
 var draggable: bool = true
 
 ## 父级背包 UI
-var backpack_ui: BackpackUI:
+var backpack_ui:
 	get:
 		var parent = get_parent()
 		while parent:
-			if parent is BackpackUI:
+			if parent has "BackpackUI":
 				return parent
 			parent = parent.get_parent()
 		return null
@@ -58,7 +58,7 @@ func _setup_ui() -> void:
 	# 图标
 	icon = TextureRect.new()
 	icon.set_anchors_preset(Control.PRESET_FULL_RECT)
-	icon.expand_mode = TextureRect.EXPAND_FIT_CONTENT
+	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	icon.modulate.a = 0  # 初始隐藏
 	icon.mouse_entered.connect(_on_mouse_entered)
@@ -94,37 +94,42 @@ func _add_stylebox_bg(texture_rect: TextureRect) -> void:
 	texture_rect.add_theme_stylebox_override("normal", style)
 
 ## 设置物品
-func set_item(item: Item) -> void:
+func set_item(item) -> void:
 	current_item = item
 	
 	if item:
 		# 加载图标
-		if item.icon_path != "":
+		if item.icon_path != "" and icon:
 			var texture = load(item.icon_path) as Texture2D
 			if texture:
 				icon.texture = texture
 				icon.modulate.a = 1.0
 			else:
 				icon.modulate.a = 0.0
-		else:
+		elif icon:
 			icon.modulate.a = 0.0
 		
 		# 设置稀有度边框颜色
-		rarity_border.color = item.get_rarity_color()
-		rarity_border.color.a = 0.8
+		if rarity_border:
+			rarity_border.color = item.get_rarity_color()
+			rarity_border.color.a = 0.8
 		
 		# 显示数量（如果是消耗品且有多个）
 		if item is Consumable and item.uses_remaining > 1:
-			count_label.text = str(item.uses_remaining)
-			count_label.visible = true
-		else:
+			if count_label:
+				count_label.text = str(item.uses_remaining)
+				count_label.visible = true
+		elif count_label:
 			count_label.visible = false
 	else:
 		# 清空
-		icon.texture = null
-		icon.modulate.a = 0.0
-		rarity_border.color = Color(0, 0, 0, 0)
-		count_label.visible = false
+		if icon:
+			icon.texture = null
+			icon.modulate.a = 0.0
+		if rarity_border:
+			rarity_border.color = Color(0, 0, 0, 0)
+		if count_label:
+			count_label.visible = false
 
 ## 鼠标进入
 func _on_mouse_entered() -> void:
@@ -145,7 +150,7 @@ func _get_drag_data(_at_position: Vector2) -> Variant:
 	# 创建拖拽预览
 	var preview = TextureRect.new()
 	preview.texture = icon.texture
-	preview.expand_mode = TextureRect.EXPAND_FIT_CONTENT
+	preview.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	preview.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	preview.custom_minimum_size = Vector2(48, 48)
 	preview.modulate = Color(1, 1, 1, 0.8)
