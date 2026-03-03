@@ -38,7 +38,7 @@ func is_valid_position(pos: Vector2i) -> bool:
 	return pos.x >= 0 and pos.x < GRID_WIDTH and pos.y >= 0 and pos.y < GRID_HEIGHT
 
 ## 检查物品是否可以放置在指定位置
-func can_place_item(item: Item, pos: Vector2i) -> bool:
+func can_place_item(item, pos: Vector2i) -> bool:
 	# 检查位置是否有效
 	for dy in range(item.size.y):
 		for dx in range(item.size.x):
@@ -50,7 +50,7 @@ func can_place_item(item: Item, pos: Vector2i) -> bool:
 	return true
 
 ## 放置物品
-func place_item(item: Item, pos: Vector2i) -> bool:
+func place_item(item, pos: Vector2i) -> bool:
 	if not can_place_item(item, pos):
 		return false
 	
@@ -106,7 +106,7 @@ func _reindex_grid() -> void:
 					grid[pos.y][pos.x] = i
 
 ## 获取指定位置的物品
-func get_item_at(pos: Vector2i) -> Item:
+func get_item_at(pos: Vector2i):
 	if not is_valid_position(pos):
 		return null
 	var item_index = grid[pos.y][pos.x]

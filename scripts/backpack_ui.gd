@@ -21,7 +21,7 @@ var dragging_item = null
 var drag_offset: Vector2 = Vector2.ZERO
 
 ## 格子容器
-@onready var grid_container: GridContainer = $GridContainer
+@onready var grid_container: GridContainer = $Panel/VBox/GridContainer
 
 func _ready() -> void:
 	backpack = BackpackGridClass.new()
