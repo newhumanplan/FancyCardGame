@@ -1,169 +1,166 @@
-## 背包 UI 管理器
-class_name BackpackUI
 extends Control
 
-## 背包网格容器
-@onready var grid_container: GridContainer = $Panel/VBox/GridContainer
+## 背包 UI - 6x6 网格显示
 
-## 背包面板
-@onready var panel: Panel = $Panel
+## 预加载类
+const BackpackGridClass = preload("res://scripts/backpack_grid.gd")
+const ItemClass = preload("res://resources/item.gd")
 
-## 标题
-@onready var title_label: Label = $Panel/VBox/TitleLabel
-
-## 物品详情提示框
-@onready var tooltip: Control = get_node("../ItemTooltip")
+const CELL_SIZE: int = 64
+const GRID_WIDTH: int = 6
+const GRID_HEIGHT: int = 6
 
 ## 背包数据
-var inventory
+var backpack
 
-## 格子数组
-var slot_controls = []
+## 格子节点容器
+var cells: Array = []
 
-## 拖拽状态
-var dragging_slot: int = -1
-var drag_preview: TextureRect = null
+## 当前拖拽的物品
+var dragging_item = null
+var drag_offset: Vector2 = Vector2.ZERO
 
-## 格子大小
-const SLOT_SIZE: int = 64
+## 格子容器
+@onready var grid_container: GridContainer = $GridContainer
 
-## 格子间距
-const SLOT_SPACING: int = 4
-
-## 初始化
 func _ready() -> void:
-	# 初始化提示框
-	if tooltip:
-		tooltip.visible = false
-	
-	# 连接关闭按钮
-	var close_button = $Panel/VBox/CloseButton
-	if close_button:
-		close_button.pressed.connect(_on_close_button_pressed)
-	
-	# 连接信号（如果已连接则跳过）
-	_setup_connections()
-	
-	# 刷新显示
-	refresh()
+	backpack = BackpackGridClass.new()
+	_create_grid()
+	_connect_signals()
 
-## 连接信号
-func _setup_connections() -> void:
-	if inventory:
-		if not inventory.inventory_changed.is_connected(_on_inventory_changed):
-			inventory.inventory_changed.connect(_on_inventory_changed)
-
-## 设置背包数据
-func set_inventory(inv) -> void:
-	inventory = inv
-	_setup_connections()
-	refresh()
-
-## 刷新背包显示
-func refresh() -> void:
-	if not inventory:
-		return
+## 创建网格
+func _create_grid() -> void:
+	grid_container.columns = GRID_WIDTH
 	
-	# 清空现有格子
-	for child in grid_container.get_children():
-		child.queue_free()
-	slot_controls.clear()
-	
-	# 创建新格子
-	for i in range(inventory.TOTAL_SLOTS):
-		var slot: Control = _create_slot(i)
-		grid_container.add_child(slot)
-		slot_controls.append(slot)
+	for y in range(GRID_HEIGHT):
+		var row: Array = []
+		for x in range(GRID_WIDTH):
+			var cell = _create_cell(x, y)
+			grid_container.add_child(cell)
+			row.append(cell)
+		cells.append(row)
 
 ## 创建单个格子
-func _create_slot(index: int) -> Control:
-	# 创建一个简单的格子 Control
-	var slot := Control.new()
-	slot.custom_minimum_size = Vector2(SLOT_SIZE, SLOT_SIZE)
-	slot.set_meta("slot_index", index)
+func _create_cell(x: int, y: int) -> Panel:
+	var panel = Panel.new()
+	panel.custom_minimum_size = Vector2(CELL_SIZE, CELL_SIZE)
+	panel.name = "Cell_%d_%d" % [x, y]
 	
-	# 背景
-	var bg := TextureRect.new()
-	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
-	bg.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	bg.stretch_mode = TextureRect.STRETCH_TILE
+	# 添加背景色
 	var style = StyleBoxFlat.new()
-	style.bg_color = Color(0.2, 0.2, 0.25, 0.9)
-	style.border_width_left = 1
-	style.border_width_top = 1
-	style.border_width_right = 1
-	style.border_width_bottom = 1
-	style.border_color = Color(0.4, 0.4, 0.5, 1.0)
-	style.corner_radius_top_left = 4
-	style.corner_radius_top_right = 4
-	style.corner_radius_bottom_left = 4
-	style.corner_radius_bottom_right = 4
-	bg.add_theme_stylebox_override("normal", style)
-	slot.add_child(bg)
+	style.bg_color = Color(0.2, 0.2, 0.3)
+	style.border_color = Color(0.4, 0.4, 0.5)
+	style.set_border_width_all(1)
+	style.set_corner_radius_all(4)
+	panel.add_theme_stylebox_override("panel", style)
 	
-	# 图标
-	var icon := TextureRect.new()
-	icon.set_anchors_preset(Control.PRESET_FULL_RECT)
-	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	icon.modulate.a = 0.3
-	slot.add_child(icon)
-	
-	# 设置物品
-	var item = inventory.get_item(index)
-	if item and item.icon_path != "":
-		var texture = load(item.icon_path) as Texture2D
-		if texture:
-			icon.texture = texture
-			icon.modulate.a = 1.0
-	
-	# 保存引用
-	slot.set_meta("icon", icon)
-	
-	return slot
+	return panel
 
-## 获取格子背景纹理
-func _get_slot_bg_texture() -> Texture2D:
-	# 使用内置的 placeholder 纹理
+## 连接信号
+func _connect_signals() -> void:
+	backpack.backpack_changed.connect(_on_backpack_changed)
+
+## 背包变化时刷新显示
+func _on_backpack_changed() -> void:
+	_refresh_display()
+
+## 刷新显示
+func _refresh_display() -> void:
+	# 清除所有格子上的物品显示
+	for y in range(GRID_HEIGHT):
+		for x in range(GRID_WIDTH):
+			var cell = cells[y][x]
+			for child in cell.get_children():
+				child.queue_free()
+	
+	# 显示所有物品
+	for item in backpack.get_all_items():
+		_display_item(item)
+
+## 显示物品
+func _display_item(item) -> void:
+	var cell = cells[item.grid_position.y][item.grid_position.x]
+	
+	# 创建物品面板
+	var item_panel = Panel.new()
+	item_panel.custom_minimum_size = Vector2(
+		CELL_SIZE * item.size.x - 4,
+		CELL_SIZE * item.size.y - 4
+	)
+	item_panel.position = Vector2(2, 2)
+	
+	# 设置颜色（根据稀有度）
 	var style = StyleBoxFlat.new()
-	style.bg_color = Color(0.2, 0.2, 0.25, 0.9)
-	style.border_width_left = 1
-	style.border_width_top = 1
-	style.border_width_right = 1
-	style.border_width_bottom = 1
-	style.border_color = Color(0.4, 0.4, 0.5, 1.0)
-	style.corner_radius_top_left = 4
-	style.corner_radius_top_right = 4
-	style.corner_radius_bottom_left = 4
-	style.corner_radius_bottom_right = 4
+	style.bg_color = item.get_rarity_color() * 0.3
+	style.border_color = item.get_rarity_color()
+	style.set_border_width_all(2)
+	style.set_corner_radius_all(4)
+	item_panel.add_theme_stylebox_override("panel", style)
 	
-	# 创建 1x1 纹理
-	var img = Image.create(1, 1, false, Image.FORMAT_RGBA8)
-	img.fill(Color(0.2, 0.2, 0.25, 0.9))
-	return ImageTexture.create_from_image(img)
+	# 添加物品名称
+	var label = Label.new()
+	label.text = item.item_name
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	label.add_theme_font_size_override("font_size", 12)
+	item_panel.add_child(label)
+	
+	cell.add_child(item_panel)
 
-## 物品变化回调
-func _on_inventory_changed(slot_index: int) -> void:
-	refresh()
+## 鼠标点击处理
+func _gui_input(event: InputEvent) -> void:
+	if event is InputEventMouseButton:
+		if event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+			_on_cell_clicked(event.position)
 
-## 显示物品提示框
-func show_tooltip(item, position: Vector2) -> void:
-	if not item:
-		tooltip.visible = false
+## 格子点击处理
+func _on_cell_clicked(global_pos: Vector2) -> void:
+	var grid_pos = _get_grid_position(global_pos)
+	if grid_pos.x < 0:
 		return
 	
-	tooltip.visible = true
-	tooltip.position = position + Vector2(20, 0)
+	var item = backpack.get_item_at(grid_pos)
+	if item:
+		# 开始拖拽
+		print("开始拖拽: %s" % item.item_name)
+
+## 获取格子位置
+func _get_grid_position(global_pos: Vector2) -> Vector2i:
+	var local_pos = grid_container.get_local_mouse_position()
+	var x = int(local_pos.x / CELL_SIZE)
+	var y = int(local_pos.y / CELL_SIZE)
 	
-	# 设置提示框内容
-	var tooltip_ui = tooltip as ItemTooltipUI
-	if tooltip_ui:
-		tooltip_ui.set_item(item)
+	if x >= 0 and x < GRID_WIDTH and y >= 0 and y < GRID_HEIGHT:
+		return Vector2i(x, y)
+	return Vector2i(-1, -1)
 
-## 隐藏物品提示框
-func hide_tooltip() -> void:
-	tooltip.visible = false
-
-## 关闭背包
-func _on_close_button_pressed() -> void:
-	visible = false
+## 添加测试物品
+func add_test_items() -> void:
+	# 创建一个 1x1 的物品
+	var item1 = ItemClass.new()
+	item1.item_name = "铁剑"
+	item1.item_type = 0  # WEAPON
+	item1.size = Vector2i(1, 1)
+	item1.attack = 5
+	item1.rarity = 1
+	
+	# 创建一个 2x1 的物品
+	var item2 = ItemClass.new()
+	item2.item_name = "长剑"
+	item2.item_type = 0  # WEAPON
+	item2.size = Vector2i(2, 1)
+	item2.attack = 10
+	item2.rarity = 2
+	
+	# 创建一个 1x2 的物品
+	var item3 = ItemClass.new()
+	item3.item_name = "盾牌"
+	item3.item_type = 1  # ARMOR
+	item3.size = Vector2i(1, 2)
+	item3.defense = 8
+	item3.rarity = 2
+	
+	# 放置物品
+	backpack.place_item(item1, Vector2i(0, 0))
+	backpack.place_item(item2, Vector2i(2, 0))
+	backpack.place_item(item3, Vector2i(5, 0))

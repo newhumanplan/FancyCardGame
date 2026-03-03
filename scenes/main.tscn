@@ -1,8 +1,7 @@
-[gd_scene load_steps=4 format=3 uid="uid://main_scene"]
+[gd_scene load_steps=3 format=3 uid="uid://main_scene"]
 
 [ext_resource type="Script" path="res://scripts/main.gd" id="1_main"]
-[ext_resource type="Script" path="res://scripts/combat.gd" id="2_combat"]
-[ext_resource type="Script" path="res://scripts/stage_manager.gd" id="3_stage"]
+[ext_resource type="PackedScene" uid="uid://backpack_scene" path="res://scenes/backpack.tscn" id="2_backpack"]
 
 [node name="Main" type="Control"]
 layout_mode = 3
@@ -13,57 +12,54 @@ grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_main")
 
-[node name="CombatSystem" type="Node" parent="."]
-script = ExtResource("2_combat")
-
-[node name="StageManager" type="Node" parent="."]
-script = ExtResource("3_stage")
-
 [node name="VBox" type="VBoxContainer" parent="."]
 layout_mode = 1
-anchors_preset = 8
+anchors_preset = 5
 anchor_left = 0.5
-anchor_top = 0.5
 anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = -150.0
-offset_top = -80.0
-offset_right = 150.0
-offset_bottom = 80.0
+offset_left = -200.0
+offset_top = 20.0
+offset_right = 200.0
+offset_bottom = 120.0
 grow_horizontal = 2
-grow_vertical = 2
 
-[node name="TitleLabel" type="Label" parent="VBox"]
+[node name="Title" type="Label" parent="VBox"]
 layout_mode = 2
-text = "🎮 FancyCardGame"
+text = "FancyCardGame - 大巴扎风格"
 horizontal_alignment = 1
-vertical_alignment = 1
 
 [node name="GoldLabel" type="Label" parent="VBox"]
 layout_mode = 2
 text = "金币: 100"
 horizontal_alignment = 1
-vertical_alignment = 1
 
-[node name="StageLabel" type="Label" parent="VBox"]
+[node name="RoundLabel" type="Label" parent="VBox"]
 layout_mode = 2
-text = "第 1 关 / 共 5 关"
+text = "回合: 1 / 5"
 horizontal_alignment = 1
-vertical_alignment = 1
 
-[node name="HSeparator" type="HSeparator" parent="VBox"]
+[node name="ButtonBox" type="HBoxContainer" parent="VBox"]
 layout_mode = 2
+alignment = 1
 
-[node name="StartButton" type="Button" parent="VBox"]
-layout_mode = 2
-text = "开始战斗"
-
-[node name="ShopButton" type="Button" parent="VBox"]
+[node name="ShopButton" type="Button" parent="VBox/ButtonBox"]
 layout_mode = 2
 text = "商店"
 
-[node name="StatusLabel" type="Label" parent="VBox"]
+[node name="BattleButton" type="Button" parent="VBox/ButtonBox"]
 layout_mode = 2
-text = "点击上方按钮开始"
-horizontal_alignment = 1
-vertical_alignment = 1
+text = "战斗"
+
+[node name="Backpack" parent="." instance=ExtResource("2_backpack")]
+layout_mode = 1
+anchors_preset = 7
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -200.0
+offset_top = -440.0
+offset_right = 200.0
+offset_bottom = -20.0
+grow_horizontal = 2
+grow_vertical = 0
