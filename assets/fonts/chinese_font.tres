@@ -1,0 +1,4 @@
+[gd_resource type="FontFile" format=3 uid="uid://chinese_font"]
+
+[resource]
+font_path = "res://assets/fonts/SourceHanSansSC.ttf"
