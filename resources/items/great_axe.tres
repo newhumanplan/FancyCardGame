@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="ItemData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/item_data.gd" id="1_item"]
+
+[resource]
+script = ExtResource("1_item")
+item_name = "巨斧"
+description = "双手巨斧，威力惊人"
+rarity = 2
+buy_price = 35
+size = 2
+type = 0
+damage = 20
+shield = 0
+heal = 0
+cooldown = 6.0
+crit_chance = 0.15

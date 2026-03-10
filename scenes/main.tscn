@@ -1,7 +1,7 @@
 [gd_scene load_steps=3 format=3 uid="uid://main_scene"]
 
 [ext_resource type="Script" path="res://scripts/main.gd" id="1_main"]
-[ext_resource type="PackedScene" uid="uid://backpack_scene" path="res://scenes/backpack.tscn" id="2_backpack"]
+[ext_resource type="PackedScene" uid="uid://inventory_ui_scene" path="res://scenes/inventory_ui.tscn" id="2_inventory"]
 
 [node name="Main" type="Control"]
 layout_mode = 3
@@ -50,16 +50,16 @@ text = "商店"
 layout_mode = 2
 text = "战斗"
 
-[node name="Backpack" parent="." instance=ExtResource("2_backpack")]
+[node name="InventoryUI" parent="." instance=ExtResource("2_inventory")]
 layout_mode = 1
 anchors_preset = 7
 anchor_left = 0.5
 anchor_top = 1.0
 anchor_right = 0.5
 anchor_bottom = 1.0
-offset_left = -200.0
-offset_top = -440.0
-offset_right = 200.0
+offset_left = -400.0
+offset_top = -150.0
+offset_right = 400.0
 offset_bottom = -20.0
 grow_horizontal = 2
 grow_vertical = 0

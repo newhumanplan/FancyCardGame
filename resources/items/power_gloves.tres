@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="ItemData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/item_data.gd" id="1_item"]
+
+[resource]
+script = ExtResource("1_item")
+item_name = "力量手套"
+description = "提升攻击力"
+rarity = 1
+buy_price = 15
+size = 0
+type = 3
+damage = 3
+shield = 0
+heal = 0
+cooldown = 2.0
+crit_chance = 0.0

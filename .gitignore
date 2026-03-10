@@ -1,0 +1,19 @@
+# Godot-specific ignores
+.godot/
+*.tmp
+*.import
+
+# Build outputs
+build/
+*.exe
+*.pck
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+
+# IDE/Editor files
+.vscode/
+.idea/
+*.swp
+*.swo

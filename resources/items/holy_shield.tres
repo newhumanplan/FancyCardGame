@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="ItemData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/item_data.gd" id="1_item"]
+
+[resource]
+script = ExtResource("1_item")
+item_name = "神圣护盾"
+description = "神圣之力加持的护盾"
+rarity = 3
+buy_price = 60
+size = 1
+type = 1
+damage = 0
+shield = 25
+heal = 0
+cooldown = 6.0
+crit_chance = 0.0

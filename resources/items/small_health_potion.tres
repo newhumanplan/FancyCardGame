@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="ItemData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/item_data.gd" id="1_item"]
+
+[resource]
+script = ExtResource("1_item")
+item_name = "小血瓶"
+description = "恢复少量生命值"
+rarity = 1
+buy_price = 5
+size = 0
+type = 2
+damage = 0
+shield = 0
+heal = 15
+cooldown = 3.0
+crit_chance = 0.0

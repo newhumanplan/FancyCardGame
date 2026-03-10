@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="ItemData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/item_data.gd" id="1_item"]
+
+[resource]
+script = ExtResource("1_item")
+item_name = "龙牙剑"
+description = "用龙牙打造的传奇武器"
+rarity = 3
+buy_price = 80
+size = 1
+type = 0
+damage = 25
+shield = 0
+heal = 0
+cooldown = 3.0
+crit_chance = 0.25
