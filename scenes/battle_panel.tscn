@@ -1,0 +1,119 @@
+[gd_scene load_steps=2 format=3 uid="uid://battle_panel_scene"]
+
+[ext_resource type="Script" path="res://scripts/ui/battle_ui.gd" id="1"]
+
+[node name="BattleUI" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1")
+
+[node name="BattlePanel" type="PanelContainer" parent="."]
+visible = false
+layout_mode = 1
+anchors_preset = 7
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -350.0
+offset_top = -250.0
+offset_right = 350.0
+offset_bottom = 250.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="VBox" type="VBoxContainer" parent="BattlePanel"]
+layout_mode = 2
+theme_override_constants/separation = 15
+
+[node name="TitleLabel" type="Label" parent="BattlePanel/VBox"]
+layout_mode = 2
+text = "⚔️ 战斗"
+horizontal_alignment = 1
+
+[node name="BattleArea" type="HBoxContainer" parent="BattlePanel/VBox"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 50
+
+[node name="PlayerArea" type="VBoxContainer" parent="BattlePanel/VBox/BattleArea"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 10
+
+[node name="PlayerNameLabel" type="Label" parent="BattlePanel/VBox/BattleArea/PlayerArea"]
+layout_mode = 2
+text = "玩家"
+horizontal_alignment = 1
+
+[node name="PlayerHPBar" type="ProgressBar" parent="BattlePanel/VBox/BattleArea/PlayerArea"]
+layout_mode = 2
+max_value = 100.0
+value = 100.0
+show_percentage = false
+
+[node name="PlayerHPText" type="Label" parent="BattlePanel/VBox/BattleArea/PlayerArea/PlayerHPBar"]
+layout_mode = 2
+text = "100/100"
+horizontal_alignment = 1
+
+[node name="PlayerATKLabel" type="Label" parent="BattlePanel/VBox/BattleArea/PlayerArea"]
+layout_mode = 2
+text = "ATK: 10"
+horizontal_alignment = 1
+
+[node name="VSLabel" type="Label" parent="BattlePanel/VBox/BattleArea"]
+layout_mode = 2
+text = "VS"
+horizontal_alignment = 1
+
+[node name="EnemyArea" type="VBoxContainer" parent="BattlePanel/VBox/BattleArea"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 10
+
+[node name="EnemyNameLabel" type="Label" parent="BattlePanel/VBox/BattleArea/EnemyArea"]
+layout_mode = 2
+text = "敌人"
+horizontal_alignment = 1
+
+[node name="EnemyHPBar" type="ProgressBar" parent="BattlePanel/VBox/BattleArea/EnemyArea"]
+layout_mode = 2
+max_value = 100.0
+value = 100.0
+show_percentage = false
+
+[node name="EnemyHPText" type="Label" parent="BattlePanel/VBox/BattleArea/EnemyArea/EnemyHPBar"]
+layout_mode = 2
+text = "100/100"
+horizontal_alignment = 1
+
+[node name="EnemyATKLabel" type="Label" parent="BattlePanel/VBox/BattleArea/EnemyArea"]
+layout_mode = 2
+text = "ATK: 10"
+horizontal_alignment = 1
+
+[node name="BattleLogArea" type="PanelContainer" parent="BattlePanel/VBox"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="BattleLogLabel" type="RichTextLabel" parent="BattlePanel/VBox/BattleLogArea"]
+layout_mode = 2
+bbcode_enabled = true
+text = "战斗日志..."
+scroll_following = true
+
+[node name="AutoBattleCheck" type="CheckButton" parent="BattlePanel/VBox"]
+layout_mode = 2
+button_pressed = true
+text = "自动战斗"
+
+[node name="ResultLabel" type="Label" parent="BattlePanel/VBox"]
+visible = false
+layout_mode = 2
+text = "结果"
+horizontal_alignment = 1

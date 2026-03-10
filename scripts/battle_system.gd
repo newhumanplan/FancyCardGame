@@ -1,4 +1,3 @@
-class_name BattleSystem
 extends Node
 
 ## 战斗系统 - 管理战斗中的自动触发和效果
@@ -19,7 +18,7 @@ var poison_timer: float = 0.0
 var regeneration_timer: float = 0.0
 
 func _ready() -> void:
-	game_manager = get_node("/root/Main/GameManager")
+	game_manager = get_node("/root/GameManager")
 
 ## 开始战斗
 func start_battle() -> void:

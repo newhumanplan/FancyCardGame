@@ -47,6 +47,9 @@ const HeroDataClass = preload("res://scripts/data/hero_data.gd")
 ## 商店 UI
 @onready var shop_ui: Control = $ShopUI
 
+## 战斗 UI
+@onready var battle_ui: Control = $BattleUI
+
 ## 当前是否在英雄选择阶段
 var is_in_hero_selection: bool = true
 
@@ -347,24 +350,41 @@ func _start_battle() -> void:
 		print("错误: 未选择英雄!")
 		return
 	
-	print("开始怪物战斗!")
-	_calculate_stats()
+	# 隐藏事件面板
+	_hide_event_panel()
 	
-	# 模拟战斗
-	# TODO: 实现完整战斗系统
-	# 战斗完成后自动进入下一小时
-	_auto_advance_hour()
+	# 开始真正的战斗
+	battle_ui.start_battle(null, false, 0)
+	
+	# 连接战斗结束回调
+	if not battle_ui.battle_ended.is_connected(_on_battle_ended):
+		battle_ui.battle_ended.connect(_on_battle_ended)
+	
+	print("开始怪物战斗!")
 
 func _start_pvp_battle() -> void:
 	if GameManager.selected_hero == null:
 		print("错误: 未选择英雄!")
 		return
 	
-	print("开始 PvP 对战!")
-	_calculate_stats()
+	# 隐藏事件面板
+	_hide_event_panel()
 	
-	# TODO: 实现完整 PvP 系统
-	# 战斗完成后自动进入下一小时
+	# 根据玩家当前属性生成 PvP 对手（稍微强一点）
+	var enemy_bonus = randi() % 5 + 1  # 1-5 的随机加成
+	battle_ui.start_battle(null, true, enemy_bonus)
+	
+	# 连接战斗结束回调
+	if not battle_ui.battle_ended.is_connected(_on_battle_ended):
+		battle_ui.battle_ended.connect(_on_battle_ended)
+	
+	print("开始 PvP 对战!")
+
+## 战斗结束回调
+func _on_battle_ended(won: bool, gold_reward: int) -> void:
+	print("战斗结束: 胜利=%s, 金币=%d" % [won, gold_reward])
+	# 显示事件面板并进入下一小时
+	_show_event_panel()
 	_auto_advance_hour()
 
 ## 计算属性
