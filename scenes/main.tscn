@@ -1,7 +1,8 @@
-[gd_scene load_steps=4 format=3 uid="uid://main_scene"]
+[gd_scene load_steps=5 format=3 uid="uid://main_scene"]
 
 [ext_resource type="Script" path="res://scripts/main.gd" id="1_main"]
 [ext_resource type="PackedScene" uid="uid://inventory_ui_scene" path="res://scenes/inventory_ui.tscn" id="2_inventory"]
+[ext_resource type="PackedScene" uid="uid://shop_panel_scene" path="res://scenes/shop_panel.tscn" id="3_shop"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_prestige"]
 bg_color = Color(0.2, 0.2, 0.3, 1)
@@ -244,3 +245,11 @@ offset_right = 400.0
 offset_bottom = -20.0
 grow_horizontal = 2
 grow_vertical = 0
+
+[node name="ShopUI" parent="." instance=ExtResource("3_shop")]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2

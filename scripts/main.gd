@@ -43,7 +43,9 @@ const HeroDataClass = preload("res://scripts/data/hero_data.gd")
 
 ## 背包 UI
 @onready var inventory_ui: Control = $InventoryUI
-var backpack_ui: Control
+
+## 商店 UI
+@onready var shop_ui: Control = $ShopUI
 
 ## 当前是否在英雄选择阶段
 var is_in_hero_selection: bool = true
@@ -269,11 +271,24 @@ func _execute_shop_event() -> void:
 		_auto_advance_hour()
 		return
 	
-	# TODO: 打开商店 UI（暂时用日志代替）
-	print("打开商店界面...")
-	
-	# 模拟购买完成后自动进入下一小时
-	# 实际实现中，应该在商店关闭后调用 _auto_advance_hour()
+	# 打开商店 UI
+	_open_shop_ui()
+
+## 打开商店 UI
+func _open_shop_ui() -> void:
+	if inventory_ui and inventory_ui.has_method("get_inventory"):
+		var inventory = inventory_ui.get_inventory()
+		shop_ui.show_shop(inventory)
+		
+		# 设置关闭回调：商店关闭后进入下一小时
+		shop_ui.shop_closed.connect(_on_shop_closed)
+		print("商店已打开")
+	else:
+		print("错误: 无法获取背包实例")
+
+## 商店关闭回调
+func _on_shop_closed() -> void:
+	print("商店已关闭，进入下一小时")
 	_auto_advance_hour()
 
 ## 执行怪物事件
@@ -354,8 +369,8 @@ func _start_pvp_battle() -> void:
 
 ## 计算属性
 func _calculate_stats() -> void:
-	if backpack_ui and backpack_ui.has_method("get_inventory"):
-		var inventory = backpack_ui.get_inventory()
+	if inventory_ui and inventory_ui.has_method("get_inventory"):
+		var inventory = inventory_ui.get_inventory()
 		var total_damage = 0
 		var total_shield = 0
 		var total_heal = 0

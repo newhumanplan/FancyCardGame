@@ -212,11 +212,11 @@ func _create_cooldown_bar(item: ItemData) -> ProgressBar:
 ## 获取物品颜色（基于稀有度）
 func _get_item_color(item: ItemData) -> Color:
 	match item.rarity:
-		0: return Color(0.6, 0.6, 0.6)  # 普通 - 灰色
-		1: return Color(0.2, 0.8, 0.2)  # 优秀 - 绿色
-		2: return Color(0.2, 0.5, 0.9)  # 精良 - 蓝色
-		3: return Color(0.7, 0.4, 0.9)  # 史诗 - 紫色
-		4: return Color(1.0, 0.7, 0.2)  # 传说 - 橙色
+		1: return Color(0.6, 0.6, 0.6)  # 普通 - 灰色
+		2: return Color(0.2, 0.8, 0.2)  # 优秀 - 绿色
+		3: return Color(0.2, 0.5, 0.9)  # 精良 - 蓝色
+		4: return Color(0.7, 0.4, 0.9)  # 史诗 - 紫色
+		5: return Color(1.0, 0.7, 0.2)  # 传说 - 橙色
 		_: return Color.WHITE
 
 ## 槽位输入处理
@@ -338,7 +338,7 @@ func _add_test_items() -> void:
 	item1.item_name = "铁剑"
 	item1.size = ItemDataClass.Size.SMALL
 	item1.damage = 15
-	item1.rarity = 0
+	item1.rarity = 1  # 普通
 	item1.cooldown = 3.0
 	item1.current_cooldown = 0.0
 	
@@ -347,7 +347,7 @@ func _add_test_items() -> void:
 	item2.item_name = "盾牌"
 	item2.size = ItemDataClass.Size.MEDIUM
 	item2.shield = 20
-	item2.rarity = 1
+	item2.rarity = 2  # 优秀
 	item2.cooldown = 5.0
 	item2.current_cooldown = 2.0
 	
@@ -356,7 +356,7 @@ func _add_test_items() -> void:
 	item3.item_name = "大斧"
 	item3.size = ItemDataClass.Size.LARGE
 	item3.damage = 35
-	item3.rarity = 2
+	item3.rarity = 3  # 稀有
 	item3.cooldown = 8.0
 	item3.current_cooldown = 0.0
 	
