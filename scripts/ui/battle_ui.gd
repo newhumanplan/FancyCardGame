@@ -21,6 +21,9 @@ var enemy_attack_bonus: int = 0
 ## 是否为 PvP 战斗
 var is_pvp: bool = false
 
+## PvP 对手暴击率（运行时）
+var enemy_crit_chance: float = 0.0
+
 ## 战斗状态
 var is_battle_active: bool = false
 
@@ -151,15 +154,47 @@ func _generate_random_monster() -> MonsterData:
 	monster.current_hp = monster.max_hp
 	return monster
 
-## 创建 PvP 对手
+## 创建 PvP 对手（随机英雄 + 随机物品）
 func _create_pvp_enemy() -> MonsterData:
 	var monster = MonsterData.new()
-	monster.monster_name = "PvP 对手"
-	monster.max_hp = game_manager.get_max_health()
-	monster.attack = game_manager.player_attack + enemy_attack_bonus
-	monster.defense = game_manager.player_defense
+	
+	# 随机选择对手英雄类型
+	var hero_types = [0, 1]  # WARRIOR = 0, MAGE = 1
+	var random_hero_type = hero_types.pick_random()
+	
+	if random_hero_type == 0:
+		# 战士对手
+		monster.monster_name = "PvP 战士"
+		monster.max_hp = 120
+		monster.attack = 15 + enemy_attack_bonus
+		monster.defense = 10
+		enemy_crit_chance = 0.05 + randf() * 0.1
+	else:
+		# 法师对手
+		monster.monster_name = "PvP 法师"
+		monster.max_hp = 80
+		monster.attack = 25 + enemy_attack_bonus
+		monster.defense = 5
+		enemy_crit_chance = 0.15 + randf() * 0.15
+	
+	# 根据天数增加难度
+	var day = game_manager.current_day
+	monster.max_hp += day * 5
+	monster.attack += day
+	monster.defense += day / 2
+	
+	# 随机物品加成（模拟对手有物品）
+	var random_item_bonus = randi() % 10
+	monster.attack += random_item_bonus
+	
 	monster.gold_reward_min = 0
 	monster.gold_reward_max = 0
+	monster.current_hp = monster.max_hp
+	
+	# 记录对手信息
+	if is_pvp:
+		_log("⚔️ 对手: %s (ATK: %d, DEF: %d, HP: %.0f, 暴击率: %.0f%%)" % [monster.monster_name, monster.attack, monster.defense, monster.max_hp, enemy_crit_chance * 100])
+	
 	return monster
 
 ## 显示战斗面板

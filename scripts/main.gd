@@ -75,6 +75,7 @@ func _connect_signals() -> void:
 	GameManager.attack_changed.connect(_on_attack_changed)
 	GameManager.defense_changed.connect(_on_defense_changed)
 	GameManager.prestige_changed.connect(_on_prestige_changed)
+	GameManager.game_over.connect(_on_game_over)
 
 ## ============ 按钮设置 ============
 
@@ -179,8 +180,8 @@ func _hide_event_panel() -> void:
 func _generate_event_options() -> void:
 	var hour = GameManager.current_hour
 	
-	# Hour 5 固定为 PvP 战斗
-	if hour == 5:
+	# Hour 4 固定为 PvP 战斗
+	if hour == 4:
 		event_option_1.text = "⚔️ PvP 对战"
 		event_option_1.visible = true
 		event_option_2.visible = false
@@ -507,6 +508,14 @@ func _on_defense_changed(value: int) -> void:
 func _on_prestige_changed(value: int) -> void:
 	prestige_label.text = "Prestige: %d/%d" % [value, GameManager.max_prestige]
 	prestige_bar.value = value
+
+## 游戏结束（胜利）回调
+func _on_game_over(won: bool) -> void:
+	if won:
+		title_label.text = "🎉 10 胜达成! 你赢了!"
+		print("🎉 游戏胜利! 10 胜达成!")
+		# 禁用事件面板
+		_hide_event_panel()
 
 ## ============ 按钮回调（备用，保留以防需要直接点击）===========
 

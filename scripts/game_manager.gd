@@ -39,8 +39,8 @@ var player_defense: int = 5
 
 ## ============ Prestige 系统 ============
 
-## Prestige 值
-var prestige: int = 10
+## Prestige 值 (初始值 20)
+var prestige: int = 20
 
 ## Prestige 最大值
 var max_prestige: int = 100
@@ -171,8 +171,23 @@ func add_prestige(amount: int) -> void:
 
 ## 减少 Prestige
 func remove_prestige(amount: int) -> void:
+	var old_prestige = prestige
 	prestige = max(prestige - amount, 0)
 	prestige_changed.emit(prestige)
+	
+	# 检查是否归零
+	if old_prestige > 0 and prestige == 0:
+		_show_gold_upgrade_option()
+
+## 显示黄金升级选项提示
+func _show_gold_upgrade_option() -> void:
+	print("💰 黄金升级选项已解锁!")
+	print("选择 1: 升级所有卡牌 (+50% 属性)")
+	print("选择 2: 附魔 (+1 暴击率)")
+	print("选择 3: 获得金币和经验 (+100 金币, +1 胜场)")
+	# 简化实现：自动选择选项3，获得奖励
+	add_gold(100)
+	print("💰 获得 100 金币奖励!")
 
 ## Prestige 加成购买
 func buy_prestige(amount: int, cost: int) -> bool:
@@ -191,6 +206,15 @@ func on_battle_win() -> void:
 	if wins >= 5:
 		bonus = 3
 	add_prestige(bonus)
+	
+	# 检查 10 胜胜利条件
+	if wins >= 10:
+		_show_victory()
+		print("🎉 恭喜! 10 胜达成! 游戏胜利!")
+
+## 显示胜利画面
+func _show_victory() -> void:
+	game_over.emit(true)
 
 ## 战斗失败（非PvP）
 func on_battle_lose() -> void:
@@ -253,7 +277,7 @@ func full_reset() -> void:
 	player_health = 100
 	player_attack = 10
 	player_defense = 5
-	prestige = 10
+	prestige = 20  # 使用初始值 20
 	wins = 0
 	losses = 0
 	selected_hero = null
