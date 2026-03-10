@@ -265,6 +265,88 @@ func clear() -> void:
 func get_total_slots() -> int:
 	return TOTAL_SLOTS
 
+## ============ 物品协同效果 ============
+
+## 协同加成类型
+enum SynergyType {
+	DAMAGE_BOOST,    # 伤害加成
+	DEFENSE_BOOST,   # 防御加成
+	HEAL_BOOST,      # 治疗加成
+	COOLDOWN_REDUCTION  # 冷却减少
+}
+
+## 获取物品的协同加成
+## item: 物品
+## 返回: 协同加成字典 { "damage": int, "defense": int, "heal": int }
+func get_item_synergy_bonus(item: ItemData) -> Dictionary:
+	var bonus = {
+		"damage": 0,
+		"defense": 0,
+		"heal": 0,
+		"cooldown_reduction": 0.0
+	}
+	
+	if item == null:
+		return bonus
+	
+	var adjacent = get_adjacent_items(item)
+	
+	for adj_item in adjacent:
+		if adj_item == null:
+			continue
+		
+		# 武器 + 武器 = 伤害+10%
+		if item.type == ItemData.Type.WEAPON and adj_item.type == ItemData.Type.WEAPON:
+			bonus["damage"] += int(float(item.damage) * 0.1)
+		
+		# 护盾 + 护盾 = 防御+10%
+		if item.type == ItemData.Type.SHIELD and adj_item.type == ItemData.Type.SHIELD:
+			bonus["defense"] += int(float(item.shield) * 0.1)
+		
+		# 治疗 + 治疗 = 治疗+10%
+		if item.type == ItemData.Type.HEAL and adj_item.type == ItemData.Type.HEAL:
+			bonus["heal"] += int(float(item.heal) * 0.1)
+		
+		# 武器 + 护盾 = 伤害+5%
+		if item.type == ItemData.Type.WEAPON and adj_item.type == ItemData.Type.SHIELD:
+			bonus["damage"] += int(float(item.damage) * 0.05)
+		
+		# 护盾 + 武器 = 防御+5%
+		if item.type == ItemData.Type.SHIELD and adj_item.type == ItemData.Type.WEAPON:
+			bonus["defense"] += int(float(item.shield) * 0.05)
+	
+	return bonus
+
+## 获取物品的最终属性（包含协同加成）
+## item: 物品
+## 返回: 属性字典（已应用稀有度和协同加成）
+func get_item_final_stats(item: ItemData) -> Dictionary:
+	if item == null:
+		return {}
+	
+	var synergy = get_item_synergy_bonus(item)
+	var rarity_mult = item.get_rarity_multiplier()
+	
+	return {
+		"damage": int(float(item.damage) * rarity_mult) + synergy["damage"],
+		"shield": int(float(item.shield) * rarity_mult) + synergy["defense"],
+		"heal": int(float(item.heal) * rarity_mult) + synergy["heal"],
+		"cooldown_reduction": synergy["cooldown_reduction"]
+	}
+
+## 获取所有物品的协同效果信息
+## 返回: 字符串描述
+func get_synergy_info() -> String:
+	var info = "物品协同效果:\n"
+	for item in items:
+		if item != null:
+			var bonus = get_item_synergy_bonus(item)
+			if bonus["damage"] > 0 or bonus["defense"] > 0 or bonus["heal"] > 0:
+				info += "- %s: 伤害+%d, 防御+%d, 治疗+%d\n" % [
+					item.item_name, bonus["damage"], bonus["defense"], bonus["heal"]
+				]
+	return info
+
 ## 获取指定槽位的信息
 ## 返回: 字典 { "occupied": bool, "item": ItemData or null, "item_slots": Array[int] }
 func get_slot_info(slot: int) -> Dictionary:

@@ -27,6 +27,20 @@ enum HeroType { WARRIOR, MAGE }
 ## 当前生命值（运行时）
 var current_hp: int = 100
 
+## ============ 被动技能 ============
+
+## 被动技能名称
+@export var passive_skill_name: String = ""
+
+## 被动技能描述
+@export var passive_skill_description: String = ""
+
+## 被动技能加成类型 ("attack", "defense", "health", "crit")
+@export var passive_bonus_type: String = ""
+
+## 被动技能加成值
+@export var passive_bonus_value: int = 0
+
 ## ============ 技能与物品 ============
 
 ## 技能列表
@@ -89,3 +103,27 @@ func get_crit_damage(base_damage: int) -> int:
 ## 检查是否暴击
 func roll_crit() -> bool:
 	return randf() < crit_chance
+
+## 是否有被动技能
+func has_passive_skill() -> bool:
+	return passive_skill_name != ""
+
+## 获取被动技能描述完整文本
+func get_passive_skill_full_description() -> String:
+	if not has_passive_skill():
+		return ""
+	return "%s: %s (+%d %s)" % [
+		passive_skill_name,
+		passive_skill_description,
+		passive_bonus_value,
+		_get_bonus_type_text()
+	]
+
+## 获取加成类型文本
+func _get_bonus_type_text() -> String:
+	match passive_bonus_type:
+		"attack": return "攻击力"
+		"defense": return "防御力"
+		"health": return "生命值"
+		"crit": return "暴击率"
+		_: return "未知"

@@ -337,7 +337,7 @@ func _add_test_items() -> void:
 	var item1 = ItemDataClass.new()
 	item1.item_name = "铁剑"
 	item1.size = ItemDataClass.Size.SMALL
-	item1.damage = 5
+	item1.damage = 15
 	item1.rarity = 0
 	item1.cooldown = 3.0
 	item1.current_cooldown = 0.0
@@ -346,7 +346,7 @@ func _add_test_items() -> void:
 	var item2 = ItemDataClass.new()
 	item2.item_name = "盾牌"
 	item2.size = ItemDataClass.Size.MEDIUM
-	item2.shield = 10
+	item2.shield = 20
 	item2.rarity = 1
 	item2.cooldown = 5.0
 	item2.current_cooldown = 2.0
@@ -355,7 +355,7 @@ func _add_test_items() -> void:
 	var item3 = ItemDataClass.new()
 	item3.item_name = "大斧"
 	item3.size = ItemDataClass.Size.LARGE
-	item3.damage = 15
+	item3.damage = 35
 	item3.rarity = 2
 	item3.cooldown = 8.0
 	item3.current_cooldown = 0.0
