@@ -12,7 +12,7 @@ const ItemDataClass = preload("res://scripts/data/item_data.gd")
 const LinearInventoryClass = preload("res://scripts/data/linear_inventory.gd")
 
 ## UI 节点
-@onready var panel: Panel = $Panel
+@onready var panel: PanelContainer = $Panel
 @onready var title_label: Label = $Panel/VBox/TitleLabel
 @onready var shop_items_container: VBoxContainer = $Panel/VBox/ShopItemsContainer
 @onready var close_button: Button = $Panel/VBox/CloseButton
