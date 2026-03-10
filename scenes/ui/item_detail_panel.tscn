@@ -1,0 +1,7 @@
+[gd_scene load_steps=2 format=3 uid="uid://bvxk8qmv5yj6t"]
+
+[ext_resource type="Script" path="res://scripts/ui/item_detail_panel.gd" id="1_item_detail"]
+
+[node name="ItemDetailPanel" type="Panel"]
+custom_minimum_size = Vector2(220, 200)
+script = ExtResource("1_item_detail")
