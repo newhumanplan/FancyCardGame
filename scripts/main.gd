@@ -287,6 +287,7 @@ func _execute_shop_event() -> void:
 func _open_shop_ui() -> void:
 	if inventory_ui and inventory_ui.has_method("get_inventory"):
 		var inventory = inventory_ui.get_inventory()
+		shop_ui.visible = true  # 确保商店 UI 可见
 		shop_ui.show_shop(inventory)
 		
 		# 设置关闭回调：商店关闭后进入下一小时
@@ -359,6 +360,9 @@ func _start_battle() -> void:
 	# 隐藏事件面板
 	_hide_event_panel()
 	
+	# 确保战斗 UI 可见
+	battle_ui.visible = true
+	
 	# 开始真正的战斗
 	battle_ui.start_battle(null, false, 0)
 	
@@ -375,6 +379,9 @@ func _start_pvp_battle() -> void:
 	
 	# 隐藏事件面板
 	_hide_event_panel()
+	
+	# 确保战斗 UI 可见
+	battle_ui.visible = true
 	
 	# 根据玩家当前属性生成 PvP 对手（稍微强一点）
 	var enemy_bonus = randi() % 5 + 1  # 1-5 的随机加成
