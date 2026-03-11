@@ -10,7 +10,7 @@ var game_manager: Node
 var battle_system: Node
 
 ## 背包系统引用
-var inventory: Node
+var inventory: LinearInventory = null
 
 ## 敌人数据
 var current_monster: MonsterData = null

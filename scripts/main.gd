@@ -57,6 +57,10 @@ var is_in_hero_selection: bool = true
 var current_event_type: String = ""
 
 func _ready() -> void:
+	# 隐藏全屏UI（避免遮挡英雄选择）
+	shop_ui.visible = false
+	battle_ui.visible = false
+	
 	_connect_signals()
 	_setup_buttons()
 	_show_hero_selection()
@@ -165,6 +169,7 @@ func _on_game_started() -> void:
 	_update_button_visibility()
 	_update_ui()
 	print("游戏开始! Day %d, Hour %d - %s" % [GameManager.current_day, GameManager.current_hour, GameManager.get_current_phase_name()])
+	$VBox.visible = true  # 显示游戏主UI
 
 ## ============ 事件选择系统 ============
 
@@ -542,3 +547,66 @@ func _on_next_hour_pressed() -> void:
 	# 此按钮已被隐藏，保留以防需要手动触发
 	print("下一小时按钮被点击（已禁用自动流转）")
 	_auto_advance_hour()
+
+func _run_auto_test() -> void:
+	print("")
+	print("============================================================")
+	print("开始自动测试流程")
+	print("============================================================")
+	
+	# 步骤 1: 选择英雄
+	print("📋 步骤 1: 选择英雄（战士）")
+	if warrior_button:
+		warrior_button.emit_signal("pressed")
+		await get_tree().create_timer(2.0).timeout
+		print("✅ 英雄已选择")
+		print("   - Day: %d, Hour: %d" % [GameManager.current_day, GameManager.current_hour])
+		print("   - HP: %d, ATK: %d, DEF: %d" % [GameManager.player_health, GameManager.player_attack, GameManager.player_defense])
+		print("   - 金币: %d" % GameManager.gold)
+	
+	# 步骤 2: 事件选择 - 选择怪物
+	print("")
+	print("📋 步骤 2: 选择怪物事件")
+	if event_option_1:
+		event_option_1.emit_signal("pressed")
+		await get_tree().create_timer(5.0).timeout
+		print("✅ 事件已执行")
+		print("   - Day: %d, Hour: %d" % [GameManager.current_day, GameManager.current_hour])
+		print("   - HP: %d" % GameManager.player_health)
+		print("   - 金币: %d" % GameManager.gold)
+	
+	# 步骤 3: 继续选择事件
+	print("")
+	print("📋 步骤 3: 继续游戏流程")
+	for i in range(3):
+		await get_tree().create_timer(2.0).timeout
+		_generate_event_options()
+		await get_tree().create_timer(0.5).timeout
+		
+		# 随机选择一个事件选项
+		var options = []
+		if event_option_1.visible: options.append(event_option_1)
+		if event_option_2.visible: options.append(event_option_2)
+		if event_option_3.visible: options.append(event_option_3)
+		
+		if options.size() > 0:
+			var selected = options.pick_random()
+			print("   选择事件: %s" % selected.text)
+			selected.emit_signal("pressed")
+			await get_tree().create_timer(4.0).timeout
+		
+		print("   - Day: %d, Hour: %d, HP: %d, 金币: %d" % [GameManager.current_day, GameManager.current_hour, GameManager.player_health, GameManager.gold])
+	
+	print("")
+	print("============================================================")
+	print("自动测试完成!")
+	print("============================================================")
+	print("最终状态:")
+	print("   - Day: %d, Hour: %d" % [GameManager.current_day, GameManager.current_hour])
+	print("   - HP: %d/%d" % [GameManager.player_health, GameManager.get_max_health()])
+	print("   - ATK: %d, DEF: %d" % [GameManager.player_attack, GameManager.player_defense])
+	print("   - 金币: %d" % GameManager.gold)
+	print("   - Prestige: %d" % GameManager.prestige)
+	print("   - 胜场: %d, 败场: %d" % [GameManager.wins, GameManager.losses])
+	print("============================================================")
+
