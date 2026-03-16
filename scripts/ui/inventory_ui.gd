@@ -49,12 +49,110 @@ var item_display_layer: Control
 ## 背景层（用于点击空白处关闭面板）
 var background_layer: Control
 
+## 物品图片映射（名称 -> 图片路径）
+var item_texture_map: Dictionary = {}
+
 signal item_placed(item: ItemData, slot: int)
 signal item_removed(item: ItemData)
 signal item_drag_started(item: ItemData)
 signal item_drag_ended(item: ItemData)
 
+## 初始化物品图片映射
+func _init_item_texture_map() -> void:
+	# 武器
+	item_texture_map["木剑"] = "res://assets/art/items/item_iron_sword.png"
+	item_texture_map["铁剑"] = "res://assets/art/items/item_iron_sword.png"
+	item_texture_map["钢剑"] = "res://assets/art/items/item_steel_sword.png"
+	item_texture_map["魔法剑"] = "res://assets/art/items/item_great_sword.png"
+	item_texture_map["传奇剑"] = "res://assets/art/items/item_great_sword.png"
+	
+	item_texture_map["木斧"] = "res://assets/art/items/item_battle_axe.png"
+	item_texture_map["铁斧"] = "res://assets/art/items/item_battle_axe.png"
+	item_texture_map["钢斧"] = "res://assets/art/items/item_battle_axe.png"
+	item_texture_map["魔法斧"] = "res://assets/art/items/item_battle_axe.png"
+	item_texture_map["传奇斧"] = "res://assets/art/items/item_battle_axe.png"
+	
+	item_texture_map["木弓"] = "res://assets/art/items/item_longbow.png"
+	item_texture_map["铁弓"] = "res://assets/art/items/item_longbow.png"
+	item_texture_map["钢弓"] = "res://assets/art/items/item_longbow.png"
+	item_texture_map["魔法弓"] = "res://assets/art/items/item_longbow.png"
+	item_texture_map["传奇弓"] = "res://assets/art/items/item_longbow.png"
+	
+	item_texture_map["法杖"] = "res://assets/art/items/item_magic_book.png"
+	item_texture_map["魔杖"] = "res://assets/art/items/item_magic_book.png"
+	item_texture_map["奥术杖"] = "res://assets/art/items/item_magic_book.png"
+	item_texture_map["元素杖"] = "res://assets/art/items/item_magic_book.png"
+	item_texture_map["星辉杖"] = "res://assets/art/items/item_magic_book.png"
+	
+	# 护盾
+	item_texture_map["木盾"] = "res://assets/art/items/item_wooden_shield.png"
+	item_texture_map["铁盾"] = "res://assets/art/items/item_iron_shield.png"
+	item_texture_map["钢盾"] = "res://assets/art/items/item_tower_shield.png"
+	item_texture_map["魔法盾"] = "res://assets/art/items/item_holy_shield.png"
+	item_texture_map["传奇盾"] = "res://assets/art/items/item_holy_shield.png"
+	
+	# 治疗物品
+	item_texture_map["草药"] = "res://assets/art/items/item_regen_potion.png"
+	item_texture_map["药水"] = "res://assets/art/items/item_health_potion.png"
+	item_texture_map["圣水"] = "res://assets/art/items/item_big_health_potion.png"
+	item_texture_map["魔法药剂"] = "res://assets/art/items/item_big_health_potion.png"
+	item_texture_map["神级药水"] = "res://assets/art/items/item_big_health_potion.png"
+	
+	# 辅助物品
+	item_texture_map["幸运符"] = "res://assets/art/items/item_ring_strength.png"
+	item_texture_map["力量符"] = "res://assets/art/items/item_ring_strength.png"
+	item_texture_map["防御符"] = "res://assets/art/items/item_small_shield.png"
+	item_texture_map["魔法符"] = "res://assets/art/items/item_poison.png"
+	item_texture_map["传奇符"] = "res://assets/art/items/item_ring_strength.png"
+	
+	# 测试物品（InventoryUI 初始物品）
+	item_texture_map["铁剑"] = "res://assets/art/items/item_iron_sword.png"
+	item_texture_map["盾牌"] = "res://assets/art/items/item_iron_shield.png"
+	item_texture_map["大斧"] = "res://assets/art/items/item_battle_axe.png"
+	item_texture_map["魔法药水"] = "res://assets/art/items/item_big_health_potion.png"
+	item_texture_map["毒匕首"] = "res://assets/art/items/item_dagger.png"
+
+## 获取物品图片路径
+func _get_item_texture_path(item: ItemData) -> String:
+	if item == null:
+		return ""
+	
+	# 精确匹配
+	if item_texture_map.has(item.item_name):
+		return item_texture_map[item.item_name]
+	
+	# 模糊匹配 - 根据物品类型
+	match item.type:
+		ItemDataClass.Type.WEAPON:
+			if item.damage >= 30:
+				return "res://assets/art/items/item_great_sword.png"
+			elif item.damage >= 15:
+				return "res://assets/art/items/item_steel_sword.png"
+			else:
+				return "res://assets/art/items/item_iron_sword.png"
+		ItemDataClass.Type.SHIELD:
+			if item.shield >= 25:
+				return "res://assets/art/items/item_tower_shield.png"
+			elif item.shield >= 15:
+				return "res://assets/art/items/item_iron_shield.png"
+			else:
+				return "res://assets/art/items/item_wooden_shield.png"
+		ItemDataClass.Type.HEAL:
+			if item.heal >= 20:
+				return "res://assets/art/items/item_big_health_potion.png"
+			elif item.heal >= 10:
+				return "res://assets/art/items/item_health_potion.png"
+			else:
+				return "res://assets/art/items/item_regen_potion.png"
+		ItemDataClass.Type.UTILITY:
+			return "res://assets/art/items/item_ring_strength.png"
+	
+	return ""
+
 func _ready() -> void:
+	# 初始化物品图片映射
+	_init_item_texture_map()
+	
 	# 创建 Inventory 实例
 	inventory = LinearInventory.new()
 	
@@ -78,6 +176,9 @@ func _ready() -> void:
 	
 	# 初始刷新协同高亮
 	_update_synergy_highlights()
+	
+	# 默认显示背包
+	visible = true
 
 ## 创建背景层
 func _create_background_layer() -> void:
@@ -138,15 +239,12 @@ func _create_slot(index: int) -> Panel:
 func _create_item_display_layer() -> void:
 	item_display_layer = Control.new()
 	item_display_layer.name = "ItemDisplayLayer"
-	item_display_layer.set_anchors_preset(Control.PRESET_FULL_RECT)
 	item_display_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	item_display_layer.set_anchors_preset(Control.PRESET_FULL_RECT)
 	
-	# 放在槽位容器之后（上层）
-	if slot_container.get_parent().has_node("ItemDisplayLayer"):
-		pass
-	else:
-		slot_container.get_parent().add_child(item_display_layer)
-		item_display_layer.z_index = 10  # 放在上层
+	# 作为 slot_container 的子节点
+	slot_container.add_child(item_display_layer)
+	item_display_layer.z_index = 10  # 放在上层
 
 ## 创建槽位高亮层
 var slot_overlay_layer: Control
@@ -182,17 +280,21 @@ func _display_item(item: ItemData, is_synergy_highlight: bool = false) -> void:
 	var slot_count: int = item.get_slot_count()
 	var start_slot: int = item.slot_index
 	
-	# 创建物品面板（跨越多个槽位）
+	if start_slot >= slot_panels.size():
+		return
+	
+	# 直接用索引计算位置
+	var x_offset = start_slot * (SLOT_SIZE + SLOT_SPACING)
+	
+	# 创建物品面板
 	var item_panel = Control.new()
 	item_panel.name = "Item_%s" % item.item_name
 	item_panel.custom_minimum_size = Vector2(
 		slot_count * SLOT_SIZE + (slot_count - 1) * SLOT_SPACING - 8,
 		SLOT_SIZE - 8
 	)
-	
-	# 计算位置（基于起始槽位）
-	var slot_pos = slot_panels[start_slot].global_position
-	item_panel.global_position = slot_pos + Vector2(4, 4)
+	# 设置位置
+	item_panel.position = Vector2(x_offset + 4, 4)
 	
 	# 添加背景样式
 	var bg = Panel.new()
@@ -215,16 +317,34 @@ func _display_item(item: ItemData, is_synergy_highlight: bool = false) -> void:
 	bg.add_theme_stylebox_override("panel", style)
 	item_panel.add_child(bg)
 	
-	# 添加物品名称标签
+	# 尝试加载并显示物品图片
+	var texture_path = _get_item_texture_path(item)
+	if texture_path != "" and ResourceLoader.exists(texture_path):
+		var texture = load(texture_path)
+		if texture:
+			var texture_rect = TextureRect.new()
+			texture_rect.texture = texture
+			texture_rect.set_anchors_preset(Control.PRESET_FULL_RECT)
+			texture_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+			texture_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+			texture_rect.position = Vector2(4, 4)
+			texture_rect.custom_minimum_size = Vector2(
+				slot_count * SLOT_SIZE + (slot_count - 1) * SLOT_SPACING - 16,
+				SLOT_SIZE - 16
+			)
+			item_panel.add_child(texture_rect)
+	
+	# 添加物品名称标签（放在图片下方或替代图片时显示）
 	var label = Label.new()
 	label.name = "ItemName"
 	label.text = item.item_name
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	label.add_theme_font_size_override("font_size", 11)
+	label.add_theme_font_size_override("font_size", 10)
 	label.add_theme_color_override("font_color", Color.WHITE)
 	label.set_anchors_preset(Control.PRESET_FULL_RECT)
-	label.position.y -= 8  # 给 Cooldown 留出空间
+	label.offset_top = SLOT_SIZE - 24  # 放在底部
+	label.offset_bottom = -4
 	item_panel.add_child(label)
 	
 	# 如果物品有 Cooldown，添加进度条

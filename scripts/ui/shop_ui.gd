@@ -46,11 +46,14 @@ func _ready() -> void:
 
 ## 显示商店
 func show_shop(inventory_ref: LinearInventory) -> void:
+	print("[DEBUG] show_shop() called!")
+	print("  inventory_ref: " + str(inventory_ref))
 	inventory = inventory_ref
 	player_gold = GameManager.gold
 	
 	# 生成商店物品
 	_generate_shop_items()
+	print("  shop_items generated: " + str(shop_items.size()))
 	
 	# 更新 UI
 	_update_gold_label()
@@ -58,6 +61,7 @@ func show_shop(inventory_ref: LinearInventory) -> void:
 	
 	# 显示
 	visible = true
+	print("[DEBUG] ShopUI visible = " + str(visible))
 	print("商店已打开")
 
 ## 隐藏商店
@@ -206,6 +210,18 @@ func _create_item_display(item: ItemData) -> Control:
 	var container = HBoxContainer.new()
 	container.custom_minimum_size = Vector2(0, 80)
 	
+	# 尝试加载物品图片
+	var texture_path = _get_shop_item_texture_path(item)
+	if texture_path != "" and ResourceLoader.exists(texture_path):
+		var texture = load(texture_path)
+		if texture:
+			var texture_rect = TextureRect.new()
+			texture_rect.texture = texture
+			texture_rect.custom_minimum_size = Vector2(64, 64)
+			texture_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+			texture_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+			container.add_child(texture_rect)
+	
 	# 物品信息
 	var info_vbox = VBoxContainer.new()
 	
@@ -282,6 +298,46 @@ func _get_rarity_color(rarity: int) -> Color:
 		5: return Color(1.0, 0.7, 0.2)  # 传说 - 金
 		_: return Color.WHITE
 
+## 获取商店物品图片路径
+func _get_shop_item_texture_path(item: ItemData) -> String:
+	if item == null:
+		return ""
+	
+	# 武器
+	if item.type == ItemDataClass.Type.WEAPON:
+		if item.damage >= 30:
+			return "res://assets/art/items/item_great_sword.png"
+		elif item.damage >= 20:
+			return "res://assets/art/items/item_steel_sword.png"
+		elif item.damage >= 15:
+			return "res://assets/art/items/item_battle_axe.png"
+		else:
+			return "res://assets/art/items/item_iron_sword.png"
+	
+	# 护盾
+	if item.type == ItemDataClass.Type.SHIELD:
+		if item.shield >= 25:
+			return "res://assets/art/items/item_tower_shield.png"
+		elif item.shield >= 15:
+			return "res://assets/art/items/item_iron_shield.png"
+		else:
+			return "res://assets/art/items/item_wooden_shield.png"
+	
+	# 治疗
+	if item.type == ItemDataClass.Type.HEAL:
+		if item.heal >= 20:
+			return "res://assets/art/items/item_big_health_potion.png"
+		elif item.heal >= 10:
+			return "res://assets/art/items/item_health_potion.png"
+		else:
+			return "res://assets/art/items/item_regen_potion.png"
+	
+	# 辅助
+	if item.type == ItemDataClass.Type.UTILITY:
+		return "res://assets/art/items/item_ring_strength.png"
+	
+	return ""
+
 ## 更新金币显示
 func _update_gold_label() -> void:
 	gold_label.text = "当前金币: %d" % GameManager.gold
@@ -297,11 +353,14 @@ func _on_buy_pressed(item: ItemData, button: Button) -> void:
 	if inventory != null:
 		var empty_slots = inventory.find_empty_slots(item.get_slot_count())
 		if empty_slots.is_empty():
-			print("背包空间不足！")
+			print("[DEBUG] 背包空间不足！")
 			return
+	else:
+		print("[DEBUG] inventory is null!")
 	
 	# 扣除金币
 	if GameManager.spend_gold(item.buy_price):
+		print("[DEBUG] 金币已扣除，准备添加物品到背包")
 		# 添加物品到背包
 		_add_item_to_inventory(item)
 		
@@ -314,11 +373,13 @@ func _on_buy_pressed(item: ItemData, button: Button) -> void:
 		
 		print("购买成功: %s (花费 %d 金币)" % [item.item_name, item.buy_price])
 	else:
-		print("购买失败: 金币不足")
+		print("[DEBUG] 购买失败: 金币不足")
 
 ## 添加物品到背包（包含合成逻辑）
 func _add_item_to_inventory(item: ItemData) -> void:
+	print("[DEBUG] _add_item_to_inventory() called!")
 	if inventory == null:
+		print("[DEBUG] inventory is null, cannot add item!")
 		return
 	
 	# 检查是否可以合成
@@ -331,10 +392,12 @@ func _add_item_to_inventory(item: ItemData) -> void:
 	
 	# 查找空位
 	var empty_slots = inventory.find_empty_slots(item.get_slot_count())
+	print("[DEBUG] empty_slots: " + str(empty_slots))
 	if not empty_slots.is_empty():
 		var slot = empty_slots[0]
 		inventory.place_item(item, slot)
 		print("物品已放入背包，槽位: %d" % slot)
+		print("[DEBUG] 物品添加成功! 背包物品数量: " + str(inventory.items.size()))
 	else:
 		print("警告: 没有可用槽位")
 

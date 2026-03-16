@@ -253,6 +253,7 @@ func _handle_event_selection(event_text: String) -> void:
 	print("选择了事件: %s" % event_text)
 	
 	if "商人" in event_text or "🏪" in event_text:
+		print("[DEBUG] 检测到商人事件，准备打开商店")
 		_execute_shop_event()
 	elif "怪物" in event_text or "👹" in event_text:
 		_execute_monster_event()
@@ -285,16 +286,28 @@ func _execute_shop_event() -> void:
 
 ## 打开商店 UI
 func _open_shop_ui() -> void:
+	_write_debug("========== _open_shop_ui() 被调用 ==========")
+	_write_debug("inventory_ui: " + str(inventory_ui))
 	if inventory_ui and inventory_ui.has_method("get_inventory"):
 		var inventory = inventory_ui.get_inventory()
+		_write_debug("inventory: " + str(inventory))
 		shop_ui.visible = true  # 确保商店 UI 可见
 		shop_ui.show_shop(inventory)
 		
 		# 设置关闭回调：商店关闭后进入下一小时
 		shop_ui.shop_closed.connect(_on_shop_closed)
-		print("商店已打开")
+		_write_debug("商店已打开")
 	else:
-		print("错误: 无法获取背包实例")
+		_write_debug("ERROR: 无法获取背包实例")
+
+## 写调试文件
+func _write_debug(msg: String) -> void:
+	print(msg)
+	var file = FileAccess.open("user://debug.log", FileAccess.READ_WRITE)
+	if file:
+		file.seek_end()
+		file.store_line(msg)
+		file.close()
 
 ## 商店关闭回调
 func _on_shop_closed() -> void:
