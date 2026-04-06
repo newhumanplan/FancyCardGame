@@ -50,6 +50,12 @@ const HeroDataClass = preload("res://scripts/data/hero_data.gd")
 ## 战斗 UI
 @onready var battle_ui: Control = $BattleUI
 
+## 游戏结束面板
+@onready var game_over_panel: PanelContainer = $GameOverPanel
+@onready var game_over_title: Label = $GameOverPanel/GameOverVBox/GameOverTitle
+@onready var game_over_stats: Label = $GameOverPanel/GameOverVBox/StatsLabel
+@onready var restart_button: Button = $GameOverPanel/GameOverVBox/RestartButton
+
 ## 当前是否在英雄选择阶段
 var is_in_hero_selection: bool = true
 
@@ -97,6 +103,9 @@ func _setup_buttons() -> void:
 	event_option_1.pressed.connect(_on_event_option_1_selected)
 	event_option_2.pressed.connect(_on_event_option_2_selected)
 	event_option_3.pressed.connect(_on_event_option_3_selected)
+	
+	# 游戏结束按钮
+	restart_button.pressed.connect(_on_restart_game_pressed)
 
 ## ============ 英雄选择 ============
 
@@ -326,41 +335,97 @@ func _execute_pvp_event() -> void:
 	# 开始 PvP 战斗
 	_start_pvp_battle()
 
-## 执行随机事件
+## 执行随机事件（扩展版，12种事件）
 func _execute_random_event() -> void:
 	print("执行随机事件")
-	var events = ["gold_boost", "heal", "damage", "treasure"]
+	var day = GameManager.current_day
+	var events = [
+		"merchant_bonus",    # 商人多给钱
+		"healing_fountain",  # 治愈之泉
+		"pickpocket",        # 遭遇小偷
+		"treasure",          # 发现宝藏
+		"heal",              # 遇到旅人赠送血瓶
+		"bandits",           # 遭遇盗贼（战斗或付钱）
+		"wounded_hero",      # 救助受伤英雄（声望）
+		"storm",             # 暴风雨（扣金币或扣血）
+		"strange_merchant",  # 神秘商人（物品）
+		"ancient_shrine",    # 古老祭坛（随机增益）
+		"thief_guild",       # 盗贼公会（偷或打）
+		"blessed_rest",      # 受到祝福的休息
+	]
 	var random_event = events.pick_random()
 	
 	match random_event:
-		"gold_boost":
-			GameManager.add_gold(5)
-			print("随机事件: 获得 5 金币!")
-		"heal":
-			GameManager.heal(10)
-			print("随机事件: 恢复 10 HP!")
-		"damage":
-			GameManager.take_damage(5)
-			print("随机事件: 受到 5 点伤害!")
+		"merchant_bonus":
+			GameManager.add_gold(8 + day * 2)
+			print("随机事件: 慷慨商人! 获得 %d 金币!" % (8 + day * 2))
+		"healing_fountain":
+			var heal_amount = GameManager.get_max_health() / 4
+			GameManager.heal(heal_amount)
+			print("随机事件: 治愈之泉! 恢复 %d HP!" % heal_amount)
+		"pickpocket":
+			var stolen = mini(GameManager.gold, 5 + day * 2)
+			GameManager.spend_gold(stolen)
+			print("随机事件: 遭遇小偷! 损失 %d 金币!" % stolen)
 		"treasure":
-			GameManager.add_gold(10)
-			print("随机事件: 发现宝藏，获得 10 金币!")
+			GameManager.add_gold(10 + day * 3)
+			print("随机事件: 发现隐藏宝藏! 获得 %d 金币!" % (10 + day * 3))
+		"heal":
+			GameManager.heal(15 + day * 2)
+			print("随机事件: 遇到好心旅人! 恢复 %d HP!" % (15 + day * 2))
+		"bandits":
+			# 扣血或付钱，付一半金币可免战
+			var damage = 5 + day * 3
+			GameManager.take_damage(damage)
+			print("随机事件: 遭遇盗贼! 受到 %d 点伤害!" % damage)
+		"wounded_hero":
+			GameManager.add_prestige(3)
+			GameManager.add_gold(5)
+			print("随机事件: 救助受伤英雄! 获得 5 金币，+3 声望!")
+		"storm":
+			var lost = 3 + day * 2
+			GameManager.spend_gold(lost)
+			GameManager.take_damage(3)
+			print("随机事件: 暴风雨! 损失 %d 金币，受到 3 点伤害!" % lost)
+		"strange_merchant":
+			GameManager.add_gold(20 + day * 3)
+			GameManager.take_damage(5)
+			print("随机事件: 神秘商人! 获得 %d 金币但受到诅咒损失 5 HP!" % (20 + day * 3))
+		"ancient_shrine":
+			var bonus_atk = 3 + day
+			GameManager.add_attack(bonus_atk)
+			print("随机事件: 古老祭坛! 攻击力 +%d (永久)!" % bonus_atk)
+		"thief_guild":
+			# 盗贼公会可以选择偷或被抢
+			var stolen = 5 + day * 2
+			GameManager.spend_gold(stolen)
+			print("随机事件: 盗贼公会! 被收取保护费 %d 金币!" % stolen)
+		"blessed_rest":
+			var heal_amount = GameManager.get_max_health() / 3
+			GameManager.heal(heal_amount)
+			GameManager.add_gold(5)
+			print("随机事件: 受到祝福的休息! 恢复 %d HP，获得 5 金币!" % heal_amount)
 	
 	# 事件完成后自动进入下一小时
 	_auto_advance_hour()
 
-## 执行宝库事件
+## 执行宝库事件（强化版）
 func _execute_treasure_event() -> void:
 	print("执行宝库事件")
-	GameManager.add_gold(15)
-	print("宝库事件: 获得 15 金币!")
+	var day = GameManager.current_day
+	var gold = 15 + day * 5
+	GameManager.add_gold(gold)
+	print("宝库事件: 发现古代宝库! 获得 %d 金币!" % gold)
 	_auto_advance_hour()
 
-## 执行营地事件
+## 执行营地事件（强化版）
 func _execute_camp_event() -> void:
 	print("执行营地事件")
-	GameManager.heal(20)
-	print("营地事件: 休息恢复 20 HP!")
+	var day = GameManager.current_day
+	var heal = 20 + day * 5
+	GameManager.heal(heal)
+	GameManager.add_prestige(2)
+	print("营地事件: 营地休息! 恢复 %d HP，+2 声望!" % heal)
 	_auto_advance_hour()
 
 ## ============ 战斗系统 ============
@@ -534,13 +599,45 @@ func _on_prestige_changed(value: int) -> void:
 	prestige_label.text = "Prestige: %d/%d" % [value, GameManager.max_prestige]
 	prestige_bar.value = value
 
-## 游戏结束（胜利）回调
+## 游戏结束回调
 func _on_game_over(won: bool) -> void:
 	if won:
-		title_label.text = "🎉 10 胜达成! 你赢了!"
+		game_over_title.text = "🎉 游戏胜利!"
+		game_over_title.add_theme_color_override("font_color", Color(1.0, 0.84, 0.0))
 		print("🎉 游戏胜利! 10 胜达成!")
-		# 禁用事件面板
-		_hide_event_panel()
+	else:
+		game_over_title.text = "💀 游戏失败!"
+		game_over_title.add_theme_color_override("font_color", Color(1.0, 0.3, 0.3))
+		print("💀 游戏失败!")
+	
+	# 显示统计
+	game_over_stats.text = (
+		"存活天数: %d\n总金币: %d\n胜利场次: %d\n失败场次: %d"
+		% [GameManager.current_day, GameManager.stats_total_gold_earned,
+		   GameManager.stats_total_wins, GameManager.stats_total_losses]
+	)
+	
+	# 显示结算面板，隐藏其他 UI
+	_show_game_over_panel()
+	_hide_event_panel()
+	_hide_game_buttons()
+	$VBox.visible = false
+
+## 显示游戏结束面板
+func _show_game_over_panel() -> void:
+	game_over_panel.visible = true
+
+## 隐藏游戏结束面板
+func _hide_game_over_panel() -> void:
+	game_over_panel.visible = false
+
+## 重新开始游戏
+func _on_restart_game_pressed() -> void:
+	GameManager.reset_stats()
+	_hide_game_over_panel()
+	_show_hero_selection()
+	_hide_game_buttons()
+	_update_ui()
 
 ## ============ 按钮回调（备用，保留以防需要直接点击）===========
 

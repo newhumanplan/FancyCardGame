@@ -7,6 +7,51 @@ extends Node
 ## 金币
 var gold: int = 100
 
+## ============ 统计系统 ============
+
+## 总战斗场次
+var stats_total_battles: int = 0
+
+## 总胜利场次
+var stats_total_wins: int = 0
+
+## 总失败场次
+var stats_total_losses: int = 0
+
+## 总获得金币
+var stats_total_gold_earned: int = 0
+
+## ============ 统计方法 ============
+
+## 记录战斗胜利
+func record_battle_win() -> void:
+	stats_total_battles += 1
+	stats_total_wins += 1
+
+## 记录战斗失败
+func record_battle_loss() -> void:
+	stats_total_battles += 1
+	stats_total_losses += 1
+
+## 记录获得金币
+func record_gold_earned(amount: int) -> void:
+	stats_total_gold_earned += amount
+
+## 重置所有统计数据（含游戏状态）
+func reset_stats() -> void:
+	stats_total_battles = 0
+	stats_total_wins = 0
+	stats_total_losses = 0
+	stats_total_gold_earned = 0
+	wins = 0
+	losses = 0
+	prestige = 20
+	gold = 100
+	current_day = 1
+	current_hour = 0
+	day_changed.emit(current_day)
+	hour_changed.emit(current_hour, get_current_phase_name())
+
 ## ============ Day/Hour 循环系统 ============
 
 ## 当前天数
@@ -138,6 +183,7 @@ func get_gold() -> int:
 ## 增加金币
 func add_gold(amount: int) -> void:
 	gold += amount
+	record_gold_earned(amount)
 	gold_changed.emit(amount)
 
 ## 花费金币
@@ -169,6 +215,11 @@ func add_prestige(amount: int) -> void:
 	prestige = min(prestige + amount, max_prestige)
 	prestige_changed.emit(prestige)
 
+## 增加攻击力
+func add_attack(amount: int) -> void:
+	player_attack += amount
+	attack_changed.emit(player_attack)
+
 ## 减少 Prestige
 func remove_prestige(amount: int) -> void:
 	var old_prestige = prestige
@@ -199,6 +250,7 @@ func buy_prestige(amount: int, cost: int) -> bool:
 ## 战斗胜利
 func on_battle_win() -> void:
 	wins += 1
+	record_battle_win()
 	# 根据连胜增加 Prestige
 	var bonus: int = 1
 	if wins >= 3:
@@ -220,11 +272,13 @@ func _show_victory() -> void:
 func on_battle_lose() -> void:
 	losses += 1
 	wins = 0  # 重置连胜
+	record_battle_loss()
 
 ## PvP 失败 - 扣除当前天数的 Prestige
 func on_pvp_lose() -> void:
 	losses += 1
 	wins = 0
+	record_battle_loss()
 	# 扣除当前 Day 数作为惩罚
 	var penalty: int = current_day
 	remove_prestige(penalty)
