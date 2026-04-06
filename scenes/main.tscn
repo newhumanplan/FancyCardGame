@@ -266,3 +266,41 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
+
+[node name="GameOverPanel" type="PanelContainer" parent="."]
+visible = false
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -200.0
+offset_top = -180.0
+offset_right = 200.0
+offset_bottom = 180.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="GameOverVBox" type="VBoxContainer" parent="GameOverPanel"]
+layout_mode = 2
+theme_override_constants/separation = 15
+horizontal_alignment = 2
+
+[node name="GameOverTitle" type="Label" parent="GameOverPanel/GameOverVBox"]
+layout_mode = 2
+text = "游戏结束"
+horizontal_alignment = 1
+
+[node name="StatsLabel" type="Label" parent="GameOverPanel/GameOverVBox"]
+layout_mode = 2
+text = "存活天数: 1
+总金币: 0
+胜利场次: 0
+失败场次: 0"
+horizontal_alignment = 1
+
+[node name="RestartButton" type="Button" parent="GameOverPanel/GameOverVBox"]
+layout_mode = 2
+size_flags_horizontal = 4
+text = "再来一局"
