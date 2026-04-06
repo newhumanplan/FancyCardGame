@@ -21,6 +21,10 @@ var enemy_attack_bonus: int = 0
 ## 是否为 PvP 战斗
 var is_pvp: bool = false
 
+## 战斗结果缓存
+var _last_battle_won: bool = false
+var _last_gold_reward: int = 0
+
 ## PvP 对手暴击率（运行时）
 var enemy_crit_chance: float = 0.0
 
@@ -58,6 +62,8 @@ signal battle_log(message: String)
 @onready var battle_log_label: RichTextLabel = $BattlePanel/VBox/BattleLogArea/BattleLogLabel
 @onready var result_label: Label = $BattlePanel/VBox/ResultLabel
 @onready var auto_battle_check: CheckButton = $BattlePanel/VBox/AutoBattleCheck
+## 继续按钮（战斗结束后显示）
+@onready var continue_button: Button = $BattlePanel/VBox/ContinueButton
 
 ## 自动战斗开关
 var auto_battle: bool = true
@@ -75,6 +81,9 @@ func _ready() -> void:
 	# 自动战斗默认开启
 	auto_battle_check.button_pressed = true
 	auto_battle_check.toggled.connect(_on_auto_battle_toggled)
+	
+	# 继续按钮信号连接
+	continue_button.pressed.connect(_on_continue_pressed)
 	
 	print("BattleUI 已初始化")
 
@@ -201,6 +210,7 @@ func _create_pvp_enemy() -> MonsterData:
 func _show_battle_panel() -> void:
 	battle_panel.visible = true
 	result_label.visible = false
+	continue_button.visible = false
 	battle_log_label.clear()
 
 ## 隐藏战斗面板
@@ -354,14 +364,15 @@ func _on_battle_win() -> void:
 	result_label.visible = true
 	_log("🎉 战斗胜利! 获得 %d 金币!" % gold_reward)
 	
+	# 缓存战斗结果
+	_last_battle_won = true
+	_last_gold_reward = gold_reward
+	
 	# 关闭战斗系统
 	battle_system.end_battle()
 	
-	# 延迟关闭面板
-	await get_tree().create_timer(2.0).timeout
-	
-	# 发出信号
-	battle_ended.emit(true, gold_reward)
+	# 显示继续按钮，等待玩家点击
+	continue_button.visible = true
 
 ## 战斗失败
 func _on_battle_lose() -> void:
@@ -378,14 +389,20 @@ func _on_battle_lose() -> void:
 	result_label.visible = true
 	_log("💀 战斗失败!")
 	
+	# 缓存战斗结果
+	_last_battle_won = false
+	_last_gold_reward = 0
+	
 	# 关闭战斗系统
 	battle_system.end_battle()
 	
-	# 延迟关闭面板
-	await get_tree().create_timer(2.0).timeout
-	
-	# 发出信号
-	battle_ended.emit(false, 0)
+	# 显示继续按钮，等待玩家点击
+	continue_button.visible = true
+
+## 继续按钮回调 - 隐藏战斗面板并发出信号
+func _on_continue_pressed() -> void:
+	_hide_battle_panel()
+	battle_ended.emit(_last_battle_won, _last_gold_reward)
 
 ## 获取战斗系统实例（供外部调用）
 func get_battle_system() -> Node:

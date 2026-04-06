@@ -568,3 +568,35 @@ func _on_next_hour_pressed() -> void:
 	print("下一小时按钮被点击（已禁用自动流转）")
 	_auto_advance_hour()
 
+
+## ============ 验收测试入口 (临时) ============
+
+var _test_state := 0  # 测试状态计数器
+
+func _input(event: InputEvent) -> void:
+	if event is InputEventKey and event.pressed:
+		match event.keycode:
+			# F12: 推进游戏状态
+			KEY_F12:
+				_advance_test_state()
+
+func _advance_test_state() -> void:
+	_test_state += 1
+	print("[TEST] Advance to state %d" % _test_state)
+	
+	match _test_state:
+		1:
+			# 选择战士
+			_on_warrior_selected()
+		2:
+			# 点击事件选项1
+			if has_node("EventPanel/EventVBox/EventOptions/Option1"):
+				var btn = $EventPanel/EventVBox/EventOptions/Option1
+				btn.pressed.emit()
+		3:
+			# 跳过 (商店/战斗已触发)
+			_auto_advance_hour()
+		4:
+			# 打开背包
+			if has_node("InventoryUI"):
+				$InventoryUI.visible = true

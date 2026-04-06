@@ -39,7 +39,7 @@ border_width_bottom = 2
 border_color = Color(0.4, 0.4, 0.5, 1)
 
 [node name="Main" type="Control"]
-layout_mode = 3
+layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
@@ -47,11 +47,18 @@ grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_main")
 
+[node name="Background" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+color = Color(0.08, 0.08, 0.12, 1)
+
 [node name="TopBar" type="HBoxContainer" parent="."]
 layout_mode = 1
-offset_left = 20.0
+offset_left = 10.0
 offset_top = 10.0
-offset_right = 350.0
+offset_right = -10.0
 offset_bottom = 80.0
 theme_override_constants/separation = 20
 
@@ -69,7 +76,7 @@ text = "未选择英雄"
 
 [node name="StatsPanel" type="VBoxContainer" parent="."]
 layout_mode = 1
-offset_left = 20.0
+offset_left = 10.0
 offset_top = 90.0
 offset_right = 200.0
 offset_bottom = 200.0
@@ -92,7 +99,7 @@ text = "金币: 100"
 
 [node name="PrestigeContainer" type="VBoxContainer" parent="."]
 layout_mode = 1
-offset_left = 20.0
+offset_left = 10.0
 offset_top = 210.0
 offset_right = 200.0
 offset_bottom = 250.0
@@ -235,17 +242,14 @@ text = "✨ 事件"
 
 [node name="InventoryUI" parent="." instance=ExtResource("2_inventory")]
 layout_mode = 1
-anchors_preset = 7
-anchor_left = 0.5
+anchor_left = 0.0
 anchor_top = 1.0
-anchor_right = 0.5
+anchor_right = 1.0
 anchor_bottom = 1.0
-offset_left = -420.0
-offset_top = -180.0
-offset_right = 420.0
-offset_bottom = -20.0
-grow_horizontal = 2
-grow_vertical = 0
+offset_left = 10.0
+offset_top = -100.0
+offset_right = -10.0
+offset_bottom = -10.0
 
 [node name="ShopUI" parent="." instance=ExtResource("3_shop")]
 layout_mode = 1

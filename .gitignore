@@ -17,3 +17,17 @@ Thumbs.db
 .idea/
 *.swp
 *.swo
+
+# Test files
+test_*.gd
+test_*.tscn
+screenshots/
+
+# Cleanup temp
+/tmp/
+
+# AI agent temp files
+AGENTS.md
+PLAN.md
+PROGRESS.md
+assets/_prompt_library/
