@@ -280,15 +280,16 @@ func _display_item(item: ItemData, is_synergy_highlight: bool = false) -> void:
 	if start_slot >= slot_panels.size():
 		return
 	
-	# 使用槽位的实际位置来定位物品（而非硬编码坐标）
+	# 使用槽位的实际全局位置来定位物品
 	var first_slot_panel = slot_panels[start_slot]
 	var slot_global_pos = first_slot_panel.global_position
-	var display_local_pos = item_display_layer.to_local(slot_global_pos)
+	var layer_global_pos = item_display_layer.global_position if is_instance_valid(item_display_layer) else Vector2.ZERO
+	var local_pos = slot_global_pos - layer_global_pos
 	
 	# 创建物品面板
 	var item_panel = Control.new()
 	item_panel.name = "Item_%s" % item.item_name
-	item_panel.position = Vector2(display_local_pos.x + 4, display_local_pos.y + 4)
+	item_panel.position = Vector2(local_pos.x + 4, local_pos.y + 4)
 	var panel_size = Vector2(
 		slot_count * SLOT_SIZE + (slot_count - 1) * SLOT_SPACING - 8,
 		SLOT_SIZE - 8
