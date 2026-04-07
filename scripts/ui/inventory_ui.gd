@@ -280,18 +280,19 @@ func _display_item(item: ItemData, is_synergy_highlight: bool = false) -> void:
 	if start_slot >= slot_panels.size():
 		return
 	
-	# 直接用索引计算位置
-	var x_offset = start_slot * (SLOT_SIZE + SLOT_SPACING)
+	# 使用槽位的实际位置来定位物品（而非硬编码坐标）
+	var first_slot_panel = slot_panels[start_slot]
+	var slot_global_pos = first_slot_panel.global_position
+	var display_local_pos = item_display_layer.to_local(slot_global_pos)
 	
 	# 创建物品面板
 	var item_panel = Control.new()
 	item_panel.name = "Item_%s" % item.item_name
+	item_panel.position = Vector2(display_local_pos.x + 4, display_local_pos.y + 4)
 	item_panel.custom_minimum_size = Vector2(
 		slot_count * SLOT_SIZE + (slot_count - 1) * SLOT_SPACING - 8,
 		SLOT_SIZE - 8
 	)
-	# 设置位置
-	item_panel.position = Vector2(x_offset + 4, 4)
 	
 	# 添加背景样式
 	var bg = Panel.new()
@@ -897,25 +898,22 @@ func _add_test_items() -> void:
 	inventory.place_item(item5, 8)  # 毒匕首（紧邻药水）
 
 ## 更新 Cooldown 显示（每帧调用）
-func _process(delta: float) -> void:
-	# 只在战斗中更新 Cooldown
+## 注意：冷却倒计时由 battle_system.update_cooldowns() 统一管理
+## 这里只负责刷新显示，不修改 cooldown 数据
+func _process(_delta: float) -> void:
+	# 只在战斗中刷新冷却显示
 	var battle_ui_node = get_parent().get_node_or_null("BattleUI")
 	if battle_ui_node and not battle_ui_node.is_battle_active:
 		return
 	
-	# 更新所有物品的 Cooldown
+	# 检查是否有冷却中的物品，有则刷新显示
+	var has_active_cooldown = false
 	for item in inventory.items:
-		if item.current_cooldown > 0:
-			item.current_cooldown = max(0, item.current_cooldown - delta)
-	
-	# 刷新显示以更新进度条（只在有冷却变化时）
-	var has_cooldown_change = false
-	for item in inventory.items:
-		if item.current_cooldown > 0:
-			has_cooldown_change = true
+		if item != null and item.current_cooldown > 0:
+			has_active_cooldown = true
 			break
 	
-	if has_cooldown_change:
+	if has_active_cooldown:
 		_refresh_display()
 
 ## 获取库存实例（供外部使用）
