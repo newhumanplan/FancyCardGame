@@ -1,6 +1,8 @@
 extends Node
 
 ## 游戏管理器 - 管理全局状态
+## 重构：移除 ATK/DEF，按原版大巴扎 1:1 复刻
+## 英雄只有 HP + 被动技能，伤害完全来自物品触发
 
 ## ============ 基础属性 ============
 
@@ -49,6 +51,7 @@ func reset_stats() -> void:
 	gold = 100
 	current_day = 1
 	current_hour = 0
+	player_health = 100
 	day_changed.emit(current_day)
 	hour_changed.emit(current_hour, get_current_phase_name())
 
@@ -76,12 +79,6 @@ var selected_hero: HeroData = null
 ## 玩家生命值
 var player_health: int = 100
 
-## 玩家攻击力
-var player_attack: int = 10
-
-## 玩家防御力
-var player_defense: int = 5
-
 ## ============ Prestige 系统 ============
 
 ## Prestige 值 (初始值 20)
@@ -101,8 +98,6 @@ var losses: int = 0
 signal gold_changed(amount: int)
 signal prestige_changed(value: int)
 signal health_changed(amount: int)
-signal attack_changed(value: int)
-signal defense_changed(value: int)
 signal game_over(won: bool)
 
 func _ready() -> void:
@@ -141,38 +136,29 @@ func reset_day_hour() -> void:
 
 ## ============ 英雄系统 ============
 
-## 选择英雄
+## 选择英雄（只设置 HP，ATK/DEF 已移除）
 func select_hero(hero: HeroData) -> void:
 	selected_hero = hero
-	# 根据英雄类型设置初始属性
+	# 根据英雄类型设置初始属性（只有 HP）
 	if hero.hero_type == HeroData.HeroType.WARRIOR:
-		# 战士: HP120, ATK15, DEF10
+		# 战士: HP120
 		player_health = 120
-		player_attack = 15
-		player_defense = 10
 	elif hero.hero_type == HeroData.HeroType.MAGE:
-		# 法师: HP80, ATK25, DEF5
+		# 法师: HP80
 		player_health = 80
-		player_attack = 25
-		player_defense = 5
-	
+
 	health_changed.emit(player_health)
-	attack_changed.emit(player_attack)
-	defense_changed.emit(player_defense)
 	print("已选择英雄: %s (%s)" % [hero.hero_name, hero.get_type_name()])
 
 ## 应用被动技能加成
-func apply_skill_bonus(skill_name: String, bonus_type: String, value: int) -> void:
+func apply_skill_bonus(skill_name: String, bonus_type: String, value: float) -> void:
 	match bonus_type:
-		"attack":
-			player_attack += value
-			attack_changed.emit(player_attack)
-		"defense":
-			player_defense += value
-			defense_changed.emit(player_defense)
 		"health":
-			player_health += value
+			player_health += int(value)
 			health_changed.emit(player_health)
+		"crit":
+			if selected_hero:
+				selected_hero.crit_chance += value / 100.0
 
 ## ============ 金币管理 ============
 
@@ -202,8 +188,6 @@ func can_afford(amount: int) -> bool:
 
 ## 计算 Prestige 加成
 func get_prestige_bonus() -> float:
-	# Prestige 越高，奖励加成越多
-	# 公式: 1 + (prestige / 100)
 	return 1.0 + (float(prestige) / 100.0)
 
 ## 获取 Prestige 百分比
@@ -215,17 +199,12 @@ func add_prestige(amount: int) -> void:
 	prestige = min(prestige + amount, max_prestige)
 	prestige_changed.emit(prestige)
 
-## 增加攻击力
-func add_attack(amount: int) -> void:
-	player_attack += amount
-	attack_changed.emit(player_attack)
-
 ## 减少 Prestige
 func remove_prestige(amount: int) -> void:
 	var old_prestige = prestige
 	prestige = max(prestige - amount, 0)
 	prestige_changed.emit(prestige)
-	
+
 	# 检查是否归零
 	if old_prestige > 0 and prestige == 0:
 		_show_gold_upgrade_option()
@@ -233,10 +212,6 @@ func remove_prestige(amount: int) -> void:
 ## 显示黄金升级选项提示
 func _show_gold_upgrade_option() -> void:
 	print("💰 黄金升级选项已解锁!")
-	print("选择 1: 升级所有卡牌 (+50% 属性)")
-	print("选择 2: 附魔 (+1 暴击率)")
-	print("选择 3: 获得金币和经验 (+100 金币, +1 胜场)")
-	# 简化实现：自动选择选项3，获得奖励
 	add_gold(100)
 	print("💰 获得 100 金币奖励!")
 
@@ -258,7 +233,7 @@ func on_battle_win() -> void:
 	if wins >= 5:
 		bonus = 3
 	add_prestige(bonus)
-	
+
 	# 检查 10 胜胜利条件
 	if wins >= 10:
 		_show_victory()
@@ -292,14 +267,14 @@ func get_max_health() -> int:
 		return selected_hero.max_hp
 	return 100
 
-## 扣除生命值
-func take_damage(amount: int) -> void:
-	# 计算实际伤害（考虑防御力）
-	var actual_damage: int = maxi(amount - player_defense, 1)
-	player_health = max(0, player_health - actual_damage)
+## 扣除生命值（直接扣除，MVP 无防御属性）
+## 返回实际伤害值
+func take_damage(amount: int) -> int:
+	player_health = max(0, player_health - amount)
 	health_changed.emit(player_health)
 	if player_health <= 0:
 		game_over.emit(false)
+	return amount
 
 ## 治疗
 func heal(amount: int) -> void:
@@ -315,11 +290,8 @@ func reset() -> void:
 	current_day = 1
 	current_hour = 0
 	player_health = 100
-	player_attack = 10
-	player_defense = 5
 	wins = 0
 	losses = 0
-	# Prestige 保留
 	day_changed.emit(current_day)
 	hour_changed.emit(current_hour, get_current_phase_name())
 
@@ -329,9 +301,7 @@ func full_reset() -> void:
 	current_day = 1
 	current_hour = 0
 	player_health = 100
-	player_attack = 10
-	player_defense = 5
-	prestige = 20  # 使用初始值 20
+	prestige = 20
 	wins = 0
 	losses = 0
 	selected_hero = null

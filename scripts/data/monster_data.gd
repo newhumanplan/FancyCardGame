@@ -15,17 +15,15 @@ enum MonsterTier { TIER_1, TIER_2, TIER_3 }
 ## 最大生命值
 @export var max_hp: int = 50
 
-## 攻击力
-@export var attack: int = 10
-
-## 防御力
-@export var defense: int = 0
-
-## 攻击冷却时间
-@export var attack_cooldown: float = 4.0
-
 ## 当前生命值（运行时）
 var current_hp: int = 50
+
+## ============ 怪物物品系统 ============
+## 怪物的"武器"：1-3 个物品，各有 damage + cooldown
+## 在战斗循环中按 CD 触发，伤害扣玩家 HP
+
+## 怪物物品列表: [{name: String, damage: int, cooldown: float, current_cooldown: float}]
+var monster_items: Array[Dictionary] = []
 
 ## ============ 掉落奖励 ============
 
@@ -53,11 +51,11 @@ func reset_hp():
 func get_current_hp() -> int:
 	return current_hp
 
-## 受到伤害
+## 受到伤害（直接扣除，MVP 无防御属性）
 ## damage: 原始伤害值
 ## 返回: 实际受到的伤害
 func take_damage(damage: int) -> int:
-	var actual_damage: int = maxi(damage - defense, 1)  # 至少造成1点伤害
+	var actual_damage: int = damage
 	current_hp = maxi(current_hp - actual_damage, 0)
 	return actual_damage
 
@@ -71,11 +69,19 @@ func get_hp_percent() -> float:
 		return 0.0
 	return float(current_hp) / float(max_hp)
 
-## ============ 战斗相关方法 ============
+## ============ 怪物物品方法 ============
 
-## 攻击冷却是否完毕
-func can_attack() -> bool:
-	return is_alive()  # 简化版：只要活着就能攻击
+## 初始化怪物物品冷却（战斗开始时调用）
+func init_item_cooldowns() -> void:
+	for item in monster_items:
+		item["current_cooldown"] = item["cooldown"]
+
+## 重置怪物物品冷却（战斗结束时调用）
+func reset_item_cooldowns() -> void:
+	for item in monster_items:
+		item["current_cooldown"] = 0.0
+
+## ============ 战斗相关方法 ============
 
 ## 获取金币奖励
 func get_gold_reward() -> int:

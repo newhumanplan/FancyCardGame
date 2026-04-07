@@ -1,6 +1,7 @@
 extends Control
 
 ## 主场景 - 大巴扎风格卡牌游戏
+## 重构：移除 ATK/DEF，按原版大巴扎 1:1 复刻
 
 ## 预加载英雄数据
 const HeroDataClass = preload("res://scripts/data/hero_data.gd")
@@ -66,7 +67,7 @@ func _ready() -> void:
 	# 隐藏全屏UI（避免遮挡英雄选择）
 	shop_ui.visible = false
 	battle_ui.visible = false
-	
+
 	_connect_signals()
 	_setup_buttons()
 	_show_hero_selection()
@@ -82,8 +83,6 @@ func _connect_signals() -> void:
 	GameManager.day_changed.connect(_on_day_changed)
 	GameManager.hour_changed.connect(_on_hour_changed)
 	GameManager.health_changed.connect(_on_health_changed)
-	GameManager.attack_changed.connect(_on_attack_changed)
-	GameManager.defense_changed.connect(_on_defense_changed)
 	GameManager.prestige_changed.connect(_on_prestige_changed)
 	GameManager.game_over.connect(_on_game_over)
 
@@ -93,17 +92,17 @@ func _setup_buttons() -> void:
 	# 英雄选择按钮
 	warrior_button.pressed.connect(_on_warrior_selected)
 	mage_button.pressed.connect(_on_mage_selected)
-	
+
 	# 游戏按钮
 	shop_button.pressed.connect(_on_shop_pressed)
 	battle_button.pressed.connect(_on_battle_pressed)
 	next_hour_button.pressed.connect(_on_next_hour_pressed)
-	
+
 	# 事件选项按钮
 	event_option_1.pressed.connect(_on_event_option_1_selected)
 	event_option_2.pressed.connect(_on_event_option_2_selected)
 	event_option_3.pressed.connect(_on_event_option_3_selected)
-	
+
 	# 游戏结束按钮
 	restart_button.pressed.connect(_on_restart_game_pressed)
 
@@ -124,15 +123,13 @@ func _on_warrior_selected() -> void:
 	warrior.hero_name = "战士"
 	warrior.hero_type = HeroDataClass.HeroType.WARRIOR
 	warrior.max_hp = 120
-	warrior.attack = 15
-	warrior.defense = 10
 	warrior.crit_chance = 0.05
 	# 战士被动技能: 铁壁
 	warrior.passive_skill_name = "铁壁"
-	warrior.passive_skill_description = "减少受到的伤害"
-	warrior.passive_bonus_type = "defense"
-	warrior.passive_bonus_value = 3
-	
+	warrior.passive_skill_description = "增加生命值上限"
+	warrior.passive_bonus_type = "health"
+	warrior.passive_bonus_value = 20
+
 	GameManager.select_hero(warrior)
 	_apply_passive_skill(warrior)
 	_on_game_started()
@@ -142,15 +139,13 @@ func _on_mage_selected() -> void:
 	mage.hero_name = "法师"
 	mage.hero_type = HeroDataClass.HeroType.MAGE
 	mage.max_hp = 80
-	mage.attack = 25
-	mage.defense = 5
 	mage.crit_chance = 0.15
 	# 法师被动技能: 奥术智慧
 	mage.passive_skill_name = "奥术智慧"
 	mage.passive_skill_description = "增加暴击率"
 	mage.passive_bonus_type = "crit"
 	mage.passive_bonus_value = 10
-	
+
 	GameManager.select_hero(mage)
 	_apply_passive_skill(mage)
 	_on_game_started()
@@ -159,15 +154,13 @@ func _on_mage_selected() -> void:
 func _apply_passive_skill(hero: HeroData) -> void:
 	if not hero.has_passive_skill():
 		return
-	
+
 	match hero.passive_bonus_type:
-		"attack":
-			GameManager.apply_skill_bonus(hero.passive_skill_name, "attack", hero.passive_bonus_value)
-		"defense":
-			GameManager.apply_skill_bonus(hero.passive_skill_name, "defense", hero.passive_bonus_value)
 		"health":
 			GameManager.apply_skill_bonus(hero.passive_skill_name, "health", hero.passive_bonus_value)
-	
+		"crit":
+			GameManager.apply_skill_bonus(hero.passive_skill_name, "crit", hero.passive_bonus_value)
+
 	print("激活被动技能: %s" % hero.get_passive_skill_full_description())
 
 ## 游戏开始
@@ -193,7 +186,7 @@ func _hide_event_panel() -> void:
 ## 生成随机事件选项
 func _generate_event_options() -> void:
 	var hour = GameManager.current_hour
-	
+
 	# Hour 4 固定为 PvP 战斗
 	if hour == 4:
 		event_option_1.text = "⚔️ PvP 对战"
@@ -202,16 +195,16 @@ func _generate_event_options() -> void:
 		event_option_3.visible = false
 		current_event_type = "pvp"
 		return
-	
+
 	# 其他 Hour: 随机生成 3 个选项
 	var options = []
-	
+
 	# 商人选项（购买物品）
 	options.append({"type": "shop", "text": "🏪 商人", "desc": "购买物品"})
-	
+
 	# 怪物选项（PvE 战斗）
 	options.append({"type": "monster", "text": "👹 怪物", "desc": "PvE 战斗"})
-	
+
 	# 随机事件选项
 	var event_types = ["随机事件", "宝库", "营地", "商人", "怪物"]
 	var random_event = event_types.pick_random()
@@ -226,21 +219,21 @@ func _generate_event_options() -> void:
 			options.append({"type": "shop", "text": "🏪 商人", "desc": "购买物品"})
 		"怪物":
 			options.append({"type": "monster", "text": "👹 怪物", "desc": "PvE 战斗"})
-	
+
 	# 打乱顺序
 	options.shuffle()
-	
+
 	# 显示选项
 	event_option_1.text = options[0].text
 	event_option_1.visible = true
 	current_event_type = options[0].type
-	
+
 	if options.size() > 1:
 		event_option_2.text = options[1].text
 		event_option_2.visible = true
 	else:
 		event_option_2.visible = false
-	
+
 	if options.size() > 2:
 		event_option_3.text = options[2].text
 		event_option_3.visible = true
@@ -260,7 +253,7 @@ func _on_event_option_3_selected() -> void:
 ## 处理事件选择
 func _handle_event_selection(event_text: String) -> void:
 	print("选择了事件: %s" % event_text)
-	
+
 	if "商人" in event_text or "🏪" in event_text:
 		print("[DEBUG] 检测到商人事件，准备打开商店")
 		_execute_shop_event()
@@ -275,7 +268,6 @@ func _handle_event_selection(event_text: String) -> void:
 	elif "营地" in event_text or "⛺" in event_text:
 		_execute_camp_event()
 	else:
-		# 未知事件，默认执行
 		_execute_random_event()
 
 ## ============ 事件执行 ============
@@ -283,14 +275,10 @@ func _handle_event_selection(event_text: String) -> void:
 ## 执行商店事件
 func _execute_shop_event() -> void:
 	print("执行商店事件")
-	# 根据当前 Hour 判断是否可购买
 	if GameManager.is_pvp_hour():
 		print("PvP阶段不能购买!")
-		# 仍然进入下一小时
 		_auto_advance_hour()
 		return
-	
-	# 打开商店 UI
 	_open_shop_ui()
 
 ## 打开商店 UI
@@ -300,10 +288,8 @@ func _open_shop_ui() -> void:
 	if inventory_ui and inventory_ui.has_method("get_inventory"):
 		var inventory = inventory_ui.get_inventory()
 		_write_debug("inventory: " + str(inventory))
-		shop_ui.visible = true  # 确保商店 UI 可见
+		shop_ui.visible = true
 		shop_ui.show_shop(inventory)
-		
-		# 设置关闭回调：商店关闭后进入下一小时
 		shop_ui.shop_closed.connect(_on_shop_closed)
 		_write_debug("商店已打开")
 	else:
@@ -312,11 +298,6 @@ func _open_shop_ui() -> void:
 ## 写调试文件
 func _write_debug(msg: String) -> void:
 	print(msg)
-	var file = FileAccess.open("user://debug.log", FileAccess.READ_WRITE)
-	if file:
-		file.seek_end()
-		file.store_line(msg)
-		file.close()
 
 ## 商店关闭回调
 func _on_shop_closed() -> void:
@@ -326,35 +307,33 @@ func _on_shop_closed() -> void:
 ## 执行怪物事件
 func _execute_monster_event() -> void:
 	print("执行怪物战斗事件")
-	# 开始战斗
 	_start_battle()
 
 ## 执行 PvP 事件
 func _execute_pvp_event() -> void:
 	print("执行 PvP 对战事件")
-	# 开始 PvP 战斗
 	_start_pvp_battle()
 
-## 执行随机事件（扩展版，12种事件）
+## 执行随机事件
 func _execute_random_event() -> void:
 	print("执行随机事件")
 	var day = GameManager.current_day
 	var events = [
-		"merchant_bonus",    # 商人多给钱
-		"healing_fountain",  # 治愈之泉
-		"pickpocket",        # 遭遇小偷
-		"treasure",          # 发现宝藏
-		"heal",              # 遇到旅人赠送血瓶
-		"bandits",           # 遭遇盗贼（战斗或付钱）
-		"wounded_hero",      # 救助受伤英雄（声望）
-		"storm",             # 暴风雨（扣金币或扣血）
-		"strange_merchant",  # 神秘商人（物品）
-		"ancient_shrine",    # 古老祭坛（随机增益）
-		"thief_guild",       # 盗贼公会（偷或打）
-		"blessed_rest",      # 受到祝福的休息
+		"merchant_bonus",
+		"healing_fountain",
+		"pickpocket",
+		"treasure",
+		"heal",
+		"bandits",
+		"wounded_hero",
+		"storm",
+		"strange_merchant",
+		"ancient_shrine",
+		"thief_guild",
+		"blessed_rest",
 	]
 	var random_event = events.pick_random()
-	
+
 	match random_event:
 		"merchant_bonus":
 			GameManager.add_gold(8 + day * 2)
@@ -374,7 +353,6 @@ func _execute_random_event() -> void:
 			GameManager.heal(15 + day * 2)
 			print("随机事件: 遇到好心旅人! 恢复 %d HP!" % (15 + day * 2))
 		"bandits":
-			# 扣血或付钱，付一半金币可免战
 			var damage = 5 + day * 3
 			GameManager.take_damage(damage)
 			print("随机事件: 遭遇盗贼! 受到 %d 点伤害!" % damage)
@@ -392,11 +370,12 @@ func _execute_random_event() -> void:
 			GameManager.take_damage(5)
 			print("随机事件: 神秘商人! 获得 %d 金币但受到诅咒损失 5 HP!" % (20 + day * 3))
 		"ancient_shrine":
-			var bonus_atk = 3 + day
-			GameManager.add_attack(bonus_atk)
-			print("随机事件: 古老祭坛! 攻击力 +%d (永久)!" % bonus_atk)
+			# 古老祭坛改为增加暴击率（不再是 ATK）
+			var bonus_crit = 0.02 + float(day) * 0.005
+			if GameManager.selected_hero:
+				GameManager.selected_hero.crit_chance += bonus_crit
+			print("随机事件: 古老祭坛! 暴击率 +%.1f%% (永久)!" % (bonus_crit * 100))
 		"thief_guild":
-			# 盗贼公会可以选择偷或被抢
 			var stolen = 5 + day * 2
 			GameManager.spend_gold(stolen)
 			print("随机事件: 盗贼公会! 被收取保护费 %d 金币!" % stolen)
@@ -405,11 +384,10 @@ func _execute_random_event() -> void:
 			GameManager.heal(heal_amount)
 			GameManager.add_gold(5)
 			print("随机事件: 受到祝福的休息! 恢复 %d HP，获得 5 金币!" % heal_amount)
-	
-	# 事件完成后自动进入下一小时
+
 	_auto_advance_hour()
 
-## 执行宝库事件（强化版）
+## 执行宝库事件
 func _execute_treasure_event() -> void:
 	print("执行宝库事件")
 	var day = GameManager.current_day
@@ -418,7 +396,7 @@ func _execute_treasure_event() -> void:
 	print("宝库事件: 发现古代宝库! 获得 %d 金币!" % gold)
 	_auto_advance_hour()
 
-## 执行营地事件（强化版）
+## 执行营地事件
 func _execute_camp_event() -> void:
 	print("执行营地事件")
 	var day = GameManager.current_day
@@ -434,51 +412,39 @@ func _start_battle() -> void:
 	if GameManager.selected_hero == null:
 		print("错误: 未选择英雄!")
 		return
-	
-	# 隐藏事件面板
+
 	_hide_event_panel()
-	
-	# 确保战斗 UI 可见
 	battle_ui.visible = true
-	
-	# 开始真正的战斗
 	battle_ui.start_battle(null, false, 0)
-	
-	# 连接战斗结束回调
+
 	if not battle_ui.battle_ended.is_connected(_on_battle_ended):
 		battle_ui.battle_ended.connect(_on_battle_ended)
-	
+
 	print("开始怪物战斗!")
 
 func _start_pvp_battle() -> void:
 	if GameManager.selected_hero == null:
 		print("错误: 未选择英雄!")
 		return
-	
-	# 隐藏事件面板
+
 	_hide_event_panel()
-	
-	# 确保战斗 UI 可见
 	battle_ui.visible = true
-	
-	# 根据玩家当前属性生成 PvP 对手（稍微强一点）
-	var enemy_bonus = randi() % 5 + 1  # 1-5 的随机加成
+
+	var enemy_bonus = randi() % 5 + 1
 	battle_ui.start_battle(null, true, enemy_bonus)
-	
-	# 连接战斗结束回调
+
 	if not battle_ui.battle_ended.is_connected(_on_battle_ended):
 		battle_ui.battle_ended.connect(_on_battle_ended)
-	
+
 	print("开始 PvP 对战!")
 
 ## 战斗结束回调
 func _on_battle_ended(won: bool, gold_reward: int) -> void:
 	print("战斗结束: 胜利=%s, 金币=%d" % [won, gold_reward])
-	# 显示事件面板并进入下一小时
 	_show_event_panel()
 	_auto_advance_hour()
 
-## 计算属性
+## 计算属性（物品触发系统下显示物品总属性）
 func _calculate_stats() -> void:
 	if inventory_ui and inventory_ui.has_method("get_inventory"):
 		var inventory = inventory_ui.get_inventory()
@@ -490,57 +456,39 @@ func _calculate_stats() -> void:
 				total_damage += item.damage
 				total_shield += item.shield
 				total_heal += item.heal
-		print("物品加成 - 攻击力: %d, 防御力: %d, 治疗: %d" % [total_damage, total_shield, total_heal])
-		
-		var total_attack = GameManager.player_attack + total_damage
-		print("最终攻击力: %d" % total_attack)
+		print("物品属性 - 伤害: %d, 护盾: %d, 治疗: %d" % [total_damage, total_shield, total_heal])
 
 ## ============ 自动流转 ============
 
-## 自动进入下一小时
 func _auto_advance_hour() -> void:
 	print("事件完成，自动进入下一小时...")
-	
-	# 延迟一点时间，让玩家看到事件结果
 	await get_tree().create_timer(1.0).timeout
-	
-	# 进入下一小时
 	GameManager.next_hour()
 	print("进入 Hour %d: %s" % [GameManager.current_hour, GameManager.get_current_phase_name()])
-	
-	# 更新 UI
 	_update_ui()
-	
-	# 生成新的事件选项
 	_generate_event_options()
 	_update_button_visibility()
 
 ## ============ 按钮可见性控制 ============
 
-## 隐藏游戏按钮
 func _hide_game_buttons() -> void:
 	shop_button.visible = false
 	battle_button.visible = false
 	next_hour_button.visible = false
 
-## 更新按钮可见性（根据当前 Hour）
 func _update_button_visibility() -> void:
 	var hour = GameManager.current_hour
-	
-	# Hour 0, 1, 3, 4: 商人阶段，显示商店按钮
+
 	if hour == 0 or hour == 1 or hour == 3 or hour == 4:
 		shop_button.visible = true
 		battle_button.visible = false
-	# Hour 2: 怪物战斗，显示战斗按钮
 	elif hour == 2:
 		shop_button.visible = false
 		battle_button.visible = true
-	# Hour 5: PvP，显示战斗按钮
 	elif hour == 5:
 		shop_button.visible = false
 		battle_button.visible = true
-	
-	# 始终隐藏"下一小时"按钮（使用自动流转）
+
 	next_hour_button.visible = false
 
 ## ============ UI 更新 ============
@@ -548,30 +496,41 @@ func _update_button_visibility() -> void:
 func _update_ui() -> void:
 	# 金币
 	gold_label.text = "金币: %d" % GameManager.gold
-	
+
 	# Day/Hour
 	day_label.text = "Day %d" % GameManager.current_day
 	hour_label.text = "[%s]" % GameManager.get_current_phase_name()
-	
+
 	# 英雄信息
 	if GameManager.selected_hero != null:
 		hero_label.text = "%s (%s)" % [GameManager.selected_hero.hero_name, GameManager.selected_hero.get_type_name()]
 	else:
 		hero_label.text = "未选择英雄"
-	
+
 	# 属性
 	var max_hp = GameManager.get_max_health()
 	hp_label.text = "HP: %d/%d" % [GameManager.player_health, max_hp]
-	atk_label.text = "ATK: %d" % GameManager.player_attack
-	def_label.text = "DEF: %d" % GameManager.player_defense
-	
+	# ATK 标签改为显示暴击率（保持节点引用不变）
+	if GameManager.selected_hero:
+		atk_label.text = "暴击: %.0f%%" % (GameManager.selected_hero.crit_chance * 100)
+	else:
+		atk_label.text = "暴击: 5%"
+	# DEF 标签改为显示物品数
+	def_label.text = "物品: %d" % _get_item_count()
+
 	# Prestige
 	prestige_label.text = "Prestige: %d/%d" % [GameManager.prestige, GameManager.max_prestige]
 	prestige_bar.max_value = GameManager.max_prestige
 	prestige_bar.value = GameManager.prestige
-	
+
 	# 回合
 	round_label.text = "回合: %d / 5" % [GameManager.current_hour + 1]
+
+## 获取背包物品数量
+func _get_item_count() -> int:
+	if inventory_ui and inventory_ui.has_method("get_inventory"):
+		return inventory_ui.get_inventory().get_item_count()
+	return 0
 
 ## ============ 信号回调 ============
 
@@ -589,12 +548,6 @@ func _on_health_changed(amount: int) -> void:
 	var max_hp = GameManager.get_max_health()
 	hp_label.text = "HP: %d/%d" % [amount, max_hp]
 
-func _on_attack_changed(value: int) -> void:
-	atk_label.text = "ATK: %d" % value
-
-func _on_defense_changed(value: int) -> void:
-	def_label.text = "DEF: %d" % value
-
 func _on_prestige_changed(value: int) -> void:
 	prestige_label.text = "Prestige: %d/%d" % [value, GameManager.max_prestige]
 	prestige_bar.value = value
@@ -609,29 +562,24 @@ func _on_game_over(won: bool) -> void:
 		game_over_title.text = "💀 游戏失败!"
 		game_over_title.add_theme_color_override("font_color", Color(1.0, 0.3, 0.3))
 		print("💀 游戏失败!")
-	
-	# 显示统计
+
 	game_over_stats.text = (
 		"存活天数: %d\n总金币: %d\n胜利场次: %d\n失败场次: %d"
 		% [GameManager.current_day, GameManager.stats_total_gold_earned,
 		   GameManager.stats_total_wins, GameManager.stats_total_losses]
 	)
-	
-	# 显示结算面板，隐藏其他 UI
+
 	_show_game_over_panel()
 	_hide_event_panel()
 	_hide_game_buttons()
 	$VBox.visible = false
 
-## 显示游戏结束面板
 func _show_game_over_panel() -> void:
 	game_over_panel.visible = true
 
-## 隐藏游戏结束面板
 func _hide_game_over_panel() -> void:
 	game_over_panel.visible = false
 
-## 重新开始游戏
 func _on_restart_game_pressed() -> void:
 	GameManager.reset_stats()
 	_hide_game_over_panel()
@@ -639,7 +587,7 @@ func _on_restart_game_pressed() -> void:
 	_hide_game_buttons()
 	_update_ui()
 
-## ============ 按钮回调（备用，保留以防需要直接点击）===========
+## ============ 按钮回调（备用） ============
 
 func _on_shop_pressed() -> void:
 	print("商店按钮被点击")
@@ -650,50 +598,42 @@ func _on_battle_pressed() -> void:
 	if GameManager.selected_hero == null:
 		print("请先选择英雄!")
 		return
-	
 	if not GameManager.is_battle_hour():
 		print("当前不是战斗阶段!")
 		return
-	
 	if GameManager.current_hour == 5:
 		_execute_pvp_event()
 	else:
 		_execute_monster_event()
 
 func _on_next_hour_pressed() -> void:
-	# 此按钮已被隐藏，保留以防需要手动触发
-	print("下一小时按钮被点击（已禁用自动流转）")
+	print("下一小时按钮被点击")
 	_auto_advance_hour()
 
 
 ## ============ 验收测试入口 (临时) ============
 
-var _test_state := 0  # 测试状态计数器
+var _test_state := 0
 
 func _input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed:
 		match event.keycode:
-			# F12: 推进游戏状态
 			KEY_F12:
 				_advance_test_state()
 
 func _advance_test_state() -> void:
 	_test_state += 1
 	print("[TEST] Advance to state %d" % _test_state)
-	
+
 	match _test_state:
 		1:
-			# 选择战士
 			_on_warrior_selected()
 		2:
-			# 点击事件选项1
 			if has_node("EventPanel/EventVBox/EventOptions/Option1"):
 				var btn = $EventPanel/EventVBox/EventOptions/Option1
 				btn.pressed.emit()
 		3:
-			# 跳过 (商店/战斗已触发)
 			_auto_advance_hour()
 		4:
-			# 打开背包
 			if has_node("InventoryUI"):
 				$InventoryUI.visible = true

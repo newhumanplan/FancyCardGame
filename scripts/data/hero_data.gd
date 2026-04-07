@@ -15,13 +15,7 @@ enum HeroType { WARRIOR, MAGE }
 ## 最大生命值
 @export var max_hp: int = 100
 
-## 攻击力
-@export var attack: int = 10
-
-## 防御力
-@export var defense: int = 5
-
-## 暴击几率
+## 暴击几率（英雄基础暴击率，物品触发时使用）
 @export var crit_chance: float = 0.05
 
 ## 当前生命值（运行时）
@@ -35,11 +29,11 @@ var current_hp: int = 100
 ## 被动技能描述
 @export var passive_skill_description: String = ""
 
-## 被动技能加成类型 ("attack", "defense", "health", "crit")
+## 被动技能加成类型 ("health", "crit", "shield_bonus", "cooldown_reduction")
 @export var passive_bonus_type: String = ""
 
 ## 被动技能加成值
-@export var passive_bonus_value: int = 0
+@export var passive_bonus_value: float = 0.0
 
 ## ============ 技能与物品 ============
 
@@ -64,16 +58,15 @@ func reset_hp():
 func get_current_hp() -> int:
 	return current_hp
 
-## 受到伤害
-## damage: 原始伤害值
+## 受到伤害（直接扣除，MVP 无防御属性）
+## damage: 伤害值
 ## 返回: 实际受到的伤害
 func take_damage(damage: int) -> int:
-	var actual_damage: int = maxi(damage - defense, 1)  # 至少造成1点伤害
+	var actual_damage: int = damage
 	current_hp = maxi(current_hp - actual_damage, 0)
 	return actual_damage
 
 ## 治疗
-## heal_amount: 治疗量
 func heal(heal_amount: int):
 	current_hp = mini(current_hp + heal_amount, max_hp)
 
@@ -96,10 +89,6 @@ func get_type_name() -> String:
 		HeroType.MAGE: return "法师"
 		_: return "未知"
 
-## 获取暴击伤害（基础伤害的 1.5 倍）
-func get_crit_damage(base_damage: int) -> int:
-	return int(base_damage * 1.5)
-
 ## 检查是否暴击
 func roll_crit() -> bool:
 	return randf() < crit_chance
@@ -112,18 +101,7 @@ func has_passive_skill() -> bool:
 func get_passive_skill_full_description() -> String:
 	if not has_passive_skill():
 		return ""
-	return "%s: %s (+%d %s)" % [
+	return "%s: %s" % [
 		passive_skill_name,
-		passive_skill_description,
-		passive_bonus_value,
-		_get_bonus_type_text()
+		passive_skill_description
 	]
-
-## 获取加成类型文本
-func _get_bonus_type_text() -> String:
-	match passive_bonus_type:
-		"attack": return "攻击力"
-		"defense": return "防御力"
-		"health": return "生命值"
-		"crit": return "暴击率"
-		_: return "未知"

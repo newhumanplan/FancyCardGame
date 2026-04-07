@@ -141,7 +141,7 @@ func add_test_items() -> void:
 	item1.item_name = "铁剑"
 	item1.item_type = 0  # WEAPON
 	item1.size = Vector2i(1, 1)
-	item1.attack = 5
+	item1.damage = 5
 	item1.rarity = 1
 	
 	# 创建一个 2x1 的物品
@@ -149,7 +149,7 @@ func add_test_items() -> void:
 	item2.item_name = "长剑"
 	item2.item_type = 0  # WEAPON
 	item2.size = Vector2i(2, 1)
-	item2.attack = 10
+	item2.damage = 10
 	item2.rarity = 2
 	
 	# 创建一个 1x2 的物品
@@ -157,7 +157,7 @@ func add_test_items() -> void:
 	item3.item_name = "盾牌"
 	item3.item_type = 1  # ARMOR
 	item3.size = Vector2i(1, 2)
-	item3.defense = 8
+	item3.shield = 8
 	item3.rarity = 2
 	
 	# 放置物品

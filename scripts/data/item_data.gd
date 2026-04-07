@@ -15,7 +15,7 @@ enum Type { WEAPON, SHIELD, HEAL, UTILITY }
 ## 物品描述
 @export var description: String = ""
 
-## 稀有度 (1-5)
+## 稀有度 (1-4: 普通/稀有/史诗/传说)
 @export var rarity: int = 1
 
 ## 购买价格
@@ -57,6 +57,9 @@ var current_cooldown: float = 0.0
 ## 中毒：持续伤害（伤害值/秒）
 @export var poison_damage: float = 0.0
 
+## 燃烧：持续伤害（伤害值/秒）
+@export var burn_damage: float = 0.0
+
 ## 再生：持续治疗（治疗值/秒）
 @export var regeneration: float = 0.0
 
@@ -90,10 +93,9 @@ func reset_cooldown():
 func get_rarity_name() -> String:
 	match rarity:
 		1: return "普通"
-		2: return "优秀"
-		3: return "稀有"
-		4: return "史诗"
-		5: return "传说"
+		2: return "稀有"
+		3: return "史诗"
+		4: return "传说"
 		_: return "未知"
 
 ## 获取稀有度颜色
@@ -101,9 +103,8 @@ func get_rarity_color() -> Color:
 	match rarity:
 		1: return Color.GRAY
 		2: return Color.GREEN
-		3: return Color.BLUE
-		4: return Color.PURPLE
-		5: return Color.ORANGE
+		3: return Color.PURPLE
+		4: return Color.ORANGE
 		_: return Color.WHITE
 
 ## 获取类型名称
@@ -123,19 +124,26 @@ func get_size_text() -> String:
 		Size.LARGE: return "大"
 		_: return "未知"
 
-## 获取稀有度属性倍率
-## 返回: 1.0=100%, 1.2=120%, 1.5=150%, 2.0=200%
+## 获取稀有度属性倍率（按原版大巴扎设计）
+## 普通×1.0, 稀有×1.3, 史诗×1.6, 传说×2.0
 func get_rarity_multiplier() -> float:
 	match rarity:
 		1: return 1.0    # 普通
-		2: return 1.2    # 稀有
-		3: return 1.5    # 史诗
+		2: return 1.3    # 稀有
+		3: return 1.6    # 史诗
 		4: return 2.0    # 传说
-		5: return 2.0    # 传说（最高）
 		_: return 1.0
 
+## 获取按尺寸建议的 CD 范围
+## Small: 2.0-3.0s, Medium: 3.0-5.0s, Large: 5.0-8.0s
+func get_size_cd_range() -> Dictionary:
+	match size:
+		Size.SMALL: return {"min": 2.0, "max": 3.0}
+		Size.MEDIUM: return {"min": 3.0, "max": 5.0}
+		Size.LARGE: return {"min": 5.0, "max": 8.0}
+		_: return {"min": 2.0, "max": 8.0}
+
 ## 应用稀有度加成到属性
-## 返回: 加成后的属性值
 func get_rarity_adjusted_damage() -> int:
 	return int(float(damage) * get_rarity_multiplier())
 
@@ -147,13 +155,15 @@ func get_rarity_adjusted_heal() -> int:
 
 ## 是否有特殊效果
 func has_special_effect() -> bool:
-	return poison_damage > 0 or regeneration > 0 or stun_duration > 0 or is_immune
+	return poison_damage > 0 or burn_damage > 0 or regeneration > 0 or stun_duration > 0 or is_immune
 
 ## 获取特殊效果描述
 func get_special_effect_description() -> String:
 	var effects: Array[String] = []
 	if poison_damage > 0:
 		effects.append("中毒(%.1f DPS)" % poison_damage)
+	if burn_damage > 0:
+		effects.append("燃烧(%.1f DPS)" % burn_damage)
 	if regeneration > 0:
 		effects.append("再生(%.1f HPS)" % regeneration)
 	if stun_duration > 0:

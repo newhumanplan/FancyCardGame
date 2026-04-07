@@ -118,18 +118,18 @@ func get_item_at(pos: Vector2i):
 func get_all_items() -> Array:
 	return items
 
-## 获取总攻击力加成
+## 获取总伤害加成
 func get_total_attack() -> int:
 	var total := 0
 	for item in items:
-		total += item.attack
+		total += item.damage
 	return total
 
-## 获取总防御力加成
+## 获取总护盾加成
 func get_total_defense() -> int:
 	var total := 0
 	for item in items:
-		total += item.defense
+		total += item.shield
 	return total
 
 ## 查找空位（用于自动放置）
