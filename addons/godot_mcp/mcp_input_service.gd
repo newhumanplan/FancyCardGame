@@ -105,11 +105,9 @@ func _create_key_event(data: Dictionary) -> InputEventKey:
 	var event := InputEventKey.new()
 	var keycode_str: String = data.get("keycode", "")
 	if keycode_str.begins_with("KEY_"):
-		var constant_value = ClassDB.class_get_integer_constant("@GlobalScope", keycode_str)
-		if constant_value != 0:
-			event.keycode = constant_value
-		else:
-			event.keycode = OS.find_keycode_from_string(keycode_str.substr(4))
+		# Godot 4.6: KEY_* constants moved to Key enum, use OS.find_keycode_from_string as primary
+		var key_name := keycode_str.substr(4)  # Strip "KEY_" prefix
+		event.keycode = OS.find_keycode_from_string(key_name)
 	else:
 		event.keycode = OS.find_keycode_from_string(keycode_str)
 	event.pressed = data.get("pressed", true)
