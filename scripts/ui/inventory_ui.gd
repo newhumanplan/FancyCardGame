@@ -239,8 +239,8 @@ func _create_item_display_layer() -> void:
 	item_display_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	item_display_layer.set_anchors_preset(Control.PRESET_FULL_RECT)
 	
-	# 作为 slot_container 的子节点
-	slot_container.add_child(item_display_layer)
+	# 放到 slot_container 的父节点（VBox）中，避免 HBoxContainer 干扰布局
+	slot_container.get_parent().add_child(item_display_layer)
 	item_display_layer.z_index = 10  # 放在上层
 
 ## 创建槽位高亮层
@@ -289,14 +289,17 @@ func _display_item(item: ItemData, is_synergy_highlight: bool = false) -> void:
 	var item_panel = Control.new()
 	item_panel.name = "Item_%s" % item.item_name
 	item_panel.position = Vector2(display_local_pos.x + 4, display_local_pos.y + 4)
-	item_panel.custom_minimum_size = Vector2(
+	var panel_size = Vector2(
 		slot_count * SLOT_SIZE + (slot_count - 1) * SLOT_SPACING - 8,
 		SLOT_SIZE - 8
 	)
+	item_panel.size = panel_size
+	item_panel.custom_minimum_size = panel_size
 	
 	# 添加背景样式
 	var bg = Panel.new()
-	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
+	bg.size = panel_size
+	bg.position = Vector2.ZERO
 	
 	var style = StyleBoxFlat.new()
 	var item_color = _get_item_color(item)
@@ -322,17 +325,16 @@ func _display_item(item: ItemData, is_synergy_highlight: bool = false) -> void:
 		if texture:
 			var texture_rect = TextureRect.new()
 			texture_rect.texture = texture
-			texture_rect.set_anchors_preset(Control.PRESET_FULL_RECT)
 			texture_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 			texture_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 			texture_rect.position = Vector2(4, 4)
-			texture_rect.custom_minimum_size = Vector2(
+			texture_rect.size = Vector2(
 				slot_count * SLOT_SIZE + (slot_count - 1) * SLOT_SPACING - 16,
 				SLOT_SIZE - 16
 			)
 			item_panel.add_child(texture_rect)
 	
-	# 添加物品名称标签（放在图片下方或替代图片时显示）
+	# 添加物品名称标签（放在底部）
 	var label = Label.new()
 	label.name = "ItemName"
 	label.text = item.item_name
@@ -340,9 +342,8 @@ func _display_item(item: ItemData, is_synergy_highlight: bool = false) -> void:
 	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	label.add_theme_font_size_override("font_size", 15)
 	label.add_theme_color_override("font_color", Color.WHITE)
-	label.set_anchors_preset(Control.PRESET_FULL_RECT)
-	label.offset_top = SLOT_SIZE - 24  # 放在底部
-	label.offset_bottom = -4
+	label.position = Vector2(0, panel_size.y - 24)
+	label.size = Vector2(panel_size.x, 20)
 	item_panel.add_child(label)
 	
 	# 如果物品有 Cooldown，添加遮罩层（盖在图标上方）
@@ -367,15 +368,21 @@ func _display_item(item: ItemData, is_synergy_highlight: bool = false) -> void:
 ## 创建 Cooldown 遮罩（盖在物品图标上，显示冷却进度）
 func _create_cooldown_overlay(item: ItemData) -> ColorRect:
 	var overlay = ColorRect.new()
-	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
 	overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	overlay.color = Color(0, 0, 0, 0.5)
 	
 	# 根据冷却进度设置遮罩高度（从底部向上减少）
 	if item.current_cooldown > 0 and item.cooldown > 0:
 		var ratio = item.current_cooldown / item.cooldown  # 1.0=满冷却, 0.0=冷却完成
+		# 遮罩从底部向上，高度 = 总高度 * ratio
+		overlay.anchor_left = 0.0
 		overlay.anchor_top = 1.0 - ratio
+		overlay.anchor_right = 1.0
 		overlay.anchor_bottom = 1.0
+		overlay.offset_left = 0
+		overlay.offset_top = 0
+		overlay.offset_right = 0
+		overlay.offset_bottom = 0
 	else:
 		# 冷却完成，隐藏遮罩
 		overlay.visible = false
@@ -383,7 +390,6 @@ func _create_cooldown_overlay(item: ItemData) -> ColorRect:
 	# 添加冷却时间文字
 	var timer_label = Label.new()
 	timer_label.name = "CooldownTimerLabel"
-	timer_label.set_anchors_preset(Control.PRESET_CENTER)
 	timer_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	timer_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	if item.current_cooldown > 0:
@@ -391,6 +397,8 @@ func _create_cooldown_overlay(item: ItemData) -> ColorRect:
 	timer_label.add_theme_font_size_override("font_size", 15)
 	timer_label.add_theme_color_override("font_color", Color.WHITE)
 	timer_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# 居中在遮罩上
+	timer_label.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
 	overlay.add_child(timer_label)
 	
 	return overlay
