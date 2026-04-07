@@ -115,6 +115,9 @@ func start_battle(monster: MonsterData = null, pvp: bool = false, enemy_atk_bonu
 	# 启动战斗系统
 	battle_system.start_battle()
 	
+	# 初始化物品冷却为满值（战斗开始时不立即触发，等冷却结束才触发）
+	_init_item_cooldowns()
+	
 	# 显示战斗面板
 	_show_battle_panel()
 	
@@ -143,21 +146,21 @@ func _generate_random_monster() -> MonsterData:
 	match tier:
 		MonsterData.MonsterTier.TIER_1:
 			monster.monster_name = "史莱姆"
-			monster.max_hp = 30 + day * 5
+			monster.max_hp = 80 + day * 15
 			monster.attack = 5 + day
 			monster.defense = 0 + day / 2
 			monster.gold_reward_min = 5 + day
 			monster.gold_reward_max = 10 + day * 2
 		MonsterData.MonsterTier.TIER_2:
 			monster.monster_name = "哥布林"
-			monster.max_hp = 50 + day * 8
+			monster.max_hp = 140 + day * 25
 			monster.attack = 10 + day * 2
 			monster.defense = 2 + day
 			monster.gold_reward_min = 10 + day * 2
 			monster.gold_reward_max = 20 + day * 3
 		MonsterData.MonsterTier.TIER_3:
 			monster.monster_name = "食人魔"
-			monster.max_hp = 80 + day * 10
+			monster.max_hp = 200 + day * 30
 			monster.attack = 15 + day * 2
 			monster.defense = 5 + day
 			monster.gold_reward_min = 20 + day * 3
@@ -178,14 +181,14 @@ func _create_pvp_enemy() -> MonsterData:
 	if random_hero_type == 0:
 		# 战士对手
 		monster.monster_name = "PvP 战士"
-		monster.max_hp = 120
+		monster.max_hp = 200
 		monster.attack = 15 + enemy_attack_bonus
 		monster.defense = 10
 		enemy_crit_chance = 0.05 + randf() * 0.1
 	else:
 		# 法师对手
 		monster.monster_name = "PvP 法师"
-		monster.max_hp = 80
+		monster.max_hp = 160
 		monster.attack = 25 + enemy_attack_bonus
 		monster.defense = 5
 		enemy_crit_chance = 0.15 + randf() * 0.15
@@ -222,6 +225,8 @@ func _hide_battle_panel() -> void:
 	battle_panel.visible = false
 	is_battle_active = false
 	mouse_filter = Control.MOUSE_FILTER_IGNORE  # 战斗结束后允许鼠标穿透到下层 UI
+	# 战斗结束，重置所有物品冷却
+	_reset_item_cooldowns()
 
 ## 战斗循环（每帧更新）
 func _process(delta: float) -> void:
@@ -258,8 +263,11 @@ func _execute_battle_tick() -> void:
 	if inventory:
 		battle_system.update_cooldowns(inventory, BATTLE_TICK)
 	
-	# 玩家攻击
-	_player_attack()
+	# 玩家攻击（有攻击冷却）
+	player_attack_cooldown -= BATTLE_TICK
+	if player_attack_cooldown <= 0:
+		player_attack_cooldown = 1.0  # 玩家每 1 秒攻击一次
+		_player_attack()
 	
 	# 检查敌人是否死亡
 	if current_monster != null and not current_monster.is_alive():
@@ -296,6 +304,12 @@ func _player_attack() -> void:
 func _enemy_attack() -> void:
 	if current_monster == null or not current_monster.is_alive():
 		return
+	
+	# 怪物也有攻击冷却
+	enemy_attack_cooldown -= BATTLE_TICK
+	if enemy_attack_cooldown > 0:
+		return
+	enemy_attack_cooldown = current_monster.attack_cooldown
 	
 	# 计算敌人攻击力
 	var enemy_atk = current_monster.attack
@@ -412,3 +426,17 @@ func _on_continue_pressed() -> void:
 ## 获取战斗系统实例（供外部调用）
 func get_battle_system() -> Node:
 	return battle_system
+
+## 战斗结束后重置所有物品冷却
+func _reset_item_cooldowns() -> void:
+	if inventory:
+		for item in inventory.items:
+			if item != null:
+				item.current_cooldown = 0.0
+
+## 战斗开始时初始化物品冷却为满值
+func _init_item_cooldowns() -> void:
+	if inventory:
+		for item in inventory.items:
+			if item != null and item.cooldown > 0:
+				item.current_cooldown = item.cooldown
