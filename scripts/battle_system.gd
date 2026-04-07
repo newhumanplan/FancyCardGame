@@ -268,8 +268,9 @@ func _process_active_effects() -> void:
 	# 移除过期效果（倒序移除避免索引偏移）
 	expired_indices.reverse()
 	for idx in expired_indices:
-		var removed = active_effects.remove_at(idx)
-		print("效果 [%s] 结束" % effect.get("item_name", "未知"))
+		var removed_effect = active_effects[idx]
+		active_effects.remove_at(idx)
+		print("效果 [%s] 结束" % removed_effect.get("item_name", "未知"))
 
 ## ============ 战斗结束检查 ============
 
