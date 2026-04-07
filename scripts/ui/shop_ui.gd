@@ -208,7 +208,7 @@ func _refresh_shop_items() -> void:
 ## 创建物品显示面板
 func _create_item_display(item: ItemData) -> Control:
 	var container = HBoxContainer.new()
-	container.custom_minimum_size = Vector2(0, 80)
+	container.custom_minimum_size = Vector2(0, 120)
 	
 	# 尝试加载物品图片
 	var texture_path = _get_shop_item_texture_path(item)
@@ -217,7 +217,7 @@ func _create_item_display(item: ItemData) -> Control:
 		if texture:
 			var texture_rect = TextureRect.new()
 			texture_rect.texture = texture
-			texture_rect.custom_minimum_size = Vector2(64, 64)
+			texture_rect.custom_minimum_size = Vector2(96, 96)
 			texture_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 			texture_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 			container.add_child(texture_rect)
@@ -244,13 +244,13 @@ func _create_item_display(item: ItemData) -> Control:
 		ItemDataClass.Type.UTILITY:
 			stats_text = "暴击: %.0f%%" % [item.crit_chance * 100]
 	stats_label.text = stats_text
-	stats_label.add_theme_font_size_override("font_size", 12)
+	stats_label.add_theme_font_size_override("font_size", 18)
 	info_vbox.add_child(stats_label)
 	
 	# 尺寸
 	var size_label = Label.new()
 	size_label.text = "尺寸: %s格" % item.get_size_text()
-	size_label.add_theme_font_size_override("font_size", 11)
+	size_label.add_theme_font_size_override("font_size", 16)
 	size_label.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
 	info_vbox.add_child(size_label)
 	

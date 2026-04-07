@@ -1,0 +1,13 @@
+[gd_resource type="Theme" format=3]
+
+[data]
+
+font_sizes/normal_font_size = 16
+font_sizes/small_font_size = 14
+font_sizes/large_font_size = 20
+font_sizes/title_font_size = 28
+font_sizes/btn_font_size = 16
+font_sizes/label_font_size = 16
+font_sizes/rich_text_label_font_size = 16
+
+constants/separation = 12

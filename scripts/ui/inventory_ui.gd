@@ -10,9 +10,9 @@ const ItemDataClass = preload("res://scripts/data/item_data.gd")
 const ItemDetailPanelClass = preload("res://scenes/ui/item_detail_panel.tscn")
 
 ## 常量
-const SLOT_SIZE: int = 72
+const SLOT_SIZE: int = 108
 const TOTAL_SLOTS: int = 10
-const SLOT_SPACING: int = 8
+const SLOT_SPACING: int = 12
 
 ## Inventory 数据
 var inventory: LinearInventory
@@ -225,7 +225,7 @@ func _create_slot(index: int) -> Panel:
 	label.text = str(index + 1)
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	label.vertical_alignment = VERTICAL_ALIGNMENT_TOP
-	label.add_theme_font_size_override("font_size", 10)
+	label.add_theme_font_size_override("font_size", 15)
 	label.add_theme_color_override("font_color", Color(0.6, 0.6, 0.7))
 	label.position = Vector2(0, 4)
 	panel.add_child(label)
@@ -340,7 +340,7 @@ func _display_item(item: ItemData, is_synergy_highlight: bool = false) -> void:
 	label.text = item.item_name
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	label.add_theme_font_size_override("font_size", 10)
+	label.add_theme_font_size_override("font_size", 15)
 	label.add_theme_color_override("font_color", Color.WHITE)
 	label.set_anchors_preset(Control.PRESET_FULL_RECT)
 	label.offset_top = SLOT_SIZE - 24  # 放在底部
@@ -627,7 +627,7 @@ func _show_item_detail(item: ItemData) -> void:
 func _create_inline_detail_panel(item: ItemData) -> void:
 	detail_panel = Panel.new()
 	detail_panel.name = "ItemDetailPanel"
-	detail_panel.custom_minimum_size = Vector2(200, 180)
+	detail_panel.custom_minimum_size = Vector2(300, 270)
 	
 	# 添加样式
 	var style = StyleBoxFlat.new()
@@ -640,86 +640,86 @@ func _create_inline_detail_panel(item: ItemData) -> void:
 	# 标题
 	var title = Label.new()
 	title.text = item.item_name
-	title.add_theme_font_size_override("font_size", 16)
+	title.add_theme_font_size_override("font_size", 24)
 	title.add_theme_color_override("font_color", _get_item_color(item))
-	title.position = Vector2(10, 10)
+	title.position = Vector2(15, 15)
 	detail_panel.add_child(title)
 	
 	# 稀有度
 	var rarity_label = Label.new()
 	rarity_label.text = "稀有度: %s" % item.get_rarity_name()
-	rarity_label.add_theme_font_size_override("font_size", 12)
+	rarity_label.add_theme_font_size_override("font_size", 18)
 	rarity_label.add_theme_color_override("font_color", Color(0.8, 0.8, 0.8))
-	rarity_label.position = Vector2(10, 35)
+	rarity_label.position = Vector2(15, 52)
 	detail_panel.add_child(rarity_label)
 	
 	# 尺寸
 	var size_label = Label.new()
 	size_label.text = "尺寸: %s (%d槽位)" % [item.get_size_text(), item.get_slot_count()]
-	size_label.add_theme_font_size_override("font_size", 12)
+	size_label.add_theme_font_size_override("font_size", 18)
 	size_label.add_theme_color_override("font_color", Color(0.8, 0.8, 0.8))
-	size_label.position = Vector2(10, 55)
+	size_label.position = Vector2(15, 82)
 	detail_panel.add_child(size_label)
 	
 	# 属性
-	var y_offset = 80
+	var y_offset = 120
 	if item.damage > 0:
 		var dmg = Label.new()
 		dmg.text = "攻击: %d" % item.damage
-		dmg.add_theme_font_size_override("font_size", 12)
+		dmg.add_theme_font_size_override("font_size", 18)
 		dmg.add_theme_color_override("font_color", Color(1, 0.4, 0.4))
-		dmg.position = Vector2(10, y_offset)
+		dmg.position = Vector2(15, y_offset)
 		detail_panel.add_child(dmg)
-		y_offset += 20
+		y_offset += 30
 	
 	if item.shield > 0:
 		var shield = Label.new()
 		shield.text = "防御: %d" % item.shield
-		shield.add_theme_font_size_override("font_size", 12)
+		shield.add_theme_font_size_override("font_size", 18)
 		shield.add_theme_color_override("font_color", Color(0.4, 0.6, 1))
-		shield.position = Vector2(10, y_offset)
+		shield.position = Vector2(15, y_offset)
 		detail_panel.add_child(shield)
-		y_offset += 20
+		y_offset += 30
 	
 	if item.heal > 0:
 		var heal = Label.new()
 		heal.text = "治疗: %d" % item.heal
-		heal.add_theme_font_size_override("font_size", 12)
+		heal.add_theme_font_size_override("font_size", 18)
 		heal.add_theme_color_override("font_color", Color(0.4, 1, 0.4))
-		heal.position = Vector2(10, y_offset)
+		heal.position = Vector2(15, y_offset)
 		detail_panel.add_child(heal)
-		y_offset += 20
+		y_offset += 30
 	
 	# 特殊效果
 	if item.has_special_effect():
-		y_offset += 5
+		y_offset += 8
 		var effect_label = Label.new()
 		effect_label.text = "特殊效果:"
-		effect_label.add_theme_font_size_override("font_size", 11)
+		effect_label.add_theme_font_size_override("font_size", 16)
 		effect_label.add_theme_color_override("font_color", Color(0.9, 0.8, 0.3))
-		effect_label.position = Vector2(10, y_offset)
+		effect_label.position = Vector2(15, y_offset)
 		detail_panel.add_child(effect_label)
-		y_offset += 18
+		y_offset += 27
 		
 		var effect_desc = Label.new()
 		effect_desc.text = item.get_special_effect_description()
-		effect_desc.add_theme_font_size_override("font_size", 11)
+		effect_desc.add_theme_font_size_override("font_size", 16)
 		effect_desc.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
-		effect_desc.position = Vector2(10, y_offset)
+		effect_desc.position = Vector2(15, y_offset)
 		detail_panel.add_child(effect_desc)
-		y_offset += 20
+		y_offset += 30
 	
 	# 协同加成显示
 	var synergy = inventory.get_item_synergy_bonus(item)
 	if synergy["damage"] > 0 or synergy["defense"] > 0 or synergy["heal"] > 0:
-		y_offset += 5
+		y_offset += 8
 		var synergy_label = Label.new()
 		synergy_label.text = "协同加成:"
-		synergy_label.add_theme_font_size_override("font_size", 11)
+		synergy_label.add_theme_font_size_override("font_size", 16)
 		synergy_label.add_theme_color_override("font_color", Color(1, 0.84, 0))
-		synergy_label.position = Vector2(10, y_offset)
+		synergy_label.position = Vector2(15, y_offset)
 		detail_panel.add_child(synergy_label)
-		y_offset += 18
+		y_offset += 27
 		
 		var bonus_text = ""
 		if synergy["damage"] > 0:
@@ -731,9 +731,9 @@ func _create_inline_detail_panel(item: ItemData) -> void:
 		
 		var bonus_label = Label.new()
 		bonus_label.text = bonus_text
-		bonus_label.add_theme_font_size_override("font_size", 11)
+		bonus_label.add_theme_font_size_override("font_size", 16)
 		bonus_label.add_theme_color_override("font_color", Color(1, 0.84, 0))
-		bonus_label.position = Vector2(10, y_offset)
+		bonus_label.position = Vector2(15, y_offset)
 		detail_panel.add_child(bonus_label)
 	
 	add_child(detail_panel)
@@ -751,11 +751,11 @@ func _position_detail_panel(item: ItemData) -> void:
 	var panel_size = detail_panel.custom_minimum_size
 	
 	# 计算位置（避免超出屏幕）
-	var target_pos = item_pos + Vector2(SLOT_SIZE + 10, 0)
+	var target_pos = item_pos + Vector2(SLOT_SIZE + 15, 0)
 	
 	# 如果右侧空间不足，放到左边
 	if target_pos.x + panel_size.x > get_viewport_rect().size.x:
-		target_pos = item_pos - Vector2(panel_size.x + 10, 0)
+		target_pos = item_pos - Vector2(panel_size.x + 15, 0)
 	
 	# 如果下方空间不足，放到上面
 	if target_pos.y + panel_size.y > get_viewport_rect().size.y:

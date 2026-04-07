@@ -56,11 +56,11 @@ color = Color(0.08, 0.08, 0.12, 1)
 
 [node name="TopBar" type="HBoxContainer" parent="."]
 layout_mode = 1
-offset_left = 10.0
-offset_top = 10.0
-offset_right = -10.0
-offset_bottom = 80.0
-theme_override_constants/separation = 20
+offset_left = 15.0
+offset_top = 15.0
+offset_right = -15.0
+offset_bottom = 120.0
+theme_override_constants/separation = 30
 
 [node name="DayLabel" type="Label" parent="TopBar"]
 layout_mode = 2
@@ -76,10 +76,10 @@ text = "未选择英雄"
 
 [node name="StatsPanel" type="VBoxContainer" parent="."]
 layout_mode = 1
-offset_left = 10.0
-offset_top = 90.0
-offset_right = 200.0
-offset_bottom = 200.0
+offset_left = 15.0
+offset_top = 135.0
+offset_right = 300.0
+offset_bottom = 300.0
 
 [node name="HPBarLabel" type="Label" parent="StatsPanel"]
 layout_mode = 2
@@ -99,10 +99,10 @@ text = "金币: 100"
 
 [node name="PrestigeContainer" type="VBoxContainer" parent="."]
 layout_mode = 1
-offset_left = 10.0
-offset_top = 210.0
-offset_right = 200.0
-offset_bottom = 250.0
+offset_left = 15.0
+offset_top = 315.0
+offset_right = 300.0
+offset_bottom = 375.0
 
 [node name="PrestigeLabel" type="Label" parent="PrestigeContainer"]
 layout_mode = 2
@@ -122,16 +122,16 @@ anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -200.0
-offset_top = -150.0
-offset_right = 200.0
-offset_bottom = 150.0
+offset_left = -300.0
+offset_top = -225.0
+offset_right = 300.0
+offset_bottom = 225.0
 grow_horizontal = 2
 grow_vertical = 2
 
 [node name="HeroSelectVBox" type="VBoxContainer" parent="HeroSelectPanel"]
 layout_mode = 2
-theme_override_constants/separation = 15
+theme_override_constants/separation = 22
 
 [node name="HeroSelectTitle" type="Label" parent="HeroSelectPanel/HeroSelectVBox"]
 layout_mode = 2
@@ -141,7 +141,7 @@ horizontal_alignment = 1
 [node name="Heroes" type="HBoxContainer" parent="HeroSelectPanel/HeroSelectVBox"]
 layout_mode = 2
 alignment = 1
-theme_override_constants/separation = 30
+theme_override_constants/separation = 45
 
 [node name="WarriorButton" type="Button" parent="HeroSelectPanel/HeroSelectVBox/Heroes"]
 layout_mode = 2
@@ -161,10 +161,10 @@ layout_mode = 1
 anchors_preset = 5
 anchor_left = 0.5
 anchor_right = 0.5
-offset_left = -200.0
-offset_top = 280.0
-offset_right = 200.0
-offset_bottom = 380.0
+offset_left = -300.0
+offset_top = 420.0
+offset_right = 300.0
+offset_bottom = 570.0
 grow_horizontal = 2
 
 [node name="Title" type="Label" parent="VBox"]
@@ -204,16 +204,16 @@ anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -300.0
-offset_top = -100.0
-offset_right = 300.0
-offset_bottom = 100.0
+offset_left = -450.0
+offset_top = -150.0
+offset_right = 450.0
+offset_bottom = 150.0
 grow_horizontal = 2
 grow_vertical = 2
 
 [node name="EventVBox" type="VBoxContainer" parent="EventPanel"]
 layout_mode = 2
-theme_override_constants/separation = 20
+theme_override_constants/separation = 30
 
 [node name="EventTitle" type="Label" parent="EventPanel/EventVBox"]
 layout_mode = 2
@@ -223,7 +223,7 @@ horizontal_alignment = 1
 [node name="EventOptions" type="HBoxContainer" parent="EventPanel/EventVBox"]
 layout_mode = 2
 alignment = 1
-theme_override_constants/separation = 30
+theme_override_constants/separation = 45
 
 [node name="Option1" type="Button" parent="EventPanel/EventVBox/EventOptions"]
 layout_mode = 2
@@ -246,10 +246,10 @@ anchor_left = 0.0
 anchor_top = 1.0
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_left = 10.0
-offset_top = -100.0
-offset_right = -10.0
-offset_bottom = -10.0
+offset_left = 15.0
+offset_top = -150.0
+offset_right = -15.0
+offset_bottom = -15.0
 
 [node name="ShopUI" parent="." instance=ExtResource("3_shop")]
 layout_mode = 1
@@ -275,16 +275,16 @@ anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -200.0
-offset_top = -180.0
-offset_right = 200.0
-offset_bottom = 180.0
+offset_left = -300.0
+offset_top = -270.0
+offset_right = 300.0
+offset_bottom = 270.0
 grow_horizontal = 2
 grow_vertical = 2
 
 [node name="GameOverVBox" type="VBoxContainer" parent="GameOverPanel"]
 layout_mode = 2
-theme_override_constants/separation = 15
+theme_override_constants/separation = 22
 horizontal_alignment = 2
 
 [node name="GameOverTitle" type="Label" parent="GameOverPanel/GameOverVBox"]

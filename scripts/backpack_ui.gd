@@ -6,7 +6,7 @@ extends Control
 const BackpackGridClass = preload("res://scripts/backpack_grid.gd")
 const ItemClass = preload("res://resources/item.gd")
 
-const CELL_SIZE: int = 64
+const CELL_SIZE: int = 96
 const GRID_WIDTH: int = 6
 const GRID_HEIGHT: int = 6
 
@@ -102,7 +102,7 @@ func _display_item(item) -> void:
 	label.text = item.item_name
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	label.add_theme_font_size_override("font_size", 12)
+	label.add_theme_font_size_override("font_size", 18)
 	item_panel.add_child(label)
 	
 	cell.add_child(item_panel)

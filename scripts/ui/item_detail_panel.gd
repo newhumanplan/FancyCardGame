@@ -32,7 +32,7 @@ const COLOR_UTILITY = Color(0.8, 0.6, 1.0)
 
 func _ready() -> void:
 	# 设置面板大小
-	custom_minimum_size = Vector2(220, 200)
+	custom_minimum_size = Vector2(330, 300)
 	
 	# 添加样式
 	_update_style()
@@ -67,7 +67,7 @@ func _create_ui() -> void:
 	# 标题
 	title_label = Label.new()
 	title_label.name = "Title"
-	title_label.add_theme_font_size_override("font_size", 16)
+	title_label.add_theme_font_size_override("font_size", 24)
 	title_label.add_theme_color_override("font_color", Color.WHITE)
 	title_label.text = "物品名称"
 	main_vbox.add_child(title_label)
@@ -79,14 +79,14 @@ func _create_ui() -> void:
 	
 	rarity_label = Label.new()
 	rarity_label.name = "Rarity"
-	rarity_label.add_theme_font_size_override("font_size", 12)
+	rarity_label.add_theme_font_size_override("font_size", 18)
 	rarity_label.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
 	rarity_label.text = "稀有度: 普通"
 	info_hbox.add_child(rarity_label)
 	
 	type_label = Label.new()
 	type_label.name = "Type"
-	type_label.add_theme_font_size_override("font_size", 12)
+	type_label.add_theme_font_size_override("font_size", 18)
 	type_label.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
 	type_label.text = "类型: 武器"
 	info_hbox.add_child(type_label)
@@ -94,7 +94,7 @@ func _create_ui() -> void:
 	# 尺寸
 	size_label = Label.new()
 	size_label.name = "Size"
-	size_label.add_theme_font_size_override("font_size", 12)
+	size_label.add_theme_font_size_override("font_size", 18)
 	size_label.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
 	size_label.text = "尺寸: 小 (1槽位)"
 	main_vbox.add_child(size_label)
@@ -113,7 +113,7 @@ func _create_ui() -> void:
 	# 特殊效果
 	special_effects_label = Label.new()
 	special_effects_label.name = "SpecialEffects"
-	special_effects_label.add_theme_font_size_override("font_size", 11)
+	special_effects_label.add_theme_font_size_override("font_size", 16)
 	special_effects_label.add_theme_color_override("font_color", Color(0.9, 0.8, 0.3))
 	special_effects_label.text = ""
 	special_effects_label.visible = false
@@ -122,7 +122,7 @@ func _create_ui() -> void:
 	# 协同加成
 	synergy_label = Label.new()
 	synergy_label.name = "Synergy"
-	synergy_label.add_theme_font_size_override("font_size", 11)
+	synergy_label.add_theme_font_size_override("font_size", 16)
 	synergy_label.add_theme_color_override("font_color", Color(1.0, 0.84, 0.0))
 	synergy_label.text = ""
 	synergy_label.visible = false
@@ -131,7 +131,7 @@ func _create_ui() -> void:
 	# 描述
 	var desc_label = Label.new()
 	desc_label.name = "Description"
-	desc_label.add_theme_font_size_override("font_size", 11)
+	desc_label.add_theme_font_size_override("font_size", 16)
 	desc_label.add_theme_color_override("font_color", Color(0.5, 0.5, 0.5))
 	desc_label.text = "点击空白处关闭"
 	desc_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -218,7 +218,7 @@ func _add_stat_row(name: String, value: int, color: Color) -> void:
 ## 创建属性标签
 func _create_stat_label(text: String, color: Color) -> Label:
 	var label = Label.new()
-	label.add_theme_font_size_override("font_size", 12)
+	label.add_theme_font_size_override("font_size", 18)
 	label.add_theme_color_override("font_color", color)
 	label.text = text
 	return label
