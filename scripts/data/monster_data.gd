@@ -23,7 +23,7 @@ var current_hp: int = 50
 ## 在战斗循环中按 CD 触发，伤害扣玩家 HP
 
 ## 怪物物品列表: [{name: String, damage: int, cooldown: float, current_cooldown: float}]
-var monster_items: Array[Dictionary] = []
+var monster_items: Array = []
 
 ## ============ 掉落奖励 ============
 
