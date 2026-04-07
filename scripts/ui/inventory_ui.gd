@@ -171,9 +171,6 @@ func _ready() -> void:
 	# 创建槽位高亮层
 	_create_slot_overlay_layer()
 	
-	# 添加测试物品（包括有特殊效果的物品）
-	_add_test_items()
-	
 	# 初始刷新协同高亮
 	_update_synergy_highlights()
 	
@@ -347,11 +344,11 @@ func _display_item(item: ItemData, is_synergy_highlight: bool = false) -> void:
 	label.offset_bottom = -4
 	item_panel.add_child(label)
 	
-	# 如果物品有 Cooldown，添加进度条
+	# 如果物品有 Cooldown，添加遮罩层（盖在图标上方）
 	if item.cooldown > 0:
-		var cooldown_bar = _create_cooldown_bar(item)
-		cooldown_bar.name = "CooldownBar"
-		item_panel.add_child(cooldown_bar)
+		var cooldown_overlay = _create_cooldown_overlay(item)
+		cooldown_overlay.name = "CooldownOverlay"
+		item_panel.add_child(cooldown_overlay)
 	
 	# 添加鼠标输入（拖拽）
 	item_panel.gui_input.connect(_on_item_input.bind(item, item_panel))
@@ -366,35 +363,36 @@ func _display_item(item: ItemData, is_synergy_highlight: bool = false) -> void:
 	item_display_layer.add_child(item_panel)
 	item_panels.append(item_panel)
 
-## 创建 Cooldown 进度条
-func _create_cooldown_bar(item: ItemData) -> ProgressBar:
-	var bar = ProgressBar.new()
-	bar.custom_minimum_size = Vector2(0, 6)
-	bar.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
-	bar.offset_top = 20
-	bar.offset_bottom = 26
-	bar.custom_minimum_size.y = 6
+## 创建 Cooldown 遮罩（盖在物品图标上，显示冷却进度）
+func _create_cooldown_overlay(item: ItemData) -> ColorRect:
+	var overlay = ColorRect.new()
+	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
+	overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	overlay.color = Color(0, 0, 0, 0.5)
 	
-	# 设置样式
-	var style = StyleBoxFlat.new()
-	style.bg_color = Color(0.1, 0.1, 0.1)
-	style.set_corner_radius_all(2)
-	bar.add_theme_stylebox_override("background", style)
-	
-	var fill_style = StyleBoxFlat.new()
-	fill_style.bg_color = Color(0.2, 0.6, 1.0)
-	fill_style.set_corner_radius_all(2)
-	bar.add_theme_stylebox_override("fill", fill_style)
-	
-	# 设置值（如果有 current_cooldown，显示剩余时间，否则显示满）
-	if item.current_cooldown > 0:
-		bar.max_value = item.cooldown
-		bar.value = item.current_cooldown
+	# 根据冷却进度设置遮罩高度（从底部向上减少）
+	if item.current_cooldown > 0 and item.cooldown > 0:
+		var ratio = item.current_cooldown / item.cooldown  # 1.0=满冷却, 0.0=冷却完成
+		overlay.anchor_top = 1.0 - ratio
+		overlay.anchor_bottom = 1.0
 	else:
-		bar.max_value = 1
-		bar.value = 1
+		# 冷却完成，隐藏遮罩
+		overlay.visible = false
 	
-	return bar
+	# 添加冷却时间文字
+	var timer_label = Label.new()
+	timer_label.name = "CooldownTimerLabel"
+	timer_label.set_anchors_preset(Control.PRESET_CENTER)
+	timer_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	timer_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	if item.current_cooldown > 0:
+		timer_label.text = "%.1f" % item.current_cooldown
+	timer_label.add_theme_font_size_override("font_size", 15)
+	timer_label.add_theme_color_override("font_color", Color.WHITE)
+	timer_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	overlay.add_child(timer_label)
+	
+	return overlay
 
 ## 获取物品颜色（基于稀有度）
 func _get_item_color(item: ItemData) -> Color:
@@ -900,6 +898,11 @@ func _add_test_items() -> void:
 
 ## 更新 Cooldown 显示（每帧调用）
 func _process(delta: float) -> void:
+	# 只在战斗中更新 Cooldown
+	var battle_ui_node = get_parent().get_node_or_null("BattleUI")
+	if battle_ui_node and not battle_ui_node.is_battle_active:
+		return
+	
 	# 更新所有物品的 Cooldown
 	for item in inventory.items:
 		if item.current_cooldown > 0:

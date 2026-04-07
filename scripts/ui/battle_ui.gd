@@ -75,8 +75,9 @@ func _ready() -> void:
 	# 获取战斗系统 (autoload)
 	battle_system = get_node("/root/BattleSystem")
 	
-	# 初始隐藏战斗面板
+	# 初始隐藏战斗面板，设置鼠标穿透
 	battle_panel.visible = false
+	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	
 	# 自动战斗默认开启
 	auto_battle_check.button_pressed = true
@@ -116,6 +117,9 @@ func start_battle(monster: MonsterData = null, pvp: bool = false, enemy_atk_bonu
 	
 	# 显示战斗面板
 	_show_battle_panel()
+	
+	# 拦截鼠标事件（战斗进行中）
+	mouse_filter = Control.MOUSE_FILTER_STOP
 	
 	# 更新 UI
 	_update_battle_ui()
@@ -217,6 +221,7 @@ func _show_battle_panel() -> void:
 func _hide_battle_panel() -> void:
 	battle_panel.visible = false
 	is_battle_active = false
+	mouse_filter = Control.MOUSE_FILTER_IGNORE  # 战斗结束后允许鼠标穿透到下层 UI
 
 ## 战斗循环（每帧更新）
 func _process(delta: float) -> void:
