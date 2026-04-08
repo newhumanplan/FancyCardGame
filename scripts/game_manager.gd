@@ -48,6 +48,7 @@ func reset_stats() -> void:
 	wins = 0
 	losses = 0
 	prestige = 20
+	prestige_zero_count = 0
 	gold = 100
 	current_day = 1
 	current_hour = 0
@@ -86,6 +87,9 @@ var prestige: int = 20
 
 ## Prestige 最大值
 var max_prestige: int = 100
+
+## Prestige 归零次数（第二次归零 = 游戏结束）
+var prestige_zero_count: int = 0
 
 ## 胜场
 var wins: int = 0
@@ -207,13 +211,20 @@ func remove_prestige(amount: int) -> void:
 
 	# 检查是否归零
 	if old_prestige > 0 and prestige == 0:
-		_show_gold_upgrade_option()
+		prestige_zero_count += 1
+		if prestige_zero_count == 1:
+			# 第一次归零 → 黄金升级，声望恢复到 1
+			_gold_upgrade()
+		elif prestige_zero_count >= 2:
+			# 第二次归零 → 游戏结束
+			game_over.emit(false)
 
-## 显示黄金升级选项提示
-func _show_gold_upgrade_option() -> void:
-	print("💰 黄金升级选项已解锁!")
+## 黄金升级：获得金币奖励，声望恢复到 1
+func _gold_upgrade() -> void:
+	print("💰 黄金升级! 声望归零第1次，获得奖励并恢复声望!")
 	add_gold(100)
-	print("💰 获得 100 金币奖励!")
+	prestige = 1
+	prestige_changed.emit(prestige)
 
 ## Prestige 加成购买
 func buy_prestige(amount: int, cost: int) -> bool:
@@ -243,11 +254,15 @@ func on_battle_win() -> void:
 func _show_victory() -> void:
 	game_over.emit(true)
 
-## 战斗失败（非PvP）
+## 战斗失败（非PvP）- 扣除 Prestige
 func on_battle_lose() -> void:
 	losses += 1
 	wins = 0  # 重置连胜
 	record_battle_loss()
+	# 怪物战斗失败也扣除 Prestige（根据当前天数）
+	var penalty: int = max(1, current_day / 2)
+	remove_prestige(penalty)
+	print("战斗失败! 扣除 %d Prestige" % penalty)
 
 ## PvP 失败 - 扣除当前天数的 Prestige
 func on_pvp_lose() -> void:
@@ -269,11 +284,10 @@ func get_max_health() -> int:
 
 ## 扣除生命值（直接扣除，MVP 无防御属性）
 ## 返回实际伤害值
+## 注意：HP 归零不触发 game_over，游戏结束仅由 Prestige 归零判定
 func take_damage(amount: int) -> int:
 	player_health = max(0, player_health - amount)
 	health_changed.emit(player_health)
-	if player_health <= 0:
-		game_over.emit(false)
 	return amount
 
 ## 治疗
@@ -302,6 +316,7 @@ func full_reset() -> void:
 	current_hour = 0
 	player_health = 100
 	prestige = 20
+	prestige_zero_count = 0
 	wins = 0
 	losses = 0
 	selected_hero = null
