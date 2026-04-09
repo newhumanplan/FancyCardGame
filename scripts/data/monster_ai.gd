@@ -51,7 +51,7 @@ static func create_aggressive() -> RefCounted:
 	ai.ai_mode = AIMode.AGGRESSIVE
 	ai.damage_multiplier = 1.3
 	ai.attack_speed_multiplier = 1.0
-	ai.low_hp_damage_multiplier = 1.5  ## 狂暴模式
+	ai.low_hp_damage_multiplier = 1.3  ## 狂暴模式
 	return ai
 
 ## 防御型 AI
@@ -88,7 +88,7 @@ static func create_boss() -> RefCounted:
 	ai.special_effect_value = 5
 	ai.attack_speed_multiplier = 1.2
 	ai.low_hp_threshold = 0.2
-	ai.low_hp_damage_multiplier = 2.0  ## Boss 狂暴
+	ai.low_hp_damage_multiplier = 1.6  ## Boss 狂暴
 	return ai
 
 ## 蜂群型 AI

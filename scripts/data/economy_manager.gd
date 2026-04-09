@@ -12,7 +12,7 @@ const MONSTER_GOLD_BASE: int = 8
 const MONSTER_GOLD_DAY_SCALE: int = 3
 
 ## PvP 胜利金币奖励
-const PVP_WIN_GOLD_BASE: int = 15
+const PVP_WIN_GOLD_BASE: int = 12
 const PVP_WIN_GOLD_DAY_SCALE: int = 5
 
 ## 事件金币范围
@@ -23,7 +23,7 @@ const EVENT_GOLD_MAX: int = 40
 
 ## 物品基础价格（按稀有度）
 ## 索引: 0=不使用, 1=普通, 2=稀有, 3=史诗, 4=传说
-const ITEM_BASE_PRICES: Array[int] = [0, 10, 25, 50, 100]
+const ITEM_BASE_PRICES: Array[int] = [0, 10, 25, 50, 80]
 
 ## 尺寸价格倍率
 const SIZE_PRICE_MULTIPLIER: Dictionary = {

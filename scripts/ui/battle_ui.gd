@@ -182,31 +182,31 @@ func _generate_random_monster() -> MonsterData:
 	match tier:
 		MonsterData.MonsterTier.TIER_1:
 			monster.monster_name = "史莱姆"
-			monster.max_hp = 80 + day * 15
+			monster.max_hp = 40 + day * 10
 			monster.gold_reward_min = 5 + day
 			monster.gold_reward_max = 10 + day * 2
 			# 史莱姆物品：酸液喷射
 			monster.monster_items = [
-				{"name": "酸液喷射", "damage": 8 + day, "cooldown": 3.0, "current_cooldown": 3.0}
+				{"name": "酸液喷射", "damage": 5 + day, "cooldown": 3.0, "current_cooldown": 3.0}
 			]
 		MonsterData.MonsterTier.TIER_2:
 			monster.monster_name = "哥布林"
-			monster.max_hp = 140 + day * 25
+			monster.max_hp = 80 + day * 15
 			monster.gold_reward_min = 10 + day * 2
 			monster.gold_reward_max = 20 + day * 3
 			# 哥布林物品：石斧
 			monster.monster_items = [
-				{"name": "石斧", "damage": 12 + day * 2, "cooldown": 3.5, "current_cooldown": 3.5}
+				{"name": "石斧", "damage": 8 + day * 2, "cooldown": 3.5, "current_cooldown": 3.5}
 			]
 		MonsterData.MonsterTier.TIER_3:
 			monster.monster_name = "食人魔"
-			monster.max_hp = 200 + day * 30
+			monster.max_hp = 130 + day * 20
 			monster.gold_reward_min = 20 + day * 3
 			monster.gold_reward_max = 40 + day * 5
 			# 食人魔物品：重锤 + 碎骨（2个物品）
 			monster.monster_items = [
-				{"name": "重锤", "damage": 18 + day * 2, "cooldown": 4.0, "current_cooldown": 4.0},
-				{"name": "碎骨", "damage": 10 + day, "cooldown": 3.0, "current_cooldown": 3.0}
+				{"name": "重锤", "damage": 12 + day * 2, "cooldown": 4.0, "current_cooldown": 4.0},
+				{"name": "碎骨", "damage": 6 + day, "cooldown": 3.0, "current_cooldown": 3.0}
 			]
 
 	monster.tier = tier
@@ -226,7 +226,7 @@ func _create_pvp_enemy() -> MonsterData:
 	if random_hero_type == 0:
 		# PvP 战士对手
 		monster.monster_name = "PvP 战士"
-		monster.max_hp = 200 + day * 5
+		monster.max_hp = 200 + day * 15
 		# 战士物品：剑 + 盾
 		monster.monster_items = [
 			{"name": "战士之剑", "damage": 15 + day, "cooldown": 3.0, "current_cooldown": 3.0},
@@ -235,7 +235,7 @@ func _create_pvp_enemy() -> MonsterData:
 	else:
 		# PvP 法师对手
 		monster.monster_name = "PvP 法师"
-		monster.max_hp = 160 + day * 5
+		monster.max_hp = 160 + day * 15
 		# 法师物品：法杖（高伤慢CD）
 		monster.monster_items = [
 			{"name": "奥术法杖", "damage": 22 + day * 2, "cooldown": 4.5, "current_cooldown": 4.5}
