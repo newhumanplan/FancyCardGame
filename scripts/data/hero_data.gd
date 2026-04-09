@@ -21,7 +21,7 @@ enum HeroType { WARRIOR, MAGE }
 ## 当前生命值（运行时）
 var current_hp: int = 100
 
-## ============ 被动技能 ============
+## ============ 被动技能（旧版，保留兼容） ============
 
 ## 被动技能名称
 @export var passive_skill_name: String = ""
@@ -34,6 +34,13 @@ var current_hp: int = 100
 
 ## 被动技能加成值
 @export var passive_bonus_value: float = 0.0
+
+## ============ 被动技能列表（新版） ============
+
+const PassiveSkillType = preload("res://scripts/data/passive_skill.gd")
+
+## 英雄专属被动技能列表
+var passive_skills: Array = []  ## Array[PassiveSkillData]
 
 ## ============ 技能与物品 ============
 

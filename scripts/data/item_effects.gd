@@ -1,0 +1,117 @@
+class_name ItemEffects
+extends RefCounted
+
+## 物品效果系统 — 集中管理物品触发时的效果计算
+## 与 battle_system.gd 的 _trigger_player_items 和 _apply_item_special_effects 配合
+
+## 效果类型常量
+const EFFECT_POISON: String = "poison"
+const EFFECT_BURN: String = "burn"
+const EFFECT_REGEN: String = "regeneration"
+const EFFECT_STUN: String = "stun"
+const EFFECT_FREEZE: String = "freeze"
+const EFFECT_SHIELD: String = "shield"
+const EFFECT_LIFESTEAL: String = "lifesteal"
+
+## 计算物品总伤害（基础伤害 + 稀有度倍率 + 暴击）
+static func calculate_damage(item: ItemData, is_crit: bool) -> int:
+	var base: int = item.get_rarity_adjusted_damage()
+	var mult: float = 2.0 if is_crit else 1.0
+	return int(float(base) * mult)
+
+## 计算物品总护盾
+static func calculate_shield(item: ItemData) -> int:
+	return item.get_rarity_adjusted_shield()
+
+## 计算物品总治疗
+static func calculate_heal(item: ItemData) -> int:
+	return item.get_rarity_adjusted_heal()
+
+## 计算物品总暴击率加成
+static func calculate_crit_chance(item: ItemData) -> float:
+	return item.crit_chance * item.get_rarity_multiplier()
+
+## 构建持续效果数据（供 battle_system.gd 的 active_effects 使用）
+## 返回 Array[Dictionary]，每个 dict: {type, value, duration, item_name, target}
+static func build_active_effects(item: ItemData, is_crit: bool) -> Array:
+	var effects: Array = []
+	var rarity_mult: float = item.get_rarity_multiplier()
+	var crit_mult: float = 2.0 if is_crit else 1.0
+
+	if item.poison_damage > 0:
+		effects.append({
+			"type": EFFECT_POISON,
+			"value": item.poison_damage * rarity_mult * crit_mult,
+			"duration": 5.0,
+			"item_name": item.item_name,
+			"target": "enemy"
+		})
+
+	if item.burn_damage > 0:
+		effects.append({
+			"type": EFFECT_BURN,
+			"value": item.burn_damage * rarity_mult * crit_mult,
+			"duration": 5.0,
+			"item_name": item.item_name,
+			"target": "enemy"
+		})
+
+	if item.regeneration > 0:
+		effects.append({
+			"type": EFFECT_REGEN,
+			"value": item.regeneration * rarity_mult * crit_mult,
+			"duration": 5.0,
+			"item_name": item.item_name,
+			"target": "self"
+		})
+
+	return effects
+
+## 处理持续效果 tick（供 battle_system.gd 的 _process_active_effects 使用）
+## 返回处理结果: {damage_to_monster: int, damage_to_player: int, heal_player: int}
+static func process_effect_tick(effect: Dictionary, battle_tick: float, monster: Node, player_health: int, max_health: int) -> Dictionary:
+	var result = {
+		"damage_to_monster": 0,
+		"damage_to_player": 0,
+		"heal_player": 0,
+	}
+
+	var value_per_sec: float = effect["value"]
+	var tick_value: float = value_per_sec * battle_tick
+	var tick_value_int: int = int(tick_value)
+
+	match effect["type"]:
+		EFFECT_POISON, EFFECT_BURN:
+			# 伤害怪物
+			if monster and monster.is_alive():
+				result["damage_to_monster"] = tick_value_int
+		EFFECT_REGEN:
+			# 治疗玩家
+			result["heal_player"] = tick_value_int
+		EFFECT_STUN:
+			# 眩晕：暂停冷却（由战斗系统处理）
+			pass
+		EFFECT_FREEZE:
+			# 冰冻：减慢冷却（由战斗系统处理）
+			pass
+
+	return result
+
+## 获取物品效果摘要文本（用于 UI 显示）
+static func get_item_summary(item: ItemData) -> String:
+	var parts: Array[String] = []
+
+	if item.damage > 0:
+		parts.append("伤害:%d" % item.get_rarity_adjusted_damage())
+	if item.shield > 0:
+		parts.append("护盾:%d" % item.get_rarity_adjusted_shield())
+	if item.heal > 0:
+		parts.append("治疗:%d" % item.get_rarity_adjusted_heal())
+	if item.crit_chance > 0:
+		parts.append("暴击:%.0f%%" % (calculate_crit_chance(item) * 100))
+
+	var special = item.get_special_effect_description()
+	if special != "":
+		parts.append(special)
+
+	return " | ".join(parts)

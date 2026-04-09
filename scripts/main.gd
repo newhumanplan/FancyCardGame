@@ -5,6 +5,15 @@ extends Control
 
 ## 预加载英雄数据
 const HeroDataClass = preload("res://scripts/data/hero_data.gd")
+const EventManagerClass = preload("res://scripts/data/event_manager.gd")
+const PassiveSkillDataClass = preload("res://scripts/data/passive_skill.gd")
+const EndingManagerClass = preload("res://scripts/data/ending_manager.gd")
+
+## 事件管理器
+var event_manager = EventManagerClass.new()
+
+## 当前随机事件ID（用于随机事件选项）
+var _current_random_event_id: String = ""
 
 ## ============ UI 节点 ============
 
@@ -131,8 +140,23 @@ func _on_warrior_selected() -> void:
 	warrior.passive_bonus_type = "health"
 	warrior.passive_bonus_value = 20
 
+	# 装备2个英雄专属被动技能
+	var ps1 = PassiveSkillDataClass.new()
+	ps1.skill_name = "铁壁"
+	ps1.description = "坚韧体质，生命值上限+20"
+	ps1.effect_type = PassiveSkillDataClass.EffectType.HEALTH_BONUS
+	ps1.effect_value = 20.0
+	warrior.passive_skills.append(ps1)
+
+	var ps2 = PassiveSkillDataClass.new()
+	ps2.skill_name = "战斗本能"
+	ps2.description = "丰富的战斗经验，暴击率+2%"
+	ps2.effect_type = PassiveSkillDataClass.EffectType.CRIT_BONUS
+	ps2.effect_value = 2.0
+	warrior.passive_skills.append(ps2)
+
 	GameManager.select_hero(warrior)
-	_apply_passive_skill(warrior)
+	_apply_passive_skills(warrior)
 	_on_game_started()
 
 func _on_mage_selected() -> void:
@@ -147,22 +171,39 @@ func _on_mage_selected() -> void:
 	mage.passive_bonus_type = "crit"
 	mage.passive_bonus_value = 10
 
+	# 装备2个英雄专属被动技能
+	var ps1 = PassiveSkillDataClass.new()
+	ps1.skill_name = "奥术智慧"
+	ps1.description = "对魔法的深刻理解，暴击率+5%"
+	ps1.effect_type = PassiveSkillDataClass.EffectType.CRIT_BONUS
+	ps1.effect_value = 5.0
+	mage.passive_skills.append(ps1)
+
+	var ps2 = PassiveSkillDataClass.new()
+	ps2.skill_name = "魔力涌动"
+	ps2.description = "魔力充沛，生命值上限+10"
+	ps2.effect_type = PassiveSkillDataClass.EffectType.HEALTH_BONUS
+	ps2.effect_value = 10.0
+	mage.passive_skills.append(ps2)
+
 	GameManager.select_hero(mage)
-	_apply_passive_skill(mage)
+	_apply_passive_skills(mage)
 	_on_game_started()
 
-## 应用被动技能
-func _apply_passive_skill(hero: HeroData) -> void:
-	if not hero.has_passive_skill():
-		return
+## 应用被动技能（兼容旧版+新版被动技能列表）
+func _apply_passive_skills(hero: HeroData) -> void:
+	# 旧版被动技能兼容
+	if hero.has_passive_skill():
+		match hero.passive_bonus_type:
+			"health":
+				GameManager.apply_skill_bonus(hero.passive_skill_name, "health", hero.passive_bonus_value)
+			"crit":
+				GameManager.apply_skill_bonus(hero.passive_skill_name, "crit", hero.passive_bonus_value)
+		print("激活被动技能(旧版): %s" % hero.get_passive_skill_full_description())
 
-	match hero.passive_bonus_type:
-		"health":
-			GameManager.apply_skill_bonus(hero.passive_skill_name, "health", hero.passive_bonus_value)
-		"crit":
-			GameManager.apply_skill_bonus(hero.passive_skill_name, "crit", hero.passive_bonus_value)
-
-	print("激活被动技能: %s" % hero.get_passive_skill_full_description())
+	# 新版被动技能列表
+	for ps in hero.passive_skills:
+		PassiveSkillDataClass.apply_to_hero(ps, hero)
 
 ## 游戏开始
 func _on_game_started() -> void:
@@ -184,50 +225,20 @@ func _show_event_panel() -> void:
 func _hide_event_panel() -> void:
 	event_panel.visible = false
 
-## 生成随机事件选项
+## 生成随机事件选项（使用 EventManager）
 func _generate_event_options() -> void:
 	var hour = GameManager.current_hour
+	var day = GameManager.current_day
 
-	# Hour 4 固定为 PvP 战斗
-	if hour == 4:
-		event_option_1.text = "⚔️ PvP 对战"
-		event_option_1.visible = true
-		event_option_2.visible = false
-		event_option_3.visible = false
-		current_event_type = "pvp"
+	# 使用 EventManager 生成选项
+	var options = event_manager.generate_options(hour, day)
+	_current_random_event_id = ""
+
+	if options.is_empty():
 		return
 
-	# 其他 Hour: 随机生成 3 个选项
-	var options = []
-
-	# 商人选项（购买物品）
-	options.append({"type": "shop", "text": "🏪 商人", "desc": "购买物品"})
-
-	# 怪物选项（PvE 战斗）
-	options.append({"type": "monster", "text": "👹 怪物", "desc": "PvE 战斗"})
-
-	# 随机事件选项
-	var event_types = ["随机事件", "宝库", "营地", "商人", "怪物"]
-	var random_event = event_types.pick_random()
-	match random_event:
-		"随机事件":
-			options.append({"type": "random_event", "text": "✨ 随机事件", "desc": "随机事件"})
-		"宝库":
-			options.append({"type": "treasure", "text": "💎 宝库", "desc": "获取宝藏"})
-		"营地":
-			options.append({"type": "camp", "text": "⛺ 营地", "desc": "休息恢复"})
-		"商人":
-			options.append({"type": "shop", "text": "🏪 商人", "desc": "购买物品"})
-		"怪物":
-			options.append({"type": "monster", "text": "👹 怪物", "desc": "PvE 战斗"})
-
-	# 打乱顺序
-	options.shuffle()
-
-	# 显示选项
 	event_option_1.text = options[0].text
 	event_option_1.visible = true
-	current_event_type = options[0].type
 
 	if options.size() > 1:
 		event_option_2.text = options[1].text
@@ -238,6 +249,9 @@ func _generate_event_options() -> void:
 	if options.size() > 2:
 		event_option_3.text = options[2].text
 		event_option_3.visible = true
+		# 保存随机事件ID（如果有）
+		if options[2].has("event_id"):
+			_current_random_event_id = options[2].event_id
 	else:
 		event_option_3.visible = false
 
@@ -256,19 +270,17 @@ func _handle_event_selection(event_text: String) -> void:
 	print("选择了事件: %s" % event_text)
 
 	if "商人" in event_text or "🏪" in event_text:
-		print("[DEBUG] 检测到商人事件，准备打开商店")
 		_execute_shop_event()
 	elif "怪物" in event_text or "👹" in event_text:
 		_execute_monster_event()
 	elif "PvP" in event_text or "⚔️" in event_text:
 		_execute_pvp_event()
-	elif "随机事件" in event_text or "✨" in event_text:
-		_execute_random_event()
 	elif "宝库" in event_text or "💎" in event_text:
 		_execute_treasure_event()
 	elif "营地" in event_text or "⛺" in event_text:
 		_execute_camp_event()
 	else:
+		# 随机事件
 		_execute_random_event()
 
 ## ============ 事件执行 ============
@@ -315,96 +327,39 @@ func _execute_pvp_event() -> void:
 	print("执行 PvP 对战事件")
 	_start_pvp_battle()
 
-## 执行随机事件
+## 执行随机事件（使用 EventManager）
 func _execute_random_event() -> void:
 	print("执行随机事件")
 	var day = GameManager.current_day
-	var events = [
-		"merchant_bonus",
-		"healing_fountain",
-		"pickpocket",
-		"treasure",
-		"heal",
-		"bandits",
-		"wounded_hero",
-		"storm",
-		"strange_merchant",
-		"ancient_shrine",
-		"thief_guild",
-		"blessed_rest",
-	]
-	var random_event = events.pick_random()
 
-	match random_event:
-		"merchant_bonus":
-			GameManager.add_gold(8 + day * 2)
-			print("随机事件: 慷慨商人! 获得 %d 金币!" % (8 + day * 2))
-		"healing_fountain":
-			var heal_amount = GameManager.get_max_health() / 4
-			GameManager.heal(heal_amount)
-			print("随机事件: 治愈之泉! 恢复 %d HP!" % heal_amount)
-		"pickpocket":
-			var stolen = mini(GameManager.gold, 5 + day * 2)
-			GameManager.spend_gold(stolen)
-			print("随机事件: 遭遇小偷! 损失 %d 金币!" % stolen)
-		"treasure":
-			GameManager.add_gold(10 + day * 3)
-			print("随机事件: 发现隐藏宝藏! 获得 %d 金币!" % (10 + day * 3))
-		"heal":
-			GameManager.heal(15 + day * 2)
-			print("随机事件: 遇到好心旅人! 恢复 %d HP!" % (15 + day * 2))
-		"bandits":
-			var damage = 5 + day * 3
-			GameManager.take_damage(damage)
-			print("随机事件: 遭遇盗贼! 受到 %d 点伤害!" % damage)
-		"wounded_hero":
-			GameManager.add_prestige(3)
-			GameManager.add_gold(5)
-			print("随机事件: 救助受伤英雄! 获得 5 金币，+3 声望!")
-		"storm":
-			var lost = 3 + day * 2
-			GameManager.spend_gold(lost)
-			GameManager.take_damage(3)
-			print("随机事件: 暴风雨! 损失 %d 金币，受到 3 点伤害!" % lost)
-		"strange_merchant":
-			GameManager.add_gold(20 + day * 3)
-			GameManager.take_damage(5)
-			print("随机事件: 神秘商人! 获得 %d 金币但受到诅咒损失 5 HP!" % (20 + day * 3))
-		"ancient_shrine":
-			# 古老祭坛改为增加暴击率（不再是 ATK）
-			var bonus_crit = 0.02 + float(day) * 0.005
-			if GameManager.selected_hero:
-				GameManager.selected_hero.crit_chance += bonus_crit
-			print("随机事件: 古老祭坛! 暴击率 +%.1f%% (永久)!" % (bonus_crit * 100))
-		"thief_guild":
-			var stolen = 5 + day * 2
-			GameManager.spend_gold(stolen)
-			print("随机事件: 盗贼公会! 被收取保护费 %d 金币!" % stolen)
-		"blessed_rest":
-			var heal_amount = GameManager.get_max_health() / 3
-			GameManager.heal(heal_amount)
-			GameManager.add_gold(5)
-			print("随机事件: 受到祝福的休息! 恢复 %d HP，获得 5 金币!" % heal_amount)
+	# 如果有预选的随机事件ID，使用它；否则随机选择
+	var event_id: String = _current_random_event_id
+	if event_id == "":
+		var evt = event_manager._pick_random_event(day)
+		if evt:
+			event_id = evt.id
+		else:
+			_auto_advance_hour()
+			return
 
+	var result = event_manager.execute_random_event(event_id, day, GameManager)
+	print("随机事件: %s" % result)
 	_auto_advance_hour()
 
-## 执行宝库事件
+## 执行宝库事件（使用 EventManager）
 func _execute_treasure_event() -> void:
 	print("执行宝库事件")
 	var day = GameManager.current_day
-	var gold = 15 + day * 5
-	GameManager.add_gold(gold)
-	print("宝库事件: 发现古代宝库! 获得 %d 金币!" % gold)
+	var result = event_manager.execute_treasure_event(day, GameManager)
+	print("宝库事件: %s" % result)
 	_auto_advance_hour()
 
-## 执行营地事件
+## 执行营地事件（使用 EventManager）
 func _execute_camp_event() -> void:
 	print("执行营地事件")
 	var day = GameManager.current_day
-	var heal = 20 + day * 5
-	GameManager.heal(heal)
-	GameManager.add_prestige(2)
-	print("营地事件: 营地休息! 恢复 %d HP，+2 声望!" % heal)
+	var result = event_manager.execute_camp_event(day, GameManager)
+	print("营地事件: %s" % result)
 	_auto_advance_hour()
 
 ## ============ 战斗系统 ============
@@ -555,21 +510,18 @@ func _on_prestige_changed(value: int) -> void:
 
 ## 游戏结束回调
 func _on_game_over(won: bool) -> void:
-	if won:
-		game_over_title.text = "🎉 游戏胜利!"
-		game_over_title.add_theme_color_override("font_color", Color(1.0, 0.84, 0.0))
-		print("🎉 游戏胜利! 10 胜达成!")
-	else:
-		game_over_title.text = "💀 游戏失败!"
-		game_over_title.add_theme_color_override("font_color", Color(1.0, 0.3, 0.3))
-		print("💀 游戏失败!")
+	# 使用 EndingManager 判定结局
+	var ending = EndingManagerClass.determine_ending(GameManager)
+	var title = EndingManagerClass.get_ending_title(ending)
 
-	game_over_stats.text = (
-		"存活天数: %d\n总金币: %d\nPvP胜场: %d/10\n总胜利: %d\n总失败: %d"
-		% [GameManager.current_day, GameManager.stats_total_gold_earned,
-		   GameManager.pvp_wins,
-		   GameManager.stats_total_wins, GameManager.stats_total_losses]
-	)
+	game_over_title.text = "%s — %s" % [title, ("胜利" if won else "失败")]
+	if won:
+		game_over_title.add_theme_color_override("font_color", Color(1.0, 0.84, 0.0))
+	else:
+		game_over_title.add_theme_color_override("font_color", Color(1.0, 0.3, 0.3))
+	print("%s" % EndingManagerClass.get_ending_description(ending))
+
+	game_over_stats.text = EndingManagerClass.generate_summary(GameManager, ending)
 
 	_show_game_over_panel()
 	_hide_event_panel()

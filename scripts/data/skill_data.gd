@@ -1,8 +1,14 @@
 class_name SkillData
 extends Resource
 
-## 技能类型枚举
-enum SkillType { ATTACK, BUFF, DEBUFF, HEAL }
+## 技能品质枚举
+enum Quality { BRONZE, SILVER, GOLD, DIAMOND }
+
+## 技能效果类型
+enum EffectType { CRIT, SHIELD, BURN, POISON, FREEZE, HASTE, CHARGE, HEALTH, COOLDOWN }
+
+## 技能ID
+@export var skill_id: String = ""
 
 ## 技能名称
 @export var skill_name: String = "技能"
@@ -10,48 +16,70 @@ enum SkillType { ATTACK, BUFF, DEBUFF, HEAL }
 ## 技能描述
 @export var description: String = ""
 
-## 技能类型
-@export var skill_type: SkillType = SkillType.ATTACK
+## 技能品质
+@export var quality: Quality = Quality.BRONZE
 
-## 技能冷却时间
-@export var cooldown: float = 5.0
+## 效果类型
+@export var effect_type: EffectType = EffectType.CRIT
 
-## 当前冷却时间（运行时）
-var current_cooldown: float = 0.0
+## 效果数值（按品质递增）: [Bronze, Silver, Gold, Diamond]
+@export var effect_values: Array[float] = [0.0, 0.0, 0.0, 0.0]
 
-## 技能效果值（伤害/治疗量等）
-@export var effect_value: int = 0
+## 所属英雄（空字符串=通用技能）
+@export var hero_id: String = ""
 
-## 技能消耗（mana/能量等）
-@export var cost: int = 0
+## 是否已解锁
+var unlocked: bool = false
 
-## ============ 运行时方法 ============
+## 获取当前品质对应的效果值
+func get_effect_value() -> float:
+	var idx: int = quality as int
+	if idx < effect_values.size():
+		return effect_values[idx]
+	return 0.0
 
-## 检查技能是否可用
-func can_use() -> bool:
-	return current_cooldown <= 0
-
-## 使用技能
-func use():
-	if can_use():
-		current_cooldown = cooldown
-
-## 重置冷却
-func reset_cooldown():
-	current_cooldown = 0.0
-
-## 减少冷却（每帧调用）
-## delta: 时间增量
-func reduce_cooldown(delta: float):
-	current_cooldown = maxf(current_cooldown - delta, 0.0)
-
-## ============ 工具方法 ============
-
-## 获取类型名称
-func get_type_name() -> String:
-	match skill_type:
-		SkillType.ATTACK: return "攻击"
-		SkillType.BUFF: return "增益"
-		SkillType.DEBUFF: return "减益"
-		SkillType.HEAL: return "治疗"
+## 获取品质名称
+func get_quality_name() -> String:
+	match quality:
+		Quality.BRONZE: return "铜"
+		Quality.SILVER: return "银"
+		Quality.GOLD: return "金"
+		Quality.DIAMOND: return "钻"
 		_: return "未知"
+
+## 获取效果类型名称
+func get_effect_type_name() -> String:
+	match effect_type:
+		EffectType.CRIT: return "暴击"
+		EffectType.SHIELD: return "护盾"
+		EffectType.BURN: return "燃烧"
+		EffectType.POISON: return "中毒"
+		EffectType.FREEZE: return "冰冻"
+		EffectType.HASTE: return "急速"
+		EffectType.CHARGE: return "充能"
+		EffectType.HEALTH: return "生命"
+		EffectType.COOLDOWN: return "冷却"
+		_: return "未知"
+
+## 从字典创建（用于JSON加载）
+static func from_dict(data: Dictionary) -> SkillData:
+	var skill = SkillData.new()
+	if data.has("skill_id"): skill.skill_id = data["skill_id"]
+	if data.has("skill_name"): skill.skill_name = data["skill_name"]
+	if data.has("description"): skill.description = data["description"]
+	if data.has("hero_id"): skill.hero_id = data["hero_id"]
+	if data.has("effect_type"):
+		var type_str: String = data["effect_type"]
+		match type_str:
+			"crit": skill.effect_type = EffectType.CRIT
+			"shield": skill.effect_type = EffectType.SHIELD
+			"burn": skill.effect_type = EffectType.BURN
+			"poison": skill.effect_type = EffectType.POISON
+			"freeze": skill.effect_type = EffectType.FREEZE
+			"haste": skill.effect_type = EffectType.HASTE
+			"charge": skill.effect_type = EffectType.CHARGE
+			"health": skill.effect_type = EffectType.HEALTH
+			"cooldown": skill.effect_type = EffectType.COOLDOWN
+	if data.has("effect_values"):
+		skill.effect_values = data["effect_values"]
+	return skill

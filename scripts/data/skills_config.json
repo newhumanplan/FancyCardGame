@@ -1,0 +1,66 @@
+[
+  {
+    "skill_id": "deadly_eye",
+    "skill_name": "Deadly Eye",
+    "description": "增加暴击率",
+    "hero_id": "",
+    "effect_type": "crit",
+    "effect_values": [5.0, 10.0, 15.0, 20.0]
+  },
+  {
+    "skill_id": "keen_eye",
+    "skill_name": "Keen Eye",
+    "description": "增加暴击率",
+    "hero_id": "",
+    "effect_type": "crit",
+    "effect_values": [4.0, 8.0, 12.0, 16.0]
+  },
+  {
+    "skill_id": "toughness",
+    "skill_name": "Toughness",
+    "description": "增加护盾值",
+    "hero_id": "",
+    "effect_type": "shield",
+    "effect_values": [10.0, 15.0, 20.0, 25.0]
+  },
+  {
+    "skill_id": "large_appetites",
+    "skill_name": "Large Appetites",
+    "description": "增加最大生命值",
+    "hero_id": "",
+    "effect_type": "health",
+    "effect_values": [500.0, 1000.0, 1500.0, 2000.0]
+  },
+  {
+    "skill_id": "quick_defenses",
+    "skill_name": "Quick Defenses",
+    "description": "减少物品冷却时间",
+    "hero_id": "",
+    "effect_type": "cooldown",
+    "effect_values": [5.0, 7.0, 10.0, 15.0]
+  },
+  {
+    "skill_id": "fiery",
+    "skill_name": "Fiery",
+    "description": "物品攻击附带燃烧",
+    "hero_id": "",
+    "effect_type": "burn",
+    "effect_values": [1.0, 2.0, 3.0, 4.0]
+  },
+  {
+    "skill_id": "improved_toxins",
+    "skill_name": "Improved Toxins",
+    "description": "物品攻击附带中毒",
+    "hero_id": "",
+    "effect_type": "poison",
+    "effect_values": [1.0, 2.0, 3.0, 4.0]
+  },
+  {
+    "skill_id": "initial_chill",
+    "skill_name": "Initial Chill",
+    "description": "物品攻击附带冰冻",
+    "hero_id": "",
+    "effect_type": "freeze",
+    "effect_values": [3.0, 4.0, 5.0, 6.0]
+  }
+]

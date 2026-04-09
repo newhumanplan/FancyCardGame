@@ -1,6 +1,8 @@
 class_name MonsterData
 extends Resource
 
+const MonsterAIType = preload("res://scripts/data/monster_ai.gd")
+
 ## 怪物等级枚举
 enum MonsterTier { TIER_1, TIER_2, TIER_3 }
 
@@ -24,6 +26,9 @@ var current_hp: int = 50
 
 ## 怪物物品列表: [{name: String, damage: int, cooldown: float, current_cooldown: float}]
 var monster_items: Array = []
+
+## 怪物 AI 行为模式
+var ai = null  ## MonsterAI
 
 ## ============ 掉落奖励 ============
 

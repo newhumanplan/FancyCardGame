@@ -146,7 +146,26 @@ func start_battle(monster: MonsterData = null, pvp: bool = false, enemy_atk_bonu
 		for mi in current_monster.monster_items:
 			_log("   → %s (伤害:%d, CD:%.1fs)" % [mi["name"], mi["damage"], mi["cooldown"]])
 
+const MonsterAIClass = preload("res://scripts/data/monster_ai.gd")
+
 ## ============ 怪物生成 ============
+
+## 根据 MonsterTier 分配 AI 模式
+func _assign_monster_ai(monster: MonsterData, day: int) -> void:
+	match monster.tier:
+		MonsterData.MonsterTier.TIER_1:
+			# Tier 1: 蜂群或激进
+			monster.ai = MonsterAIClass.create_swarm()
+		MonsterData.MonsterTier.TIER_2:
+			# Tier 2: 技术或防御
+			if randf() < 0.5:
+				monster.ai = MonsterAIClass.create_technical()
+			else:
+				monster.ai = MonsterAIClass.create_defensive()
+		MonsterData.MonsterTier.TIER_3:
+			# Tier 3: Boss AI
+			monster.ai = MonsterAIClass.create_boss()
+	print("👹 [%s] AI模式: %s" % [monster.monster_name, monster.ai.get_mode_name()])
 
 ## 生成随机怪物（使用物品系统）
 func _generate_random_monster() -> MonsterData:
@@ -192,6 +211,7 @@ func _generate_random_monster() -> MonsterData:
 
 	monster.tier = tier
 	monster.current_hp = monster.max_hp
+	_assign_monster_ai(monster, day)
 	return monster
 
 ## 创建 PvP 对手（使用物品系统）
@@ -224,6 +244,9 @@ func _create_pvp_enemy() -> MonsterData:
 	monster.gold_reward_min = 0
 	monster.gold_reward_max = 0
 	monster.current_hp = monster.max_hp
+
+	# PvP 对手使用激进型 AI
+	monster.ai = MonsterAIClass.create_aggressive()
 
 	if is_pvp:
 		_log("⚔️ 对手: %s (HP: %.0f, 物品数: %d)" % [

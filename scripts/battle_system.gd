@@ -49,6 +49,9 @@ func start_battle(monster: MonsterData, inv: LinearInventory) -> void:
 	# 初始化怪物物品冷却为满值
 	if current_monster:
 		current_monster.init_item_cooldowns()
+		# 应用 AI 冷却调整
+		if current_monster.ai:
+			current_monster.ai.apply_to_monster_items(current_monster)
 
 	print("⚔️ 战斗开始! %s 出现!" % (current_monster.monster_name if current_monster else "???"))
 
@@ -175,16 +178,27 @@ func _update_monster_item_cooldowns() -> void:
 		if item["current_cooldown"] > 0:
 			item["current_cooldown"] -= BATTLE_TICK
 
-## 触发怪物物品
+## 触发怪物物品（集成 MonsterAI）
 func _trigger_monster_items() -> void:
 	if not current_monster or not current_monster.is_alive():
 		return
+
+	# AI 自我治疗
+	if current_monster.ai and current_monster.ai.should_heal(current_monster):
+		var heal = current_monster.ai.heal_amount
+		current_monster.current_hp = mini(current_monster.current_hp + heal, current_monster.max_hp)
+		print("👹 [%s] 自我治疗! 恢复 %d HP" % [current_monster.monster_name, heal])
+
+	# AI 伤害倍率
+	var damage_mult: float = 1.0
+	if current_monster.ai:
+		damage_mult = current_monster.ai.get_current_damage_multiplier(current_monster)
 
 	for item in current_monster.monster_items:
 		if item["current_cooldown"] > 0:
 			continue
 
-		var damage: int = item["damage"]
+		var damage: int = int(float(item["damage"]) * damage_mult)
 		var item_name: String = item["name"]
 
 		# 怪物物品触发，伤害扣玩家 HP
