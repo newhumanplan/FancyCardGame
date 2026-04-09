@@ -321,7 +321,9 @@ func _on_battle_win() -> void:
 
 	# 计算金币奖励
 	var gold_reward = 0
-	if not is_pvp and current_monster:
+	if is_pvp:
+		game_manager.on_pvp_win()
+	elif current_monster:
 		gold_reward = current_monster.get_gold_reward()
 		game_manager.add_gold(gold_reward)
 		game_manager.on_battle_win()

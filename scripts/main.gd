@@ -85,6 +85,7 @@ func _connect_signals() -> void:
 	GameManager.health_changed.connect(_on_health_changed)
 	GameManager.prestige_changed.connect(_on_prestige_changed)
 	GameManager.game_over.connect(_on_game_over)
+	GameManager.futura_triggered.connect(_on_futura_triggered)
 
 ## ============ 按钮设置 ============
 
@@ -564,8 +565,9 @@ func _on_game_over(won: bool) -> void:
 		print("💀 游戏失败!")
 
 	game_over_stats.text = (
-		"存活天数: %d\n总金币: %d\n胜利场次: %d\n失败场次: %d"
+		"存活天数: %d\n总金币: %d\nPvP胜场: %d/10\n总胜利: %d\n总失败: %d"
 		% [GameManager.current_day, GameManager.stats_total_gold_earned,
+		   GameManager.pvp_wins,
 		   GameManager.stats_total_wins, GameManager.stats_total_losses]
 	)
 
@@ -586,6 +588,60 @@ func _on_restart_game_pressed() -> void:
 	_show_hero_selection()
 	_hide_game_buttons()
 	_update_ui()
+
+## ============ Futura 事件系统 ============
+
+func _on_futura_triggered() -> void:
+	_hide_event_panel()
+	# 用现有 EventPanel 显示3个 Futura 选项
+	event_option_1.text = "🔮 Fate's Bounty: +20 Gold"
+	event_option_1.visible = true
+	event_option_2.text = "🔮 Fate's Crossroads: 随机附魔"
+	event_option_2.visible = true
+	event_option_3.text = "🔮 Fate's Legacy: 升级铜/银物品到金级"
+	event_option_3.visible = true
+	# 临时替换按钮回调为 Futura 选项
+	if event_option_1.pressed.is_connected(_on_event_option_1_selected):
+		event_option_1.pressed.disconnect(_on_event_option_1_selected)
+	if event_option_2.pressed.is_connected(_on_event_option_2_selected):
+		event_option_2.pressed.disconnect(_on_event_option_2_selected)
+	if event_option_3.pressed.is_connected(_on_event_option_3_selected):
+		event_option_3.pressed.disconnect(_on_event_option_3_selected)
+	event_option_1.pressed.connect(_on_futura_bounty)
+	event_option_2.pressed.connect(_on_futura_crossroads)
+	event_option_3.pressed.connect(_on_futura_legacy)
+	print("⭐ Futura 事件触发!")
+
+func _on_futura_bounty() -> void:
+	GameManager.add_gold(20)
+	print("🔮 Fate's Bounty: +20 Gold")
+	_restore_event_connections()
+	_auto_advance_hour()
+
+func _on_futura_crossroads() -> void:
+	# MVP: 随机附魔简化为增加暴击率
+	if GameManager.selected_hero:
+		GameManager.selected_hero.crit_chance += 0.03
+	print("🔮 Fate's Crossroads: 随机附魔 (暴击+3%%)")
+	_restore_event_connections()
+	_auto_advance_hour()
+
+func _on_futura_legacy() -> void:
+	# MVP: 升级物品简化为增加暴击率
+	if GameManager.selected_hero:
+		GameManager.selected_hero.crit_chance += 0.05
+	print("🔮 Fate's Legacy: 升级物品品质 (暴击+5%%)")
+	_restore_event_connections()
+	_auto_advance_hour()
+
+func _restore_event_connections() -> void:
+	event_panel.visible = false
+	if not event_option_1.pressed.is_connected(_on_event_option_1_selected):
+		event_option_1.pressed.connect(_on_event_option_1_selected)
+	if not event_option_2.pressed.is_connected(_on_event_option_2_selected):
+		event_option_2.pressed.connect(_on_event_option_2_selected)
+	if not event_option_3.pressed.is_connected(_on_event_option_3_selected):
+		event_option_3.pressed.connect(_on_event_option_3_selected)
 
 ## ============ 按钮回调（备用） ============
 

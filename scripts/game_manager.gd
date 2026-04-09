@@ -47,6 +47,7 @@ func reset_stats() -> void:
 	stats_total_gold_earned = 0
 	wins = 0
 	losses = 0
+	pvp_wins = 0
 	prestige = 20
 	prestige_zero_count = 0
 	gold = 100
@@ -86,7 +87,7 @@ var player_health: int = 100
 var prestige: int = 20
 
 ## Prestige 最大值
-var max_prestige: int = 100
+var max_prestige: int = 20
 
 ## Prestige 归零次数（第二次归零 = 游戏结束）
 var prestige_zero_count: int = 0
@@ -97,12 +98,16 @@ var wins: int = 0
 ## 败场
 var losses: int = 0
 
+## PvP 胜利次数（独立追踪，达到10场通关）
+var pvp_wins: int = 0
+
 ## ============ 信号 ============
 
 signal gold_changed(amount: int)
 signal prestige_changed(value: int)
 signal health_changed(amount: int)
 signal game_over(won: bool)
+signal futura_triggered()
 
 func _ready() -> void:
 	print("GameManager 已初始化")
@@ -219,12 +224,12 @@ func remove_prestige(amount: int) -> void:
 			# 第二次归零 → 游戏结束
 			game_over.emit(false)
 
-## 黄金升级：获得金币奖励，声望恢复到 1
+## 黄金升级：触发 Futura 事件，声望恢复到 1
 func _gold_upgrade() -> void:
-	print("💰 黄金升级! 声望归零第1次，获得奖励并恢复声望!")
-	add_gold(100)
+	print("⭐ 声望归零第1次! Futura 事件触发!")
 	prestige = 1
 	prestige_changed.emit(prestige)
+	futura_triggered.emit()
 
 ## Prestige 加成购买
 func buy_prestige(amount: int, cost: int) -> bool:
@@ -245,24 +250,24 @@ func on_battle_win() -> void:
 		bonus = 3
 	add_prestige(bonus)
 
-	# 检查 10 胜胜利条件
-	if wins >= 10:
-		_show_victory()
-		print("🎉 恭喜! 10 胜达成! 游戏胜利!")
-
 ## 显示胜利画面
 func _show_victory() -> void:
 	game_over.emit(true)
 
-## 战斗失败（非PvP）- 扣除 Prestige
+## 战斗失败（非PvP）
 func on_battle_lose() -> void:
 	losses += 1
-	wins = 0  # 重置连胜
+	wins = 0
 	record_battle_loss()
-	# 怪物战斗失败也扣除 Prestige（根据当前天数）
-	var penalty: int = max(1, current_day / 2)
-	remove_prestige(penalty)
-	print("战斗失败! 扣除 %d Prestige" % penalty)
+	print("怪物战斗失败!")
+
+## PvP 胜利（独立计数，10场通关）
+func on_pvp_win() -> void:
+	pvp_wins += 1
+	on_battle_win()
+	print("PvP 胜利! PvP 胜场: %d/10" % pvp_wins)
+	if pvp_wins >= 10:
+		_show_victory()
 
 ## PvP 失败 - 扣除当前天数的 Prestige
 func on_pvp_lose() -> void:
@@ -317,6 +322,7 @@ func full_reset() -> void:
 	player_health = 100
 	prestige = 20
 	prestige_zero_count = 0
+	pvp_wins = 0
 	wins = 0
 	losses = 0
 	selected_hero = null
