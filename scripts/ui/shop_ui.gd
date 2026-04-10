@@ -171,27 +171,18 @@ func _get_utility_name(rarity: int) -> String:
 	var names = ["幸运符", "力量符", "魔法符", "传奇符"]
 	return names[rarity - 1]
 
-## 计算价格
+## 计算价格（委托 EconomyManager：基础→尺寸→类型→天数通胀→声望折扣）
 func _calculate_price(item: ItemData) -> int:
-	var base_price = 10
-
-	# 稀有度加成
-	base_price *= item.rarity
-
-	# 尺寸加成
-	match item.size:
-		ItemDataClass.Size.SMALL: base_price *= 1
-		ItemDataClass.Size.MEDIUM: base_price *= 1.5
-		ItemDataClass.Size.LARGE: base_price *= 2.5
-
-	# 类型加成
-	match item.type:
-		ItemDataClass.Type.WEAPON: base_price *= 1.2
-		ItemDataClass.Type.SHIELD: base_price *= 1.0
-		ItemDataClass.Type.HEAL: base_price *= 0.8
-		ItemDataClass.Type.UTILITY: base_price *= 1.5
-
-	return int(base_price)
+	var EconomyScript = load("res://scripts/data/economy_manager.gd")
+	if EconomyScript:
+		var base_price: int = EconomyScript.calculate_item_price(
+			item.rarity, item.size as int, item.type as int, GameManager.current_day
+		)
+		return EconomyScript.apply_prestige_discount(
+			base_price, GameManager.prestige, GameManager.max_prestige
+		)
+	# 降级：本地计算（不应到达此处）
+	return 10 * item.rarity
 
 ## 刷新商店物品显示
 func _refresh_shop_items() -> void:
