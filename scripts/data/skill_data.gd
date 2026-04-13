@@ -81,5 +81,10 @@ static func from_dict(data: Dictionary) -> SkillData:
 			"health": skill.effect_type = EffectType.HEALTH
 			"cooldown": skill.effect_type = EffectType.COOLDOWN
 	if data.has("effect_values"):
-		skill.effect_values = data["effect_values"]
+		var raw = data["effect_values"]
+		if raw is Array:
+			var typed: Array[float] = []
+			for v in raw:
+				typed.append(float(v))
+			skill.effect_values = typed
 	return skill

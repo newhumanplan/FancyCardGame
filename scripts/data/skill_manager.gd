@@ -59,3 +59,25 @@ func get_skills_by_type(effect_type: SkillData.EffectType) -> Array[SkillData]:
 func clear() -> void:
 	equipped_skills.clear()
 	_skill_dict.clear()
+
+## 从 skills_config.json 加载技能库（不自动装备）
+## 返回 Array[SkillData] 所有可加载的技能
+static func load_skills_from_config() -> Array[SkillData]:
+	var SkillScript = load("res://scripts/data/skill_data.gd")
+	var skills: Array[SkillData] = []
+	var file = FileAccess.open("res://scripts/data/skills_config.json", FileAccess.READ)
+	if not file:
+		push_warning("skills_config.json 加载失败")
+		return skills
+	var json = JSON.new()
+	var err = json.parse(file.get_as_text())
+	if err != OK:
+		push_warning("skills_config.json 解析失败: %s" % json.get_error_message())
+		return skills
+	var data = json.get_data()
+	if data is Array:
+		for entry in data:
+			var skill = SkillScript.from_dict(entry)
+			skills.append(skill)
+	print("加载技能配置: %d 个技能" % skills.size())
+	return skills

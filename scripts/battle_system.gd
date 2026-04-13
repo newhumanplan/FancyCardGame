@@ -2,10 +2,16 @@ extends Node
 
 ## 战斗系统 - 纯物品触发战斗
 ## 重构：移除独立攻击逻辑，所有伤害来自物品触发
-## 按原版大巴扎 1:1 复刻
+## 集成：SkillManager 技能加成 / PassiveSkills 被动加成 / ItemEffects 物品效果
 
 ## 游戏管理器引用
 var game_manager: Node
+
+## 技能管理器（运行时初始化）
+var skill_manager: RefCounted = null
+
+## 技能效果修正器
+var skill_modifiers: Dictionary = {}
 
 ## 战斗状态
 var is_battle_active: bool = false
@@ -30,6 +36,29 @@ signal monster_item_triggered(monster_name: String, item_name: String, damage: i
 
 func _ready() -> void:
 	game_manager = get_node("/root/GameManager")
+	# 初始化技能管理器（加载 skills_config.json）
+	_init_skill_manager()
+
+## ============ 技能系统集成 ============
+
+## 初始化技能管理器，加载配置并应用英雄技能
+func _init_skill_manager() -> void:
+	var SkillMgrScript = load("res://scripts/data/skill_manager.gd")
+	if not SkillMgrScript:
+		return
+	skill_manager = SkillMgrScript.new()
+	# 加载 skills_config.json 中的通用技能
+	var available_skills = SkillMgrScript.load_skills_from_config()
+	# 装备前3个通用技能（MVP）
+	for i in range(mini(available_skills.size(), 3)):
+		skill_manager.equip_skill(available_skills[i])
+	# 应用技能效果到英雄
+	if game_manager.selected_hero:
+		var SkillFxScript = load("res://scripts/data/skill_effects.gd")
+		skill_modifiers = SkillFxScript.apply_passive_skills(
+			skill_manager.get_equipped_skills(), game_manager.selected_hero
+		)
+		print("技能效果已应用到英雄")
 
 ## ============ 战斗控制 ============
 
@@ -53,7 +82,22 @@ func start_battle(monster: MonsterData, inv: LinearInventory) -> void:
 		if current_monster.ai:
 			current_monster.ai.apply_to_monster_items(current_monster)
 
+	# 应用被动技能战斗效果到英雄
+	_apply_passive_combat_effects()
+
 	print("⚔️ 战斗开始! %s 出现!" % (current_monster.monster_name if current_monster else "???"))
+
+## 应用被动技能的战斗效果（护盾值等）
+func _apply_passive_combat_effects() -> void:
+	if not game_manager.selected_hero or game_manager.selected_hero.passive_skills.is_empty():
+		return
+	var PS = load("res://scripts/data/passive_skill.gd")
+	for ps in game_manager.selected_hero.passive_skills:
+		if ps.effect_type == PS.EffectType.SHIELD_BONUS and ps.effect_value > 0:
+			# 护盾效果在战斗开始时转化为治疗
+			var shield_heal: int = int(ps.effect_value)
+			game_manager.heal(shield_heal)
+			print("🛡️ 被动 [%s] 战斗开始，获得 %d 护盾值(→治疗)" % [ps.skill_name, shield_heal])
 
 ## 结束战斗
 func end_battle() -> void:
@@ -120,9 +164,40 @@ func _trigger_player_items() -> void:
 	if not inventory:
 		return
 
-	var hero_crit_rate: float = 0.05  # 默认暴击率
+	# 计算综合暴击率（基础 + 英雄 + 技能加成）
+	var hero_crit_rate: float = 0.05
 	if game_manager.selected_hero:
 		hero_crit_rate = game_manager.selected_hero.crit_chance
+	if skill_modifiers.has("crit_bonus"):
+		hero_crit_rate += skill_modifiers["crit_bonus"]
+
+	# 生命偷取率（被动技能）
+	var lifesteal_rate: float = 0.0
+	if game_manager.selected_hero and game_manager.selected_hero.passive_skills:
+		var PS = load("res://scripts/data/passive_skill.gd")
+		for ps in game_manager.selected_hero.passive_skills:
+			if ps.effect_type == PS.EffectType.LIFESTEAL:
+				lifesteal_rate += ps.effect_value / 100.0
+
+	# 伤害反弹率（被动技能）
+	var reflect_rate: float = 0.0
+	if game_manager.selected_hero and game_manager.selected_hero.passive_skills:
+		var PS = load("res://scripts/data/passive_skill.gd")
+		for ps in game_manager.selected_hero.passive_skills:
+			if ps.effect_type == PS.EffectType.DAMAGE_REFLECTION:
+				reflect_rate += ps.effect_value / 100.0
+
+	# 冷却缩减（被动技能）
+	var cd_reduction: float = 0.0
+	if game_manager.selected_hero and game_manager.selected_hero.passive_skills:
+		var PS = load("res://scripts/data/passive_skill.gd")
+		for ps in game_manager.selected_hero.passive_skills:
+			if ps.effect_type == PS.EffectType.COOLDOWN_REDUCTION:
+				cd_reduction += ps.effect_value / 100.0
+
+	# 技能燃烧/中毒加成
+	var burn_bonus: float = skill_modifiers.get("burn_bonus", 0.0)
+	var poison_bonus: float = skill_modifiers.get("poison_bonus", 0.0)
 
 	for item in inventory.items:
 		if item == null:
@@ -144,6 +219,11 @@ func _trigger_player_items() -> void:
 			var crit_text: String = "（暴击!）" if is_crit else ""
 			item_triggered.emit(item.item_name, total_damage, is_crit, "enemy")
 			print("🗡️ [%s] 触发！造成 %d 伤害%s" % [item.item_name, total_damage, crit_text])
+			# 生命偷取
+			if lifesteal_rate > 0 and total_damage > 0:
+				var stolen: int = int(float(total_damage) * lifesteal_rate)
+				if stolen > 0:
+					game_manager.heal(stolen)
 
 		# 护盾效果（加己方护盾，MVP 暂简化为回血）
 		if item.shield > 0:
@@ -161,12 +241,12 @@ func _trigger_player_items() -> void:
 			effect_applied.emit(item.item_name, "heal", total_heal, "self")
 			print("💚 [%s] 触发！恢复 %d 生命%s" % [item.item_name, total_heal, crit_text])
 
-		# 特殊效果
+		# 特殊效果（通过 ItemEffects 集中处理）
 		if item.has_special_effect():
-			_apply_item_special_effects(item, is_crit, rarity_mult)
+			_apply_item_special_effects(item, is_crit, rarity_mult, burn_bonus, poison_bonus)
 
-		# 重置冷却
-		item.current_cooldown = item.cooldown
+		# 重置冷却（应用冷却缩减）
+		item.current_cooldown = item.cooldown * (1.0 - cd_reduction)
 
 ## ============ 怪物物品系统 ============
 
@@ -182,6 +262,14 @@ func _update_monster_item_cooldowns() -> void:
 func _trigger_monster_items() -> void:
 	if not current_monster or not current_monster.is_alive():
 		return
+
+	# 计算伤害反弹率
+	var reflect_rate: float = 0.0
+	if game_manager.selected_hero and game_manager.selected_hero.passive_skills:
+		var PS = load("res://scripts/data/passive_skill.gd")
+		for ps in game_manager.selected_hero.passive_skills:
+			if ps.effect_type == PS.EffectType.DAMAGE_REFLECTION:
+				reflect_rate += ps.effect_value / 100.0
 
 	# AI 自我治疗
 	if current_monster.ai and current_monster.ai.should_heal(current_monster):
@@ -206,6 +294,13 @@ func _trigger_monster_items() -> void:
 		monster_item_triggered.emit(current_monster.monster_name, item_name, damage)
 		print("👹 [%s] 的 [%s] 触发！造成 %d 伤害" % [current_monster.monster_name, item_name, damage])
 
+		# 伤害反弹（被动技能）
+		if reflect_rate > 0 and damage > 0:
+			var reflected: int = int(float(damage) * reflect_rate)
+			if reflected > 0 and current_monster.is_alive():
+				current_monster.take_damage(reflected)
+				print("🔄 反弹 %d 伤害!" % reflected)
+
 		# 检查玩家是否死亡
 		if game_manager.player_health <= 0:
 			break
@@ -215,42 +310,26 @@ func _trigger_monster_items() -> void:
 
 ## ============ 持续效果处理 ============
 
-## 应用物品特殊效果
-func _apply_item_special_effects(item: ItemData, is_crit: bool, rarity_mult: float) -> void:
+## 应用物品特殊效果（集成 ItemEffects + 技能加成）
+func _apply_item_special_effects(item: ItemData, is_crit: bool, rarity_mult: float, burn_bonus: float = 0.0, poison_bonus: float = 0.0) -> void:
 	var crit_mult: float = 2.0 if is_crit else 1.0
 
-	# 中毒效果
-	if item.poison_damage > 0:
-		active_effects.append({
-			"type": "poison",
-			"value": item.poison_damage * rarity_mult * crit_mult,
-			"duration": 5.0,
-			"item_name": item.item_name,
-			"target": "enemy"
-		})
-		print("☠️ [%s] 施加中毒效果 (%.1f DPS, 5s)!" % [item.item_name, item.poison_damage * rarity_mult])
+	# 通过 ItemEffects 构建效果列表
+	var ItemFx = load("res://scripts/data/item_effects.gd")
+	var effects: Array = ItemFx.build_active_effects(item, is_crit)
 
-	# 燃烧效果
-	if item.burn_damage > 0:
-		active_effects.append({
-			"type": "burn",
-			"value": item.burn_damage * rarity_mult * crit_mult,
-			"duration": 5.0,
-			"item_name": item.item_name,
-			"target": "enemy"
-		})
-		print("🔥 [%s] 施加燃烧效果 (%.1f DPS, 5s)!" % [item.item_name, item.burn_damage * rarity_mult])
-
-	# 再生效果
-	if item.regeneration > 0:
-		active_effects.append({
-			"type": "regeneration",
-			"value": item.regeneration * rarity_mult * crit_mult,
-			"duration": 5.0,
-			"item_name": item.item_name,
-			"target": "self"
-		})
-		print("💚 [%s] 施加再生效果 (%.1f HPS, 5s)!" % [item.item_name, item.regeneration * rarity_mult])
+	# 合并技能加成到效果
+	for eff in effects:
+		if eff["type"] == "burn" and burn_bonus > 0:
+			eff["value"] += burn_bonus
+		if eff["type"] == "poison" and poison_bonus > 0:
+			eff["value"] += poison_bonus
+		active_effects.append(eff)
+		var dps_text: String = "%.1f DPS, %.0fs" % [eff["value"], eff["duration"]]
+		match eff["type"]:
+			"poison": print("☠️ [%s] 施加中毒 (%s)!" % [item.item_name, dps_text])
+			"burn": print("🔥 [%s] 施加燃烧 (%s)!" % [item.item_name, dps_text])
+			"regeneration": print("💚 [%s] 施加再生 (%s)!" % [item.item_name, dps_text])
 
 ## 处理所有持续效果
 func _process_active_effects() -> void:
