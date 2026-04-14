@@ -5,7 +5,6 @@ extends Control
 ## 核心功能：
 ## 1. 显示可购买物品
 ## 2. 购买逻辑（金币检查、扣除、添加到背包）
-## 3. 合成升级（两个相同稀有度 → 更高稀有度）
 
 ## 预加载
 const EconomyManagerClass = preload("res://scripts/data/economy_manager.gd")
@@ -362,123 +361,18 @@ func _on_buy_pressed(item: ItemData, button: Button) -> void:
 	else:
 		print("[DEBUG] 购买失败: 金币不足")
 
-## 添加物品到背包（包含合成逻辑）
+## 添加物品到背包
 func _add_item_to_inventory(item: ItemData) -> void:
-	print("[DEBUG] _add_item_to_inventory() called!")
 	if inventory == null:
-		print("[DEBUG] inventory is null, cannot add item!")
 		return
 
-	# 检查是否可以合成
-	var upgraded_item = _try_craft_upgrade(item)
-
-	if upgraded_item != null:
-		# 合成成功
-		print("合成升级: %s -> %s" % [item.item_name, upgraded_item.item_name])
-		item = upgraded_item
-
-	# 查找空位
 	var empty_slots = inventory.find_empty_slots(item.get_slot_count())
-	print("[DEBUG] empty_slots: " + str(empty_slots))
 	if not empty_slots.is_empty():
 		var slot = empty_slots[0]
 		inventory.place_item(item, slot)
 		print("物品已放入背包，槽位: %d" % slot)
-		print("[DEBUG] 物品添加成功! 背包物品数量: " + str(inventory.items.size()))
 	else:
 		print("警告: 没有可用槽位")
-
-## 尝试合成升级
-## 检查背包中是否有相同稀有度的物品
-## 如果有，合成一个更高稀有度的物品
-func _try_craft_upgrade(new_item: ItemData) -> ItemData:
-	if inventory == null:
-		return null
-
-	# 最高稀有度为 4（传说）
-	if new_item.rarity >= 4:
-		return null
-
-	# 查找背包中相同稀有度的物品
-	var same_rarity_items: Array[ItemData] = []
-
-	for existing_item in inventory.items:
-		if existing_item != null and existing_item.rarity == new_item.rarity:
-			same_rarity_items.append(existing_item)
-
-	if same_rarity_items.size() >= 1:
-		# 找到一个相同稀有度的物品，合成更高稀有度
-		var item_to_remove = same_rarity_items[0]
-
-		# 移除用于合成的物品
-		inventory.remove_item(item_to_remove)
-
-		# 创建升级后的物品
-		var upgraded_item = _create_upgraded_item(new_item)
-
-		print("========== 合成升级成功！==========")
-		print("材料1: %s [%s]" % [item_to_remove.item_name, RARITY_NAMES[item_to_remove.rarity - 1]])
-		print("材料2: %s [%s]" % [new_item.item_name, RARITY_NAMES[new_item.rarity - 1]])
-		print("产物: %s [%s]" % [upgraded_item.item_name, RARITY_NAMES[upgraded_item.rarity - 1]])
-		print("====================================")
-
-		return upgraded_item
-
-	return null
-
-## 创建升级后的物品
-func _create_upgraded_item(original: ItemData) -> ItemData:
-	var upgraded = ItemDataClass.new()
-
-	# 提升稀有度
-	upgraded.rarity = original.rarity + 1
-
-	# 复制基本属性
-	upgraded.type = original.type
-	upgraded.size = original.size
-	upgraded.cooldown = original.cooldown
-	upgraded.current_cooldown = 0.0
-
-	# 提升属性
-	match original.type:
-		ItemDataClass.Type.WEAPON:
-			upgraded.damage = int(float(original.damage) * 1.5)
-			upgraded.item_name = _get_upgraded_name(original)
-		ItemDataClass.Type.SHIELD:
-			upgraded.shield = int(float(original.shield) * 1.5)
-			upgraded.item_name = _get_upgraded_name(original)
-		ItemDataClass.Type.HEAL:
-			upgraded.heal = int(float(original.heal) * 1.5)
-			upgraded.item_name = _get_upgraded_name(original)
-		ItemDataClass.Type.UTILITY:
-			upgraded.crit_chance = original.crit_chance * 1.5
-			upgraded.item_name = _get_upgraded_name(original)
-
-	# 设置价格
-	upgraded.buy_price = _calculate_price(upgraded)
-
-	return upgraded
-
-## 获取升级后的物品名称
-func _get_upgraded_name(original: ItemData) -> String:
-	var rarity = original.rarity
-	var type_name = ""
-
-	match original.type:
-		ItemDataClass.Type.WEAPON:
-			type_name = "武器"
-		ItemDataClass.Type.SHIELD:
-			type_name = "护盾"
-		ItemDataClass.Type.HEAL:
-			type_name = "药剂"
-		ItemDataClass.Type.UTILITY:
-			type_name = "符咒"
-
-	# 高稀有度加"神圣"前缀
-	if rarity >= 3:
-		return "神圣%s" % type_name
-
-	return "进阶%s" % type_name
 
 ## 关闭按钮点击
 func _on_close_pressed() -> void:
