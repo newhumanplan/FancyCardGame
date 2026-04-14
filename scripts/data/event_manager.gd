@@ -26,38 +26,39 @@ var _random_events: Array[Dictionary] = [
 	{"id": "blessed_rest", "name": "受祝福的休息", "icon": "✨", "weight": 10},
 ]
 
+func _build_option(text: String, option_type: String, event_id: String = "") -> Dictionary:
+	var option := {"text": text, "type": option_type}
+	if not event_id.is_empty():
+		option["event_id"] = event_id
+	return option
+
 ## ============ 事件选项生成 ============
 
 ## 生成事件选项列表（替代 main.gd 中的 _generate_event_options）
 ## 返回最多3个选项字典: [{"text": "...", "icon": "...", "type": "..."}]
 func generate_options(hour: int, day: int) -> Array[Dictionary]:
-	# Hour 4 固定为 PvP
 	if hour == 4:
-		return [{"text": "⚔️ PvP 对战", "type": "pvp"}]
+		return [_build_option("⚔️ PvP 对战", "pvp")]
 
-	# 其他 Hour: 随机生成 2-3 个选项
 	var options: Array[Dictionary] = []
+	options.append(_build_option("🏪 商人", "shop"))
+	options.append(_build_option("👹 怪物", "monster"))
 
-	# 始终包含商人和怪物选项
-	options.append({"text": "🏪 商人", "type": "shop"})
-	options.append({"text": "👹 怪物", "type": "monster"})
-
-	# 随机添加第3个选项
 	var extra_types := ["random_event", "treasure", "camp", "shop", "monster"]
 	var extra_type: String = extra_types.pick_random()
 	match extra_type:
 		"random_event":
 			var evt = _pick_random_event(day)
 			if not evt.is_empty():
-				options.append({"text": "%s %s" % [evt.get("icon", ""), evt.get("name", "随机事件")], "type": "random_event", "event_id": evt.get("id", "")})
+				options.append(_build_option("%s %s" % [evt.get("icon", ""), evt.get("name", "随机事件")], "random_event", str(evt.get("id", ""))))
 		"treasure":
-			options.append({"text": "💎 宝库", "type": "treasure"})
+			options.append(_build_option("💎 宝库", "treasure"))
 		"camp":
-			options.append({"text": "⛺ 营地", "type": "camp"})
+			options.append(_build_option("⛺ 营地", "camp"))
 		"shop":
-			options.append({"text": "🏪 商人", "type": "shop"})
+			options.append(_build_option("🏪 商人", "shop"))
 		"monster":
-			options.append({"text": "👹 怪物", "type": "monster"})
+			options.append(_build_option("👹 怪物", "monster"))
 
 	options.shuffle()
 	return options
@@ -152,7 +153,7 @@ func execute_random_event(event_id: String, day: int, game_manager: Node) -> Str
 		"ancient_shrine":
 			var bonus_crit = 0.02 + float(day) * 0.005
 			if game_manager.selected_hero:
-				game_manager.selected_hero.crit_chance += bonus_crit
+				game_manager.selected_hero.crit_chance = clampf(game_manager.selected_hero.crit_chance + bonus_crit, 0.0, 1.0)
 			return "古老祭坛! 暴击率 +%.1f%% (永久)!" % (bonus_crit * 100)
 
 		"thief_guild":
@@ -171,12 +172,16 @@ func execute_random_event(event_id: String, day: int, game_manager: Node) -> Str
 
 ## 执行宝库事件
 func execute_treasure_event(day: int, game_manager: Node) -> String:
+	if game_manager == null:
+		return "事件执行失败: GameManager 不存在"
 	var gold = 15 + day * 5
 	game_manager.add_gold(gold)
 	return "发现古代宝库! 获得 %d 金币!" % gold
 
 ## 执行营地事件
 func execute_camp_event(day: int, game_manager: Node) -> String:
+	if game_manager == null:
+		return "事件执行失败: GameManager 不存在"
 	var heal = 20 + day * 5
 	game_manager.heal(heal)
 	game_manager.add_prestige(2)

@@ -13,6 +13,17 @@ const EFFECT_FREEZE: String = "freeze"
 const EFFECT_SHIELD: String = "shield"
 const EFFECT_LIFESTEAL: String = "lifesteal"
 
+static func _append_effect(effects: Array, effect_type: String, value: float, duration: float, item_name: String, target: String) -> void:
+	if value <= 0:
+		return
+	effects.append({
+		"type": effect_type,
+		"value": value,
+		"duration": duration,
+		"item_name": item_name,
+		"target": target
+	})
+
 ## 计算物品总伤害（基础伤害 + 稀有度倍率 + 暴击）
 static func calculate_damage(item: ItemData, is_crit: bool) -> int:
 	if item == null:
@@ -42,38 +53,15 @@ static func build_active_effects(item: ItemData, is_crit: bool) -> Array:
 	var rarity_mult: float = item.get_rarity_multiplier()
 	var crit_mult: float = 2.0 if is_crit else 1.0
 
-	if item.poison_damage > 0:
-		effects.append({
-			"type": EFFECT_POISON,
-			"value": item.poison_damage * rarity_mult * crit_mult,
-			"duration": 5.0,
-			"item_name": item.item_name,
-			"target": "enemy"
-		})
-
-	if item.burn_damage > 0:
-		effects.append({
-			"type": EFFECT_BURN,
-			"value": item.burn_damage * rarity_mult * crit_mult,
-			"duration": 5.0,
-			"item_name": item.item_name,
-			"target": "enemy"
-		})
-
-	if item.regeneration > 0:
-		effects.append({
-			"type": EFFECT_REGEN,
-			"value": item.regeneration * rarity_mult * crit_mult,
-			"duration": 5.0,
-			"item_name": item.item_name,
-			"target": "self"
-		})
+	_append_effect(effects, EFFECT_POISON, item.poison_damage * rarity_mult * crit_mult, 5.0, item.item_name, "enemy")
+	_append_effect(effects, EFFECT_BURN, item.burn_damage * rarity_mult * crit_mult, 5.0, item.item_name, "enemy")
+	_append_effect(effects, EFFECT_REGEN, item.regeneration * rarity_mult * crit_mult, 5.0, item.item_name, "self")
 
 	return effects
 
 ## 处理持续效果 tick（供 battle_system.gd 的 _process_active_effects 使用）
 ## 返回处理结果: {damage_to_monster: int, damage_to_player: int, heal_player: int}
-static func process_effect_tick(effect: Dictionary, battle_tick: float, monster: Node, player_health: int, max_health: int) -> Dictionary:
+static func process_effect_tick(effect: Dictionary, battle_tick: float, monster: MonsterData, player_health: int, max_health: int) -> Dictionary:
 	var result = {
 		"damage_to_monster": 0,
 		"damage_to_player": 0,
@@ -83,20 +71,18 @@ static func process_effect_tick(effect: Dictionary, battle_tick: float, monster:
 	var value_per_sec: float = maxf(float(effect.get("value", 0.0)), 0.0)
 	var tick_value: float = value_per_sec * battle_tick
 	var tick_value_int: int = int(tick_value)
+	var effect_type: String = str(effect.get("type", ""))
 
-	match effect["type"]:
+	match effect_type:
 		EFFECT_POISON, EFFECT_BURN:
-			# 伤害怪物
 			if monster and monster.is_alive():
 				result["damage_to_monster"] = tick_value_int
 		EFFECT_REGEN:
-			# 治疗玩家
-			result["heal_player"] = tick_value_int
+			if player_health < max_health:
+				result["heal_player"] = tick_value_int
 		EFFECT_STUN:
-			# 眩晕：暂停冷却（由战斗系统处理）
 			pass
 		EFFECT_FREEZE:
-			# 冰冻：减慢冷却（由战斗系统处理）
 			pass
 
 	return result

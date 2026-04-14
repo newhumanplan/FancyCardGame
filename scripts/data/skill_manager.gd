@@ -13,9 +13,12 @@ var _skill_dict: Dictionary = {}
 signal skill_added(skill: SkillData)
 signal skill_removed(skill: SkillData)
 
+static func _is_valid_skill(skill: SkillData) -> bool:
+	return skill != null and not skill.skill_id.is_empty()
+
 ## 装备技能
 func equip_skill(skill: SkillData) -> void:
-	if skill == null or skill.skill_id.is_empty():
+	if not _is_valid_skill(skill):
 		return
 	if not _skill_dict.has(skill.skill_id):
 		equipped_skills.append(skill)
@@ -70,6 +73,9 @@ func clear() -> void:
 static func load_skills_from_config() -> Array[SkillData]:
 	var skill_script = load("res://scripts/data/skill_data.gd")
 	var skills: Array[SkillData] = []
+	if skill_script == null:
+		push_warning("skill_data.gd 加载失败")
+		return skills
 	var file = FileAccess.open("res://scripts/data/skills_config.json", FileAccess.READ)
 	if not file:
 		push_warning("skills_config.json 加载失败")
@@ -84,7 +90,7 @@ static func load_skills_from_config() -> Array[SkillData]:
 		for entry in data:
 			if entry is Dictionary:
 				var skill = skill_script.from_dict(entry)
-				if skill != null and not skill.skill_id.is_empty():
+				if _is_valid_skill(skill):
 					skills.append(skill)
 	print("加载技能配置: %d 个技能" % skills.size())
 	return skills

@@ -49,3 +49,6 @@ static func create(id: String, name: String, icon: String, type: EventType, weig
 	event.event_type = type
 	event.weight = weight
 	return event
+
+func is_valid() -> bool:
+	return not event_id.is_empty() and not event_name.is_empty()

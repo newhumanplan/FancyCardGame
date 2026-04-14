@@ -67,6 +67,9 @@ const RARITY_UNLOCK_DAYS: Array[int] = [0, 1, 2, 4, 6]
 
 ## ============ 核心方法 ============
 
+static func _resolve_multiplier(source: Dictionary, key: int) -> float:
+	return float(source.get(key, 1.0))
+
 ## 计算物品价格（基于稀有度、尺寸、类型、天数）
 static func calculate_item_price(item_rarity: int, item_size: int, item_type: int, day: int) -> int:
 	day = maxi(day, 1)
@@ -74,28 +77,11 @@ static func calculate_item_price(item_rarity: int, item_size: int, item_type: in
 		return 10
 
 	var price: int = ITEM_BASE_PRICES[item_rarity]
-
-	# 尺寸倍率
-	var size_key = item_size
-	if SIZE_PRICE_MULTIPLIER.has(size_key):
-		price = int(float(price) * SIZE_PRICE_MULTIPLIER[size_key])
-
-	# 类型倍率
-	var type_key = item_type
-	if TYPE_PRICE_MULTIPLIER.has(type_key):
-		price = int(float(price) * TYPE_PRICE_MULTIPLIER[type_key])
-
-	# 天数微调（每天+5%，模拟通胀）
+	price = int(float(price) * _resolve_multiplier(SIZE_PRICE_MULTIPLIER, item_size))
+	price = int(float(price) * _resolve_multiplier(TYPE_PRICE_MULTIPLIER, item_type))
 	price = int(float(price) * (1.0 + day * 0.05))
-
-	# 声望折扣暂不在此计算（在购买时计算）
-
-	# 价格上限
 	price = mini(price, MAX_ITEM_PRICE)
-
-	# 确保最低价格
 	price = maxi(price, 5)
-
 	return price
 
 ## 计算怪物战斗预期收入
@@ -126,14 +112,11 @@ static func get_shop_item_count(day: int) -> Dictionary:
 
 ## 获取最大稀有度
 static func get_max_rarity(day: int) -> int:
-	if day < RARITY_UNLOCK_DAYS[1]:
-		return 1  # 普通
-	elif day < RARITY_UNLOCK_DAYS[2]:
-		return 2  # 稀有
-	elif day < RARITY_UNLOCK_DAYS[3]:
-		return 3  # 史诗
-	else:
-		return 4  # 传说
+	var safe_day := maxi(day, 1)
+	for rarity in range(RARITY_UNLOCK_DAYS.size() - 1, 0, -1):
+		if safe_day >= RARITY_UNLOCK_DAYS[rarity]:
+			return rarity
+	return 1
 
 ## 验证经济平衡（调试用）
 static func debug_economy_balance(day: int, gold: int) -> String:

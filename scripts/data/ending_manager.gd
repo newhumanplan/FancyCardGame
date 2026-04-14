@@ -21,15 +21,20 @@ var pvp_losses: int = 0
 var total_battles: int = 0
 var prestige_at_end: int = 0
 
+static func _has_victory(game_manager: Node) -> bool:
+	return game_manager != null and game_manager.pvp_wins >= 10
+
 ## 判断结局类型
 static func determine_ending(game_manager: Node) -> EndingType:
-	if game_manager.pvp_wins >= 10 and game_manager.prestige >= game_manager.max_prestige:
+	if game_manager == null:
+		return EndingType.DEFEAT
+	if _has_victory(game_manager) and game_manager.prestige >= game_manager.max_prestige:
 		return EndingType.PERFECT
-	elif game_manager.pvp_wins >= 10 and game_manager.current_day <= 10:
+	elif _has_victory(game_manager) and game_manager.current_day <= 10:
 		return EndingType.SPEEDRUN
-	elif game_manager.pvp_wins >= 10 and game_manager.current_day > 30:
+	elif _has_victory(game_manager) and game_manager.current_day > 30:
 		return EndingType.SURVIVOR
-	elif game_manager.pvp_wins >= 10:
+	elif _has_victory(game_manager):
 		return EndingType.VICTORY
 	else:
 		return EndingType.DEFEAT
@@ -56,6 +61,8 @@ static func get_ending_title(ending: EndingType) -> String:
 
 ## 生成结算统计文本
 static func generate_summary(game_manager: Node, ending: EndingType) -> String:
+	if game_manager == null:
+		return get_ending_description(ending)
 	var title = get_ending_title(ending)
 	var desc = get_ending_description(ending)
 	var summary = "%s\n\n%s\n\n" % [title, desc]

@@ -3,10 +3,8 @@ extends RefCounted
 
 ## 技能效果应用器 — 将被动技能效果应用到英雄属性
 
-## 将技能效果应用到英雄属性
-## 返回修改后的属性字典
-static func apply_passive_skills(skills: Array[SkillData], hero: HeroData) -> Dictionary:
-	var modifiers: Dictionary = {
+static func _create_modifiers() -> Dictionary:
+	return {
 		"crit_bonus": 0.0,
 		"max_health_bonus": 0.0,
 		"shield_bonus": 0.0,
@@ -18,6 +16,8 @@ static func apply_passive_skills(skills: Array[SkillData], hero: HeroData) -> Di
 		"charge_bonus": 0.0,
 	}
 
+static func calculate_passive_modifiers(skills: Array[SkillData]) -> Dictionary:
+	var modifiers: Dictionary = _create_modifiers()
 	for skill in skills:
 		if skill == null:
 			continue
@@ -41,15 +41,18 @@ static func apply_passive_skills(skills: Array[SkillData], hero: HeroData) -> Di
 				modifiers["haste_bonus"] += value
 			SkillData.EffectType.CHARGE:
 				modifiers["charge_bonus"] += value
-
-	# 应用暴击加成到英雄
 	modifiers["crit_bonus"] = clampf(modifiers["crit_bonus"], 0.0, 1.0)
 	modifiers["cooldown_reduction"] = clampf(modifiers["cooldown_reduction"], 0.0, 0.8)
+	return modifiers
 
-	if hero and modifiers["crit_bonus"] > 0:
+## 将技能效果应用到英雄属性
+## 返回修改后的属性字典
+static func apply_passive_skills(skills: Array[SkillData], hero: HeroData) -> Dictionary:
+	var modifiers: Dictionary = calculate_passive_modifiers(skills)
+
+	if hero != null and modifiers["crit_bonus"] > 0:
 		hero.crit_chance = clampf(hero.crit_chance + modifiers["crit_bonus"], 0.0, 1.0)
-	# 应用生命加成到英雄
-	if hero and modifiers["max_health_bonus"] > 0:
+	if hero != null and modifiers["max_health_bonus"] > 0:
 		hero.max_hp += int(modifiers["max_health_bonus"])
 		hero.current_hp = min(hero.current_hp, hero.max_hp)
 
@@ -57,13 +60,11 @@ static func apply_passive_skills(skills: Array[SkillData], hero: HeroData) -> Di
 
 ## 获取技能效果摘要文本
 static func get_effects_summary(skills: Array[SkillData]) -> String:
-	var summary: String = ""
+	var summary_lines: PackedStringArray = []
 	for skill in skills:
 		if skill == null:
 			continue
 		var value: float = skill.get_effect_value()
 		if value > 0:
-			summary += "%s %s: +%.1f\n" % [skill.get_quality_name(), skill.get_effect_type_name(), value]
-	if summary == "":
-		summary = "无技能效果"
-	return summary
+			summary_lines.append("%s %s: +%.1f" % [skill.get_quality_name(), skill.get_effect_type_name(), value])
+	return "无技能效果" if summary_lines.is_empty() else "\n".join(summary_lines)

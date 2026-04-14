@@ -43,61 +43,71 @@ var low_hp_threshold: float = 0.3
 ## 低血量时伤害倍率
 var low_hp_damage_multiplier: float = 1.0
 
+static func _create_ai(mode: AIMode, config: Dictionary) -> MonsterAI:
+	var ai = new()
+	ai.ai_mode = mode
+	ai.damage_multiplier = float(config.get("damage_multiplier", ai.damage_multiplier))
+	ai.heal_chance = float(config.get("heal_chance", ai.heal_chance))
+	ai.heal_amount = int(config.get("heal_amount", ai.heal_amount))
+	ai.special_effect_chance = float(config.get("special_effect_chance", ai.special_effect_chance))
+	ai.special_effect_type = str(config.get("special_effect_type", ai.special_effect_type))
+	ai.special_effect_value = int(config.get("special_effect_value", ai.special_effect_value))
+	ai.attack_speed_multiplier = float(config.get("attack_speed_multiplier", ai.attack_speed_multiplier))
+	ai.low_hp_threshold = float(config.get("low_hp_threshold", ai.low_hp_threshold))
+	ai.low_hp_damage_multiplier = float(config.get("low_hp_damage_multiplier", ai.low_hp_damage_multiplier))
+	ai.low_hp_heal_chance_bonus = float(config.get("low_hp_heal_chance_bonus", ai.low_hp_heal_chance_bonus))
+	return ai
+
 ## ============ 预设 AI 配置 ============
 
 ## 激进型 AI
 static func create_aggressive() -> MonsterAI:
-	var ai = new()
-	ai.ai_mode = AIMode.AGGRESSIVE
-	ai.damage_multiplier = 1.3
-	ai.attack_speed_multiplier = 1.0
-	ai.low_hp_damage_multiplier = 1.3  ## 狂暴模式
-	return ai
+	return _create_ai(AIMode.AGGRESSIVE, {
+		"damage_multiplier": 1.3,
+		"attack_speed_multiplier": 1.0,
+		"low_hp_damage_multiplier": 1.3,
+	})
 
 ## 防御型 AI
 static func create_defensive() -> MonsterAI:
-	var ai = new()
-	ai.ai_mode = AIMode.DEFENSIVE
-	ai.damage_multiplier = 0.8
-	ai.heal_chance = 0.15
-	ai.heal_amount = 5
-	ai.attack_speed_multiplier = 0.8
-	ai.low_hp_heal_chance_bonus = 0.3  ## 低血量时治疗概率+30%
-	return ai
+	return _create_ai(AIMode.DEFENSIVE, {
+		"damage_multiplier": 0.8,
+		"heal_chance": 0.15,
+		"heal_amount": 5,
+		"attack_speed_multiplier": 0.8,
+		"low_hp_heal_chance_bonus": 0.3,
+	})
 
 ## 技术型 AI
 static func create_technical() -> MonsterAI:
-	var ai = new()
-	ai.ai_mode = AIMode.TECHNICAL
-	ai.damage_multiplier = 1.0
-	ai.special_effect_chance = 0.3
-	ai.special_effect_type = "poison"
-	ai.special_effect_value = 3
-	ai.attack_speed_multiplier = 0.9
-	return ai
+	return _create_ai(AIMode.TECHNICAL, {
+		"damage_multiplier": 1.0,
+		"special_effect_chance": 0.3,
+		"special_effect_type": "poison",
+		"special_effect_value": 3,
+		"attack_speed_multiplier": 0.9,
+	})
 
 ## Boss AI
 static func create_boss() -> MonsterAI:
-	var ai = new()
-	ai.ai_mode = AIMode.BOSS
-	ai.damage_multiplier = 1.5
-	ai.heal_chance = 0.05
-	ai.heal_amount = 10
-	ai.special_effect_chance = 0.2
-	ai.special_effect_type = "burn"
-	ai.special_effect_value = 5
-	ai.attack_speed_multiplier = 1.2
-	ai.low_hp_threshold = 0.2
-	ai.low_hp_damage_multiplier = 1.6  ## Boss 狂暴
-	return ai
+	return _create_ai(AIMode.BOSS, {
+		"damage_multiplier": 1.5,
+		"heal_chance": 0.05,
+		"heal_amount": 10,
+		"special_effect_chance": 0.2,
+		"special_effect_type": "burn",
+		"special_effect_value": 5,
+		"attack_speed_multiplier": 1.2,
+		"low_hp_threshold": 0.2,
+		"low_hp_damage_multiplier": 1.6,
+	})
 
 ## 蜂群型 AI
 static func create_swarm() -> MonsterAI:
-	var ai = new()
-	ai.ai_mode = AIMode.SWARM
-	ai.damage_multiplier = 0.6
-	ai.attack_speed_multiplier = 2.0  ## 攻击频率翻倍
-	return ai
+	return _create_ai(AIMode.SWARM, {
+		"damage_multiplier": 0.6,
+		"attack_speed_multiplier": 2.0,
+	})
 
 ## ============ 运行时行为 ============
 
@@ -106,6 +116,8 @@ var low_hp_heal_chance_bonus: float = 0.0
 
 ## 判断是否处于低血量状态
 func is_low_hp(monster: MonsterData) -> bool:
+	if monster == null:
+		return false
 	return monster.get_hp_percent() <= low_hp_threshold
 
 ## 获取当前伤害倍率
@@ -142,6 +154,8 @@ func get_mode_name() -> String:
 
 ## 根据 AI 模式调整物品冷却（在战斗开始时调用）
 func apply_to_monster_items(monster: MonsterData) -> void:
+	if monster == null:
+		return
 	var modifier = get_cooldown_modifier()
 	for item in monster.monster_items:
 		if item.has("cooldown"):
