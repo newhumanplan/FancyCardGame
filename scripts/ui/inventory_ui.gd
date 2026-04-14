@@ -288,7 +288,7 @@ func _display_item(item: ItemData, is_synergy_highlight: bool = false) -> void:
 	
 	# 创建物品面板
 	var item_panel = Control.new()
-	item_panel.name = "Item_%s" % item.item_name
+	item_panel.name = "Item_%s_%d" % [item.item_name, start_slot]
 	item_panel.position = Vector2(local_pos.x + 4, local_pos.y + 4)
 	var panel_size = Vector2(
 		slot_count * SLOT_SIZE + (slot_count - 1) * SLOT_SPACING - 8,
