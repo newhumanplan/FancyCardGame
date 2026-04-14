@@ -394,10 +394,14 @@ func _add_item_to_inventory(item: ItemData) -> void:
 	if inventory == null:
 		return
 
-	var empty_slots = inventory.find_empty_slots(item.get_slot_count())
+	# 创建物品副本，避免多个同类物品共享同一个实例
+	var item_copy = item.duplicate()
+	item_copy.slot_index = -1
+
+	var empty_slots = inventory.find_empty_slots(item_copy.get_slot_count())
 	if not empty_slots.is_empty():
 		var slot = empty_slots[0]
-		inventory.place_item(item, slot)
+		inventory.place_item(item_copy, slot)
 		print("物品已放入背包，槽位: %d" % slot)
 	else:
 		print("警告: 没有可用槽位")
