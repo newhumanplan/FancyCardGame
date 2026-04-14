@@ -28,7 +28,7 @@ static func describe_effect(effect: Dictionary) -> String:
 			return ""
 
 static func process_active_effects(active_effects: Array[Dictionary], tick: float, monster: MonsterData, game_manager: Node) -> Array[String]:
-	var logs: PackedStringArray = []
+	var logs: Array[String] = []
 	var expired_indices: Array[int] = []
 	for i in range(active_effects.size()):
 		var effect = active_effects[i]
