@@ -59,12 +59,13 @@ func start_battle(monster: MonsterData, inv: LinearInventory) -> void:
 func _apply_passive_combat_effects() -> void:
 	if game_manager == null or game_manager.selected_hero == null:
 		return
+	var hero: HeroData = game_manager.selected_hero
 	var bonuses: Dictionary = PassiveSkillDataClass.get_combat_bonuses(game_manager.selected_hero)
 	var shield_heal: int = int(bonuses.get("shield", 0.0))
 	if shield_heal <= 0:
 		return
-	game_manager.heal(shield_heal)
-	print("🛡️ 战斗开始，获得 %d 护盾值(→治疗)" % shield_heal)
+	hero.add_shield(float(shield_heal))
+	print("🛡️ 战斗开始，获得 %d 护盾" % shield_heal)
 
 func end_battle() -> void:
 	is_battle_active = false
@@ -72,6 +73,8 @@ func end_battle() -> void:
 	_reset_player_item_cooldowns(false)
 	if current_monster != null:
 		current_monster.reset_item_cooldowns()
+	if game_manager != null and game_manager.selected_hero != null:
+		game_manager.selected_hero.current_shield = 0.0
 	print("战斗结束!")
 
 func _reset_player_item_cooldowns(fill_to_max: bool) -> void:
@@ -115,9 +118,10 @@ func _update_player_item_cooldowns(elapsed_time: float) -> void:
 func _trigger_player_items() -> void:
 	if inventory == null or current_monster == null:
 		return
+	var hero: HeroData = null if game_manager == null else game_manager.selected_hero
 	var hero_crit_rate: float = 0.05
-	if game_manager != null and game_manager.selected_hero != null:
-		hero_crit_rate = game_manager.selected_hero.crit_chance
+	if hero != null:
+		hero_crit_rate = hero.crit_chance
 	hero_crit_rate = clampf(hero_crit_rate, 0.0, 1.0)
 	var passive_stats: Dictionary = _get_passive_combat_stats()
 	var lifesteal_rate: float = float(passive_stats.get("lifesteal", 0.0))
@@ -142,7 +146,8 @@ func _trigger_player_items() -> void:
 			var total_shield: int = ItemEffectsClass.calculate_shield(item)
 			if is_crit:
 				total_shield *= 2
-			game_manager.heal(int(total_shield * 0.5))
+			if hero != null:
+				hero.add_shield(float(total_shield))
 			effect_applied.emit(item.item_name, "shield", total_shield, "self")
 			print("🛡️ [%s] 触发！获得 %d 护盾%s" % [item.item_name, total_shield, crit_text])
 		if item.heal > 0:
@@ -167,6 +172,7 @@ func _update_monster_item_cooldowns(elapsed_time: float) -> void:
 func _trigger_monster_items() -> void:
 	if current_monster == null or not current_monster.is_alive():
 		return
+	var hero: HeroData = null if game_manager == null else game_manager.selected_hero
 	var reflect_rate: float = float(_get_passive_combat_stats().get("reflect", 0.0))
 	if current_monster.ai != null and current_monster.ai.should_heal(current_monster):
 		var heal_amount: int = current_monster.ai.heal_amount
@@ -178,9 +184,14 @@ func _trigger_monster_items() -> void:
 			continue
 		var damage: int = maxi(int(float(item.get("damage", 0)) * damage_mult), 0)
 		var item_name: String = str(item.get("name", "怪物物品"))
-		game_manager.take_damage(damage)
+		var shield_absorbed: float = 0.0 if hero == null else hero.remove_shield(float(damage))
+		var remaining_damage: int = damage - int(shield_absorbed)
+		if remaining_damage > 0:
+			game_manager.take_damage(remaining_damage)
 		monster_item_triggered.emit(current_monster.monster_name, item_name, damage)
 		print("👹 [%s] 的 [%s] 触发！造成 %d 伤害" % [current_monster.monster_name, item_name, damage])
+		if shield_absorbed > 0.0:
+			print("🛡️ 护盾吸收 %.0f 伤害" % shield_absorbed)
 		if reflect_rate > 0 and damage > 0 and current_monster.is_alive():
 			var reflected: int = int(float(damage) * reflect_rate)
 			if reflected > 0:

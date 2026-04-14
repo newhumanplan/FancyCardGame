@@ -45,6 +45,7 @@ signal battle_log(message: String)
 @onready var player_hp_bar: ProgressBar = $BattlePanel/VBox/BattleArea/PlayerArea/PlayerHPBar
 @onready var player_hp_label: Label = $BattlePanel/VBox/BattleArea/PlayerArea/PlayerHPBar/PlayerHPText
 @onready var player_atk_label: Label = $BattlePanel/VBox/BattleArea/PlayerArea/PlayerATKLabel
+@onready var player_area: Control = $BattlePanel/VBox/BattleArea/PlayerArea
 @onready var enemy_name_label: Label = $BattlePanel/VBox/BattleArea/EnemyArea/EnemyNameLabel
 @onready var enemy_hp_bar: ProgressBar = $BattlePanel/VBox/BattleArea/EnemyArea/EnemyHPBar
 @onready var enemy_hp_label: Label = $BattlePanel/VBox/BattleArea/EnemyArea/EnemyHPBar/EnemyHPText
@@ -57,6 +58,8 @@ signal battle_log(message: String)
 
 ## 自动战斗开关
 var auto_battle: bool = true
+var player_shield_bar: ProgressBar = null
+var player_shield_label: Label = null
 
 func _ready() -> void:
 	# 获取 GameManager
@@ -83,6 +86,8 @@ func _ready() -> void:
 		battle_system.monster_item_triggered.connect(_on_monster_item_triggered)
 	if battle_system.has_signal("effect_applied"):
 		battle_system.effect_applied.connect(_on_effect_applied)
+
+	_create_shield_ui()
 
 	print("BattleUI 已初始化")
 
@@ -270,6 +275,7 @@ func _show_battle_panel() -> void:
 	result_label.visible = false
 	continue_button.visible = false
 	battle_log_label.clear()
+	_reset_shield_ui()
 
 ## 隐藏战斗面板
 func _hide_battle_panel() -> void:
@@ -319,11 +325,15 @@ func _execute_battle_tick(elapsed_time: float = BATTLE_TICK) -> void:
 ## 更新战斗 UI
 func _update_battle_ui() -> void:
 	# 玩家信息
-	var max_hp = game_manager.get_max_health()
+	var max_hp: int = game_manager.get_max_health()
+	var current_shield: float = 0.0
+	if game_manager.selected_hero != null:
+		current_shield = game_manager.selected_hero.current_shield
 	player_name_label.text = game_manager.selected_hero.hero_name if game_manager.selected_hero else "玩家"
 	player_hp_bar.max_value = max_hp
 	player_hp_bar.value = game_manager.player_health
 	player_hp_label.text = "%d/%d" % [game_manager.player_health, max_hp]
+	_update_shield_ui(max_hp, current_shield)
 	# ATK 标签改为显示暴击率（保持节点引用不变，避免修改 .tscn）
 	if game_manager.selected_hero:
 		player_atk_label.text = "暴击: %.0f%%" % (game_manager.selected_hero.crit_chance * 100)
@@ -339,6 +349,91 @@ func _update_battle_ui() -> void:
 		# 敌人 ATK 标签改为显示怪物物品数
 		var item_count = current_monster.monster_items.size()
 		enemy_atk_label.text = "物品: %d" % item_count
+
+func _create_shield_ui() -> void:
+	if player_area == null or player_shield_bar != null:
+		return
+
+	player_shield_bar = ProgressBar.new()
+	player_shield_bar.name = "PlayerShieldBar"
+	player_shield_bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	player_shield_bar.show_percentage = false
+	player_shield_bar.min_value = 0.0
+	player_shield_bar.visible = false
+
+	var background_style: StyleBoxFlat = StyleBoxFlat.new()
+	background_style.bg_color = Color(0.0, 0.0, 0.0, 0.0)
+	background_style.border_width_left = 0
+	background_style.border_width_top = 0
+	background_style.border_width_right = 0
+	background_style.border_width_bottom = 0
+	player_shield_bar.add_theme_stylebox_override("background", background_style)
+
+	var fill_style: StyleBoxFlat = StyleBoxFlat.new()
+	fill_style.bg_color = Color(0.3, 0.6, 1.0, 0.7)
+	fill_style.corner_radius_top_left = 6
+	fill_style.corner_radius_top_right = 6
+	fill_style.corner_radius_bottom_right = 6
+	fill_style.corner_radius_bottom_left = 6
+	player_shield_bar.add_theme_stylebox_override("fill", fill_style)
+
+	player_area.add_child(player_shield_bar)
+
+	player_shield_label = Label.new()
+	player_shield_label.name = "PlayerShieldLabel"
+	player_shield_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	player_shield_label.visible = false
+	player_shield_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	player_shield_label.add_theme_color_override("font_color", Color(0.75, 0.88, 1.0, 1.0))
+	player_area.add_child(player_shield_label)
+
+	_sync_shield_ui_layout()
+
+func _sync_shield_ui_layout() -> void:
+	if player_shield_bar == null or player_shield_label == null:
+		return
+
+	player_shield_bar.anchor_left = player_hp_bar.anchor_left
+	player_shield_bar.anchor_top = player_hp_bar.anchor_top
+	player_shield_bar.anchor_right = player_hp_bar.anchor_right
+	player_shield_bar.anchor_bottom = player_hp_bar.anchor_bottom
+	player_shield_bar.offset_left = player_hp_bar.offset_left
+	player_shield_bar.offset_top = player_hp_bar.offset_top - 10.0
+	player_shield_bar.offset_right = player_hp_bar.offset_right
+	player_shield_bar.offset_bottom = player_hp_bar.offset_top - 2.0
+	player_shield_bar.z_index = player_hp_bar.z_index + 1
+
+	player_shield_label.anchor_left = player_hp_bar.anchor_left
+	player_shield_label.anchor_top = player_hp_bar.anchor_top
+	player_shield_label.anchor_right = player_hp_bar.anchor_right
+	player_shield_label.anchor_bottom = player_hp_bar.anchor_top
+	player_shield_label.offset_left = player_hp_bar.offset_left
+	player_shield_label.offset_top = player_hp_bar.offset_top - 30.0
+	player_shield_label.offset_right = player_hp_bar.offset_right
+	player_shield_label.offset_bottom = player_hp_bar.offset_top - 10.0
+	player_shield_label.z_index = player_shield_bar.z_index + 1
+
+func _reset_shield_ui() -> void:
+	if player_shield_bar == null or player_shield_label == null:
+		return
+	_sync_shield_ui_layout()
+	player_shield_bar.max_value = 1.0
+	player_shield_bar.value = 0.0
+	player_shield_bar.visible = false
+	player_shield_label.text = "🛡️ 0"
+	player_shield_label.visible = false
+
+func _update_shield_ui(max_hp: int, current_shield: float) -> void:
+	if player_shield_bar == null or player_shield_label == null:
+		return
+	_sync_shield_ui_layout()
+	var shield_value: float = clampf(current_shield, 0.0, float(max_hp))
+	var has_shield: bool = shield_value > 0.0
+	player_shield_bar.max_value = maxf(float(max_hp), 1.0)
+	player_shield_bar.value = shield_value
+	player_shield_bar.visible = has_shield
+	player_shield_label.text = "🛡️ %d" % int(round(shield_value))
+	player_shield_label.visible = has_shield
 
 ## 记录战斗日志
 func _log(message: String) -> void:

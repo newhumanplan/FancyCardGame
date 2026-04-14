@@ -21,6 +21,9 @@ enum HeroType { WARRIOR, MAGE }
 ## 当前生命值（运行时）
 var current_hp: int = 100
 
+## 当前护盾值（运行时）
+var current_shield: float = 0.0
+
 ## ============ 被动技能（旧版，保留兼容） ============
 
 ## 被动技能名称
@@ -61,12 +64,14 @@ var _combat_lifesteal: float = 0.0       ## 生命偷取百分比
 
 func _init():
 	current_hp = max_hp
+	current_shield = 0.0
 
 ## ============ 运行时方法 ============
 
 ## 重置生命值
 func reset_hp():
 	current_hp = max_hp
+	current_shield = 0.0
 
 ## 获取当前生命值
 func get_current_hp() -> int:
@@ -84,6 +89,21 @@ func take_damage(damage: int) -> int:
 func heal(heal_amount: int):
 	current_hp = mini(current_hp + maxi(heal_amount, 0), max_hp)
 
+## 增加护盾（可叠加，上限为最大生命值）
+func add_shield(value: float) -> void:
+	if max_hp <= 0:
+		current_shield = 0.0
+		return
+	current_shield = clampf(current_shield + maxf(value, 0.0), 0.0, float(max_hp))
+
+## 移除护盾
+## 返回：实际移除的护盾量
+func remove_shield(value: float) -> float:
+	var shield_to_remove: float = maxf(value, 0.0)
+	var removed: float = minf(current_shield, shield_to_remove)
+	current_shield = maxf(current_shield - removed, 0.0)
+	return removed
+
 ## 是否存活
 func is_alive() -> bool:
 	return current_hp > 0
@@ -93,6 +113,12 @@ func get_hp_percent() -> float:
 	if max_hp <= 0:
 		return 0.0
 	return float(current_hp) / float(max_hp)
+
+## 获取护盾百分比
+func get_shield_ratio() -> float:
+	if max_hp <= 0:
+		return 0.0
+	return clampf(current_shield / float(max_hp), 0.0, 1.0)
 
 ## ============ 工具方法 ============
 
