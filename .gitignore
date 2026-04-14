@@ -20,6 +20,7 @@ Thumbs.db
 
 # Test files
 test_*.gd
+!tests/test_*.gd
 test_*.tscn
 screenshots/
 
