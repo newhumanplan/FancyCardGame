@@ -1,53 +1,81 @@
 extends Node
 
-## game_event 测试 — 游戏事件数据结构
+var _total: int = 0
+var _passed: int = 0
 
-func _ready():
-	var GameEvent = load("res://scripts/data/game_event.gd")
-	var passed = 0
-	var total = 5
 
-	# Test 1: 创建事件
-	var evt = GameEvent.new()
-	evt.event_id = "treasure"
-	evt.event_name = "发现宝藏"
-	evt.description = "你发现了一个装满金币的箱子！"
-	evt.event_type = GameEvent.EventType.TREASURE
-	evt.gold_reward = 50
-	var t1 = evt.event_id == "treasure" and evt.event_type == GameEvent.EventType.TREASURE
-	print("test_create_event: %s" % ["PASS" if t1 else "FAIL"])
-	if t1: passed += 1
+func _ready() -> void:
+	print("== tests/test_game_event.gd ==")
+	_run_tests()
+	_print_summary()
+	get_tree().quit()
 
-	# Test 2: 默认值
-	var evt2 = GameEvent.new()
-	var t2 = evt2.gold_reward == 0 and evt2.hp_reward == 0 and evt2.weight == 1
-	print("test_default_values: %s" % ["PASS" if t2 else "FAIL"])
-	if t2: passed += 1
 
-	# Test 3: 权重设置
-	var evt3 = GameEvent.new()
-	evt3.weight = 5
-	evt3.min_day = 3
-	evt3.max_day = 7
-	var t3 = evt3.weight == 5 and evt3.min_day == 3 and evt3.max_day == 7
-	print("test_weight_day_range: %s" % ["PASS" if t3 else "FAIL"])
-	if t3: passed += 1
+func _run_tests() -> void:
+	test_create_sets_core_fields()
+	test_default_values_match_data_definition()
+	test_weight_and_day_range_are_assignable()
+	test_event_type_enum_and_default_value()
 
-	# Test 4: 奖励设置
-	var evt4 = GameEvent.new()
-	evt4.event_id = "heal_camp"
-	evt4.event_type = GameEvent.EventType.CAMP
-	evt4.hp_reward = 30
-	evt4.prestige_reward = 2
-	var t4 = evt4.hp_reward == 30 and evt4.prestige_reward == 2
-	print("test_rewards: %s" % ["PASS" if t4 else "FAIL"])
-	if t4: passed += 1
 
-	# Test 5: 事件类型枚举
-	var t5 = (GameEvent.EventType.TREASURE >= 0 and
-	          GameEvent.EventType.CAMP >= 0 and
-	          GameEvent.EventType.MERCHANT >= 0)
-	print("test_event_types: %s" % ["PASS" if t5 else "FAIL"])
-	if t5: passed += 1
+func _event_script():
+	return load("res://scripts/data/game_event.gd")
 
-	print("\nGameEvent Tests: %d/%d passed" % [passed, total])
+
+func _assert_true(condition: bool, label: String) -> void:
+	_total += 1
+	if condition:
+		_passed += 1
+		print("PASS: %s" % label)
+	else:
+		push_error("FAIL: %s" % label)
+
+
+func _assert_eq(actual, expected, label: String) -> void:
+	_assert_true(actual == expected, "%s | expected=%s actual=%s" % [label, str(expected), str(actual)])
+
+
+func _print_summary() -> void:
+	print("SUMMARY: %d/%d passed" % [_passed, _total])
+
+
+func test_create_sets_core_fields() -> void:
+	var game_event = _event_script()
+	var event = game_event.create("treasure", "宝库", "💎", game_event.EventType.TREASURE, 7)
+
+	_assert_eq(event.event_id, "treasure", "create assigns event id")
+	_assert_eq(event.event_name, "宝库", "create assigns event name")
+	_assert_eq(event.event_icon, "💎", "create assigns event icon")
+	_assert_eq(event.event_type, game_event.EventType.TREASURE, "create assigns event type")
+	_assert_eq(event.weight, 7, "create assigns custom weight")
+
+
+func test_default_values_match_data_definition() -> void:
+	var game_event = _event_script()
+	var event = game_event.new()
+
+	_assert_eq(event.weight, 10, "default weight is 10")
+	_assert_eq(event.min_day, 0, "default min_day is 0")
+	_assert_eq(event.max_day, 0, "default max_day is 0")
+	_assert_true(not event.is_special, "default is_special is false")
+	_assert_eq(event.event_type, game_event.EventType.RANDOM_EVENT, "default event_type is RANDOM_EVENT")
+
+
+func test_weight_and_day_range_are_assignable() -> void:
+	var event = _event_script().new()
+	event.weight = 15
+	event.min_day = 3
+	event.max_day = 8
+
+	_assert_eq(event.weight, 15, "weight can be customized")
+	_assert_eq(event.min_day, 3, "min_day can be customized")
+	_assert_eq(event.max_day, 8, "max_day can be customized")
+
+
+func test_event_type_enum_and_default_value() -> void:
+	var game_event = _event_script()
+
+	_assert_true(game_event.EventType.SHOP != game_event.EventType.MONSTER, "EventType enum values are distinct")
+	_assert_true(game_event.EventType.PVP != game_event.EventType.RANDOM_EVENT, "EventType enum includes pvp and random event")
+	_assert_true(game_event.EventType.TREASURE != game_event.EventType.CAMP, "EventType enum includes treasure and camp")
+	_assert_true(game_event.EventType.FUTURA >= 0, "EventType enum includes futura")
