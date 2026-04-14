@@ -46,7 +46,7 @@ var low_hp_damage_multiplier: float = 1.0
 ## ============ 预设 AI 配置 ============
 
 ## 激进型 AI
-static func create_aggressive() -> RefCounted:
+static func create_aggressive() -> MonsterAI:
 	var ai = new()
 	ai.ai_mode = AIMode.AGGRESSIVE
 	ai.damage_multiplier = 1.3
@@ -55,7 +55,7 @@ static func create_aggressive() -> RefCounted:
 	return ai
 
 ## 防御型 AI
-static func create_defensive() -> RefCounted:
+static func create_defensive() -> MonsterAI:
 	var ai = new()
 	ai.ai_mode = AIMode.DEFENSIVE
 	ai.damage_multiplier = 0.8
@@ -66,7 +66,7 @@ static func create_defensive() -> RefCounted:
 	return ai
 
 ## 技术型 AI
-static func create_technical() -> RefCounted:
+static func create_technical() -> MonsterAI:
 	var ai = new()
 	ai.ai_mode = AIMode.TECHNICAL
 	ai.damage_multiplier = 1.0
@@ -77,7 +77,7 @@ static func create_technical() -> RefCounted:
 	return ai
 
 ## Boss AI
-static func create_boss() -> RefCounted:
+static func create_boss() -> MonsterAI:
 	var ai = new()
 	ai.ai_mode = AIMode.BOSS
 	ai.damage_multiplier = 1.5
@@ -92,7 +92,7 @@ static func create_boss() -> RefCounted:
 	return ai
 
 ## 蜂群型 AI
-static func create_swarm() -> RefCounted:
+static func create_swarm() -> MonsterAI:
 	var ai = new()
 	ai.ai_mode = AIMode.SWARM
 	ai.damage_multiplier = 0.6
@@ -120,15 +120,15 @@ func should_heal(monster: MonsterData) -> bool:
 	var chance = heal_chance
 	if is_low_hp(monster) and low_hp_heal_chance_bonus > 0:
 		chance += low_hp_heal_chance_bonus
-	return randf() < chance
+	return randf() < clampf(chance, 0.0, 1.0)
 
 ## 判断是否附加特殊效果
 func should_apply_special() -> bool:
-	return randf() < special_effect_chance
+	return randf() < clampf(special_effect_chance, 0.0, 1.0)
 
 ## 获取冷却缩减（基于攻击速度倍率）
 func get_cooldown_modifier() -> float:
-	return 1.0 / attack_speed_multiplier
+	return 1.0 / maxf(attack_speed_multiplier, 0.1)
 
 ## 获取 AI 模式名称
 func get_mode_name() -> String:
@@ -145,4 +145,6 @@ func apply_to_monster_items(monster: MonsterData) -> void:
 	var modifier = get_cooldown_modifier()
 	for item in monster.monster_items:
 		if item.has("cooldown"):
-			item["cooldown"] = item["cooldown"] * modifier
+			var base_cooldown: float = float(item.get("base_cooldown", item["cooldown"]))
+			item["base_cooldown"] = base_cooldown
+			item["cooldown"] = maxf(base_cooldown * modifier, 0.1)

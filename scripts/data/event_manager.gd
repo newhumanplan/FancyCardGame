@@ -48,8 +48,8 @@ func generate_options(hour: int, day: int) -> Array[Dictionary]:
 	match extra_type:
 		"random_event":
 			var evt = _pick_random_event(day)
-			if evt:
-				options.append({"text": "%s %s" % [evt.icon, evt.name], "type": "random_event", "event_id": evt.id})
+			if not evt.is_empty():
+				options.append({"text": "%s %s" % [evt.get("icon", ""), evt.get("name", "随机事件")], "type": "random_event", "event_id": evt.get("id", "")})
 		"treasure":
 			options.append({"text": "💎 宝库", "type": "treasure"})
 		"camp":
@@ -67,6 +67,12 @@ func _pick_random_event(day: int) -> Dictionary:
 	# 过滤掉不符合天数要求的事件
 	var eligible: Array[Dictionary] = []
 	for evt in _random_events:
+		var min_day: int = int(evt.get("min_day", 0))
+		var max_day: int = int(evt.get("max_day", 0))
+		if day < min_day:
+			continue
+		if max_day > 0 and day > max_day:
+			continue
 		eligible.append(evt)
 
 	if eligible.is_empty():
@@ -77,6 +83,8 @@ func _pick_random_event(day: int) -> Dictionary:
 	for evt in eligible:
 		total_weight += evt.get("weight", 10)
 
+	if total_weight <= 0:
+		return eligible[0]
 	var roll: int = randi() % total_weight
 	var cumulative: int = 0
 	for evt in eligible:
@@ -91,6 +99,8 @@ func _pick_random_event(day: int) -> Dictionary:
 ## 执行随机事件效果（返回描述文本）
 ## game_manager: GameManager autoload 引用
 func execute_random_event(event_id: String, day: int, game_manager: Node) -> String:
+	if game_manager == null:
+		return "事件执行失败: GameManager 不存在"
 	match event_id:
 		"merchant_bonus":
 			var gold = 8 + day * 2
@@ -98,7 +108,7 @@ func execute_random_event(event_id: String, day: int, game_manager: Node) -> Str
 			return "慷慨商人! 获得 %d 金币!" % gold
 
 		"healing_fountain":
-			var heal_amount = game_manager.get_max_health() / 4
+			var heal_amount = maxi(game_manager.get_max_health() / 4, 1)
 			game_manager.heal(heal_amount)
 			return "治愈之泉! 恢复 %d HP!" % heal_amount
 
@@ -151,7 +161,7 @@ func execute_random_event(event_id: String, day: int, game_manager: Node) -> Str
 			return "盗贼公会! 被收取保护费 %d 金币!" % stolen
 
 		"blessed_rest":
-			var heal_amount = game_manager.get_max_health() / 3
+			var heal_amount = maxi(game_manager.get_max_health() / 3, 1)
 			game_manager.heal(heal_amount)
 			game_manager.add_gold(5)
 			return "受到祝福的休息! 恢复 %d HP，获得 5 金币!" % heal_amount

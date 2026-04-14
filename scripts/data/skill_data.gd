@@ -34,8 +34,8 @@ var unlocked: bool = false
 ## 获取当前品质对应的效果值
 func get_effect_value() -> float:
 	var idx: int = quality as int
-	if idx < effect_values.size():
-		return effect_values[idx]
+	if idx >= 0 and idx < effect_values.size():
+		return maxf(effect_values[idx], 0.0)
 	return 0.0
 
 ## 获取品质名称
@@ -85,6 +85,10 @@ static func from_dict(data: Dictionary) -> SkillData:
 		if raw is Array:
 			var typed: Array[float] = []
 			for v in raw:
-				typed.append(float(v))
+				typed.append(maxf(float(v), 0.0))
+				if typed.size() == 4:
+					break
+			while typed.size() < 4:
+				typed.append(0.0)
 			skill.effect_values = typed
 	return skill

@@ -560,6 +560,7 @@ func _clear_drag_overlays() -> void:
 func _end_drag(target_slot: int) -> void:
 	if not is_dragging or dragging_item == null:
 		return
+	var emitted_item: ItemData = dragging_item
 	
 	# 清除高亮
 	_clear_drag_overlays()
@@ -593,7 +594,7 @@ func _end_drag(target_slot: int) -> void:
 	_refresh_display()
 	
 	# 发送信号
-	item_drag_ended.emit(dragging_item)
+	item_drag_ended.emit(emitted_item)
 
 ## 槽位点击放置
 func _on_slot_clicked_for_place(slot_index: int) -> void:
@@ -840,10 +841,7 @@ func _add_synergy_effect(item1: ItemData, item2: ItemData) -> void:
 
 ## 获取指定槽位的物品
 func _get_item_at_slot(slot_index: int) -> ItemData:
-	for item in inventory.items:
-		if item != null and item.slot_index == slot_index:
-			return item
-	return null
+	return null if inventory == null else inventory.get_item_at(slot_index)
 
 ## 添加测试物品
 func _add_test_items() -> void:

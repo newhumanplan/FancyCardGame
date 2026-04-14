@@ -35,7 +35,7 @@ static func apply_to_hero(skill: PassiveSkillData, hero: HeroData) -> void:
 			hero.max_hp += int(skill.effect_value)
 			hero.current_hp = hero.max_hp
 		EffectType.CRIT_BONUS:
-			hero.crit_chance += skill.effect_value / 100.0
+			hero.crit_chance = clampf(hero.crit_chance + skill.effect_value / 100.0, 0.0, 1.0)
 		EffectType.SHIELD_BONUS:
 			pass  # 护盾在战斗系统中处理
 		EffectType.COOLDOWN_REDUCTION:

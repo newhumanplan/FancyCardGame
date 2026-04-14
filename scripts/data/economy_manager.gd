@@ -69,6 +69,7 @@ const RARITY_UNLOCK_DAYS: Array[int] = [0, 1, 2, 4, 6]
 
 ## 计算物品价格（基于稀有度、尺寸、类型、天数）
 static func calculate_item_price(item_rarity: int, item_size: int, item_type: int, day: int) -> int:
+	day = maxi(day, 1)
 	if item_rarity < 1 or item_rarity > 4:
 		return 10
 
@@ -99,17 +100,18 @@ static func calculate_item_price(item_rarity: int, item_size: int, item_type: in
 
 ## 计算怪物战斗预期收入
 static func calculate_monster_gold(day: int) -> int:
-	return MONSTER_GOLD_BASE + day * MONSTER_GOLD_DAY_SCALE
+	return MONSTER_GOLD_BASE + maxi(day, 1) * MONSTER_GOLD_DAY_SCALE
 
 ## 计算 PvP 胜利预期收入
 static func calculate_pvp_gold(day: int) -> int:
-	return PVP_WIN_GOLD_BASE + day * PVP_WIN_GOLD_DAY_SCALE
+	return PVP_WIN_GOLD_BASE + maxi(day, 1) * PVP_WIN_GOLD_DAY_SCALE
 
 ## 计算声望折扣价格
 static func apply_prestige_discount(base_price: int, prestige: int, max_prestige: int) -> int:
 	if max_prestige <= 0:
 		return base_price
-	var discount_ratio: float = float(prestige) / float(max_prestige) * PRESTIGE_DISCOUNT_RATE
+	var clamped_prestige: int = clampi(prestige, 0, max_prestige)
+	var discount_ratio: float = float(clamped_prestige) / float(max_prestige) * PRESTIGE_DISCOUNT_RATE
 	var discount: int = int(float(base_price) * discount_ratio)
 	return maxi(base_price - discount, 1)
 
@@ -138,11 +140,10 @@ static func debug_economy_balance(day: int, gold: int) -> String:
 	var monster_gold = calculate_monster_gold(day)
 	var pvp_gold = calculate_pvp_gold(day)
 	var avg_item_price = calculate_item_price(2, 0, 0, day)  # 稀有小武器
-	return (
-		"Day %d 经济分析:\n"
-		"  怪物收入: %d gold/次\n"
-		"  PvP收入: %d gold/次\n"
-		"  稀有武器价: %d gold\n"
-		"  当前金币: %d\n"
-		% [day, monster_gold, pvp_gold, avg_item_price, gold]
-	)
+	return "Day %d 经济分析:\n  怪物收入: %d gold/次\n  PvP收入: %d gold/次\n  稀有武器价: %d gold\n  当前金币: %d\n" % [
+		day,
+		monster_gold,
+		pvp_gold,
+		avg_item_price,
+		gold
+	]

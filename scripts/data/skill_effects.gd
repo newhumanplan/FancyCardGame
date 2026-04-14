@@ -19,6 +19,8 @@ static func apply_passive_skills(skills: Array[SkillData], hero: HeroData) -> Di
 	}
 
 	for skill in skills:
+		if skill == null:
+			continue
 		var value: float = skill.get_effect_value()
 		match skill.effect_type:
 			SkillData.EffectType.CRIT:
@@ -41,11 +43,15 @@ static func apply_passive_skills(skills: Array[SkillData], hero: HeroData) -> Di
 				modifiers["charge_bonus"] += value
 
 	# 应用暴击加成到英雄
+	modifiers["crit_bonus"] = clampf(modifiers["crit_bonus"], 0.0, 1.0)
+	modifiers["cooldown_reduction"] = clampf(modifiers["cooldown_reduction"], 0.0, 0.8)
+
 	if hero and modifiers["crit_bonus"] > 0:
-		hero.crit_chance += modifiers["crit_bonus"]
+		hero.crit_chance = clampf(hero.crit_chance + modifiers["crit_bonus"], 0.0, 1.0)
 	# 应用生命加成到英雄
 	if hero and modifiers["max_health_bonus"] > 0:
 		hero.max_hp += int(modifiers["max_health_bonus"])
+		hero.current_hp = min(hero.current_hp, hero.max_hp)
 
 	return modifiers
 
@@ -53,6 +59,8 @@ static func apply_passive_skills(skills: Array[SkillData], hero: HeroData) -> Di
 static func get_effects_summary(skills: Array[SkillData]) -> String:
 	var summary: String = ""
 	for skill in skills:
+		if skill == null:
+			continue
 		var value: float = skill.get_effect_value()
 		if value > 0:
 			summary += "%s %s: +%.1f\n" % [skill.get_quality_name(), skill.get_effect_type_name(), value]

@@ -8,6 +8,7 @@ extends Control
 ## 3. 合成升级（两个相同稀有度 → 更高稀有度）
 
 ## 预加载
+const EconomyManagerClass = preload("res://scripts/data/economy_manager.gd")
 const ItemDataClass = preload("res://scripts/data/item_data.gd")
 const LinearInventoryClass = preload("res://scripts/data/linear_inventory.gd")
 
@@ -173,16 +174,12 @@ func _get_utility_name(rarity: int) -> String:
 
 ## 计算价格（委托 EconomyManager：基础→尺寸→类型→天数通胀→声望折扣）
 func _calculate_price(item: ItemData) -> int:
-	var EconomyScript = load("res://scripts/data/economy_manager.gd")
-	if EconomyScript:
-		var base_price: int = EconomyScript.calculate_item_price(
-			item.rarity, item.size as int, item.type as int, GameManager.current_day
-		)
-		return EconomyScript.apply_prestige_discount(
-			base_price, GameManager.prestige, GameManager.max_prestige
-		)
-	# 降级：本地计算（不应到达此处）
-	return 10 * item.rarity
+	var base_price: int = EconomyManagerClass.calculate_item_price(
+		item.rarity, item.size as int, item.type as int, GameManager.current_day
+	)
+	return EconomyManagerClass.apply_prestige_discount(
+		base_price, GameManager.prestige, GameManager.max_prestige
+	)
 
 ## 刷新商店物品显示
 func _refresh_shop_items() -> void:
@@ -217,7 +214,8 @@ func _create_item_display(item: ItemData) -> Control:
 
 	# 名称和稀有度
 	var name_label = Label.new()
-	name_label.text = "%s [%s]" % [item.item_name, RARITY_NAMES[item.rarity - 1]]
+	var rarity_index: int = clampi(item.rarity - 1, 0, RARITY_NAMES.size() - 1)
+	name_label.text = "%s [%s]" % [item.item_name, RARITY_NAMES[rarity_index]]
 	name_label.add_theme_color_override("font_color", _get_rarity_color(item.rarity))
 	info_vbox.add_child(name_label)
 

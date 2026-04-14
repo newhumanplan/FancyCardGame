@@ -147,6 +147,8 @@ func reset_day_hour() -> void:
 
 ## 选择英雄（只设置 HP，ATK/DEF 已移除）
 func select_hero(hero: HeroData) -> void:
+	if hero == null:
+		return
 	selected_hero = hero
 	# 根据英雄类型设置初始属性（只有 HP）
 	if hero.hero_type == HeroData.HeroType.WARRIOR:
@@ -155,6 +157,7 @@ func select_hero(hero: HeroData) -> void:
 	elif hero.hero_type == HeroData.HeroType.MAGE:
 		# 法师: HP80
 		player_health = 80
+	selected_hero.current_hp = player_health
 
 	health_changed.emit(player_health)
 	print("已选择英雄: %s (%s)" % [hero.hero_name, hero.get_type_name()])
@@ -177,12 +180,16 @@ func get_gold() -> int:
 
 ## 增加金币
 func add_gold(amount: int) -> void:
+	if amount <= 0:
+		return
 	gold += amount
 	record_gold_earned(amount)
 	gold_changed.emit(amount)
 
 ## 花费金币
 func spend_gold(amount: int) -> bool:
+	if amount < 0:
+		return false
 	if gold >= amount:
 		gold -= amount
 		gold_changed.emit(-amount)
@@ -205,7 +212,7 @@ func get_prestige_percent() -> float:
 
 ## 增加 Prestige
 func add_prestige(amount: int) -> void:
-	prestige = min(prestige + amount, max_prestige)
+	prestige = clampi(prestige + amount, 0, max_prestige)
 	prestige_changed.emit(prestige)
 
 ## 减少 Prestige
@@ -291,14 +298,19 @@ func get_max_health() -> int:
 ## 返回实际伤害值
 ## 注意：HP 归零不触发 game_over，游戏结束仅由 Prestige 归零判定
 func take_damage(amount: int) -> int:
-	player_health = max(0, player_health - amount)
+	var actual_amount: int = maxi(amount, 0)
+	player_health = max(0, player_health - actual_amount)
+	if selected_hero != null:
+		selected_hero.current_hp = player_health
 	health_changed.emit(player_health)
-	return amount
+	return actual_amount
 
 ## 治疗
 func heal(amount: int) -> void:
 	var max_hp: int = get_max_health()
-	player_health = min(player_health + amount, max_hp)
+	player_health = min(player_health + maxi(amount, 0), max_hp)
+	if selected_hero != null:
+		selected_hero.current_hp = player_health
 	health_changed.emit(player_health)
 
 ## ============ 游戏流程 ============

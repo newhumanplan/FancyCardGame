@@ -14,6 +14,7 @@ var event_manager = EventManagerClass.new()
 
 ## 当前随机事件ID（用于随机事件选项）
 var _current_random_event_id: String = ""
+var _current_event_options: Array[Dictionary] = []
 
 ## ============ UI 节点 ============
 
@@ -231,57 +232,61 @@ func _generate_event_options() -> void:
 	var day = GameManager.current_day
 
 	# 使用 EventManager 生成选项
-	var options = event_manager.generate_options(hour, day)
+	var options: Array[Dictionary] = event_manager.generate_options(hour, day)
+	_current_event_options = options
 	_current_random_event_id = ""
 
 	if options.is_empty():
 		return
 
-	event_option_1.text = options[0].text
+	event_option_1.text = str(options[0].get("text", ""))
 	event_option_1.visible = true
 
 	if options.size() > 1:
-		event_option_2.text = options[1].text
+		event_option_2.text = str(options[1].get("text", ""))
 		event_option_2.visible = true
 	else:
 		event_option_2.visible = false
 
 	if options.size() > 2:
-		event_option_3.text = options[2].text
+		event_option_3.text = str(options[2].get("text", ""))
 		event_option_3.visible = true
-		# 保存随机事件ID（如果有）
-		if options[2].has("event_id"):
-			_current_random_event_id = options[2].event_id
 	else:
 		event_option_3.visible = false
 
 ## 事件选项被选中
 func _on_event_option_1_selected() -> void:
-	_handle_event_selection(event_option_1.text)
+	_handle_event_selection_by_index(0)
 
 func _on_event_option_2_selected() -> void:
-	_handle_event_selection(event_option_2.text)
+	_handle_event_selection_by_index(1)
 
 func _on_event_option_3_selected() -> void:
-	_handle_event_selection(event_option_3.text)
+	_handle_event_selection_by_index(2)
 
-## 处理事件选择
-func _handle_event_selection(event_text: String) -> void:
-	print("选择了事件: %s" % event_text)
+func _handle_event_selection_by_index(index: int) -> void:
+	if index < 0 or index >= _current_event_options.size():
+		return
+	var option: Dictionary = _current_event_options[index]
+	var event_type: String = str(option.get("type", ""))
+	_current_random_event_id = str(option.get("event_id", ""))
+	print("选择了事件: %s" % option.get("text", event_type))
 
-	if "商人" in event_text or "🏪" in event_text:
-		_execute_shop_event()
-	elif "怪物" in event_text or "👹" in event_text:
-		_execute_monster_event()
-	elif "PvP" in event_text or "⚔️" in event_text:
-		_execute_pvp_event()
-	elif "宝库" in event_text or "💎" in event_text:
-		_execute_treasure_event()
-	elif "营地" in event_text or "⛺" in event_text:
-		_execute_camp_event()
-	else:
-		# 随机事件
-		_execute_random_event()
+	match event_type:
+		"shop":
+			_execute_shop_event()
+		"monster":
+			_execute_monster_event()
+		"pvp":
+			_execute_pvp_event()
+		"treasure":
+			_execute_treasure_event()
+		"camp":
+			_execute_camp_event()
+		"random_event":
+			_execute_random_event()
+		_:
+			_execute_random_event()
 
 ## ============ 事件执行 ============
 
@@ -303,7 +308,8 @@ func _open_shop_ui() -> void:
 		_write_debug("inventory: " + str(inventory))
 		shop_ui.visible = true
 		shop_ui.show_shop(inventory)
-		shop_ui.shop_closed.connect(_on_shop_closed)
+		if not shop_ui.shop_closed.is_connected(_on_shop_closed):
+			shop_ui.shop_closed.connect(_on_shop_closed)
 		_write_debug("商店已打开")
 	else:
 		_write_debug("ERROR: 无法获取背包实例")
@@ -336,8 +342,8 @@ func _execute_random_event() -> void:
 	var event_id: String = _current_random_event_id
 	if event_id == "":
 		var evt = event_manager._pick_random_event(day)
-		if evt:
-			event_id = evt.id
+		if not evt.is_empty():
+			event_id = str(evt.get("id", ""))
 		else:
 			_auto_advance_hour()
 			return
@@ -588,6 +594,12 @@ func _on_futura_legacy() -> void:
 
 func _restore_event_connections() -> void:
 	event_panel.visible = false
+	if event_option_1.pressed.is_connected(_on_futura_bounty):
+		event_option_1.pressed.disconnect(_on_futura_bounty)
+	if event_option_2.pressed.is_connected(_on_futura_crossroads):
+		event_option_2.pressed.disconnect(_on_futura_crossroads)
+	if event_option_3.pressed.is_connected(_on_futura_legacy):
+		event_option_3.pressed.disconnect(_on_futura_legacy)
 	if not event_option_1.pressed.is_connected(_on_event_option_1_selected):
 		event_option_1.pressed.connect(_on_event_option_1_selected)
 	if not event_option_2.pressed.is_connected(_on_event_option_2_selected):

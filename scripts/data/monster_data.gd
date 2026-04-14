@@ -79,11 +79,14 @@ func get_hp_percent() -> float:
 ## 初始化怪物物品冷却（战斗开始时调用）
 func init_item_cooldowns() -> void:
 	for item in monster_items:
-		item["current_cooldown"] = item["cooldown"]
+		var cooldown: float = maxf(float(item.get("cooldown", 0.0)), 0.0)
+		item["current_cooldown"] = cooldown
 
 ## 重置怪物物品冷却（战斗结束时调用）
 func reset_item_cooldowns() -> void:
 	for item in monster_items:
+		if item.has("base_cooldown"):
+			item["cooldown"] = item["base_cooldown"]
 		item["current_cooldown"] = 0.0
 
 ## ============ 战斗相关方法 ============
@@ -96,7 +99,7 @@ func get_gold_reward() -> int:
 
 ## 检查是否掉落物品
 func should_drop_item() -> bool:
-	return randf() < item_drop_chance
+	return randf() < clampf(item_drop_chance, 0.0, 1.0)
 
 ## ============ 工具方法 ============
 

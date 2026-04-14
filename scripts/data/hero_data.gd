@@ -69,13 +69,13 @@ func get_current_hp() -> int:
 ## damage: 伤害值
 ## 返回: 实际受到的伤害
 func take_damage(damage: int) -> int:
-	var actual_damage: int = damage
+	var actual_damage: int = maxi(damage, 0)
 	current_hp = maxi(current_hp - actual_damage, 0)
 	return actual_damage
 
 ## 治疗
 func heal(heal_amount: int):
-	current_hp = mini(current_hp + heal_amount, max_hp)
+	current_hp = mini(current_hp + maxi(heal_amount, 0), max_hp)
 
 ## 是否存活
 func is_alive() -> bool:
@@ -98,7 +98,7 @@ func get_type_name() -> String:
 
 ## 检查是否暴击
 func roll_crit() -> bool:
-	return randf() < crit_chance
+	return randf() < clampf(crit_chance, 0.0, 1.0)
 
 ## 是否有被动技能
 func has_passive_skill() -> bool:

@@ -15,26 +15,30 @@ const EFFECT_LIFESTEAL: String = "lifesteal"
 
 ## 计算物品总伤害（基础伤害 + 稀有度倍率 + 暴击）
 static func calculate_damage(item: ItemData, is_crit: bool) -> int:
+	if item == null:
+		return 0
 	var base: int = item.get_rarity_adjusted_damage()
 	var mult: float = 2.0 if is_crit else 1.0
-	return int(float(base) * mult)
+	return maxi(int(float(base) * mult), 0)
 
 ## 计算物品总护盾
 static func calculate_shield(item: ItemData) -> int:
-	return item.get_rarity_adjusted_shield()
+	return 0 if item == null else maxi(item.get_rarity_adjusted_shield(), 0)
 
 ## 计算物品总治疗
 static func calculate_heal(item: ItemData) -> int:
-	return item.get_rarity_adjusted_heal()
+	return 0 if item == null else maxi(item.get_rarity_adjusted_heal(), 0)
 
 ## 计算物品总暴击率加成
 static func calculate_crit_chance(item: ItemData) -> float:
-	return item.crit_chance * item.get_rarity_multiplier()
+	return 0.0 if item == null else clampf(item.crit_chance * item.get_rarity_multiplier(), 0.0, 1.0)
 
 ## 构建持续效果数据（供 battle_system.gd 的 active_effects 使用）
 ## 返回 Array[Dictionary]，每个 dict: {type, value, duration, item_name, target}
 static func build_active_effects(item: ItemData, is_crit: bool) -> Array:
 	var effects: Array = []
+	if item == null:
+		return effects
 	var rarity_mult: float = item.get_rarity_multiplier()
 	var crit_mult: float = 2.0 if is_crit else 1.0
 
@@ -76,7 +80,7 @@ static func process_effect_tick(effect: Dictionary, battle_tick: float, monster:
 		"heal_player": 0,
 	}
 
-	var value_per_sec: float = effect["value"]
+	var value_per_sec: float = maxf(float(effect.get("value", 0.0)), 0.0)
 	var tick_value: float = value_per_sec * battle_tick
 	var tick_value_int: int = int(tick_value)
 

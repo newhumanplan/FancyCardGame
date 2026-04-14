@@ -230,10 +230,14 @@ func find_empty_slots(size: int) -> Array[int]:
 
 ## 创建临时物品用于检查（不实际创建）
 func _create_dummy_item(slot_count: int) -> ItemData:
-	# 这是一个辅助方法，用于 can_place_item 检查
-	# 实际使用时应该传入真实的 ItemData
 	var dummy := ItemData.new()
-	dummy.size = ItemData.Size.SMALL  # 默认小
+	match slot_count:
+		1:
+			dummy.size = ItemData.Size.SMALL
+		2:
+			dummy.size = ItemData.Size.MEDIUM
+		_:
+			dummy.size = ItemData.Size.LARGE
 	return dummy
 
 ## ============ 实用工具方法 ============

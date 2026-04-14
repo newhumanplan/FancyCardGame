@@ -113,17 +113,23 @@ func _on_effect_applied(item_name: String, effect_type: String, value: int, targ
 ## 开始战斗
 func start_battle(monster: MonsterData = null, pvp: bool = false, enemy_atk_bonus: int = 0) -> void:
 	is_pvp = pvp
+	battle_timer = 0.0
 
 	# 获取背包系统
 	var main = get_parent()
-	if main.has_node("InventoryUI"):
+	if main != null and main.has_node("InventoryUI"):
 		inventory = main.get_node("InventoryUI").get_inventory()
 
 	# 生成怪物或设置 PvP 对手
-	if not is_pvp:
+	if monster != null:
+		current_monster = monster
+	elif not is_pvp:
 		current_monster = _generate_random_monster()
 	else:
-		current_monster = _create_pvp_enemy()
+		current_monster = _create_pvp_enemy(enemy_atk_bonus)
+
+	if current_monster == null or inventory == null:
+		return
 
 	# 启动战斗系统（传入怪物和背包）
 	battle_system.start_battle(current_monster, inventory)
@@ -215,7 +221,7 @@ func _generate_random_monster() -> MonsterData:
 	return monster
 
 ## 创建 PvP 对手（使用物品系统）
-func _create_pvp_enemy() -> MonsterData:
+func _create_pvp_enemy(enemy_atk_bonus: int = 0) -> MonsterData:
 	var monster = MonsterData.new()
 
 	# 随机选择对手英雄类型
@@ -229,8 +235,8 @@ func _create_pvp_enemy() -> MonsterData:
 		monster.max_hp = 200 + day * 15
 		# 战士物品：剑 + 盾
 		monster.monster_items = [
-			{"name": "战士之剑", "damage": 15 + day, "cooldown": 3.0, "current_cooldown": 3.0},
-			{"name": "铁盾反击", "damage": 5 + day, "cooldown": 2.5, "current_cooldown": 2.5}
+				{"name": "战士之剑", "damage": 15 + day + enemy_atk_bonus, "cooldown": 3.0, "current_cooldown": 3.0},
+				{"name": "铁盾反击", "damage": 5 + day + enemy_atk_bonus, "cooldown": 2.5, "current_cooldown": 2.5}
 		]
 	else:
 		# PvP 法师对手
@@ -238,7 +244,7 @@ func _create_pvp_enemy() -> MonsterData:
 		monster.max_hp = 160 + day * 15
 		# 法师物品：法杖（高伤慢CD）
 		monster.monster_items = [
-			{"name": "奥术法杖", "damage": 22 + day * 2, "cooldown": 4.5, "current_cooldown": 4.5}
+				{"name": "奥术法杖", "damage": 22 + day * 2 + enemy_atk_bonus, "cooldown": 4.5, "current_cooldown": 4.5}
 		]
 
 	monster.gold_reward_min = 0

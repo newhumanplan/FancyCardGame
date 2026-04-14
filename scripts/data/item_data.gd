@@ -85,7 +85,7 @@ func can_trigger() -> bool:
 
 ## 重置冷却
 func reset_cooldown():
-	current_cooldown = cooldown
+	current_cooldown = maxf(cooldown, 0.0)
 
 ## ============ 工具方法 ============
 
@@ -145,13 +145,13 @@ func get_size_cd_range() -> Dictionary:
 
 ## 应用稀有度加成到属性
 func get_rarity_adjusted_damage() -> int:
-	return int(float(damage) * get_rarity_multiplier())
+	return maxi(int(float(damage) * get_rarity_multiplier()), 0)
 
 func get_rarity_adjusted_shield() -> int:
-	return int(float(shield) * get_rarity_multiplier())
+	return maxi(int(float(shield) * get_rarity_multiplier()), 0)
 
 func get_rarity_adjusted_heal() -> int:
-	return int(float(heal) * get_rarity_multiplier())
+	return maxi(int(float(heal) * get_rarity_multiplier()), 0)
 
 ## 是否有特殊效果
 func has_special_effect() -> bool:
