@@ -297,7 +297,7 @@ func _process(delta: float) -> void:
 	if battle_timer >= BATTLE_TICK:
 		var elapsed_time: float = elapsed_since_last_tick
 		battle_timer -= BATTLE_TICK
-		elapsed_since_last_tick = battle_timer
+		elapsed_since_last_tick = maxf(elapsed_since_last_tick - BATTLE_TICK, 0.0)
 		_execute_battle_tick(elapsed_time)
 
 ## 执行一个战斗 tick（纯物品触发）

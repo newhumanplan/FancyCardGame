@@ -85,6 +85,7 @@ func _reset_player_item_cooldowns(fill_to_max: bool) -> void:
 func execute_battle_tick(elapsed_time: float = BATTLE_TICK) -> bool:
 	if not is_battle_active:
 		return false
+	# Cooldowns/effects use real elapsed time; trigger cadence still stays on BATTLE_TICK.
 	var tick_time: float = maxf(elapsed_time, 0.0)
 	if _check_battle_end():
 		return true
