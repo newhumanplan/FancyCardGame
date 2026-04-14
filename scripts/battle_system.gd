@@ -149,6 +149,30 @@ func execute_battle_tick() -> bool:
 
 	return false
 
+## ============ 被动技能辅助方法 ============
+
+## 提取英雄被动技能的战斗属性（避免在多个方法中重复遍历）
+func _get_passive_combat_stats() -> Dictionary:
+	var stats := {
+		"lifesteal": 0.0,
+		"reflect": 0.0,
+		"cd_reduction": 0.0,
+	}
+	if not game_manager.selected_hero or game_manager.selected_hero.passive_skills.is_empty():
+		return stats
+	for ps in game_manager.selected_hero.passive_skills:
+		match ps.effect_type:
+			PassiveSkillDataClass.EffectType.LIFESTEAL:
+				stats["lifesteal"] += ps.effect_value / 100.0
+			PassiveSkillDataClass.EffectType.DAMAGE_REFLECTION:
+				stats["reflect"] += ps.effect_value / 100.0
+			PassiveSkillDataClass.EffectType.COOLDOWN_REDUCTION:
+				stats["cd_reduction"] += ps.effect_value / 100.0
+	stats["lifesteal"] = clampf(stats["lifesteal"], 0.0, 1.0)
+	stats["reflect"] = clampf(stats["reflect"], 0.0, 1.0)
+	stats["cd_reduction"] = clampf(stats["cd_reduction"] + float(skill_modifiers.get("cooldown_reduction", 0.0)), 0.0, 0.8)
+	return stats
+
 ## ============ 玩家物品系统 ============
 
 ## 更新玩家物品冷却
@@ -172,29 +196,10 @@ func _trigger_player_items() -> void:
 		hero_crit_rate += skill_modifiers["crit_bonus"]
 	hero_crit_rate = clampf(hero_crit_rate, 0.0, 1.0)
 
-	# 生命偷取率（被动技能）
-	var lifesteal_rate: float = 0.0
-	if game_manager.selected_hero and game_manager.selected_hero.passive_skills:
-		for ps in game_manager.selected_hero.passive_skills:
-			if ps.effect_type == PassiveSkillDataClass.EffectType.LIFESTEAL:
-				lifesteal_rate += ps.effect_value / 100.0
-	lifesteal_rate = clampf(lifesteal_rate, 0.0, 1.0)
-
-	# 伤害反弹率（被动技能）
-	var reflect_rate: float = 0.0
-	if game_manager.selected_hero and game_manager.selected_hero.passive_skills:
-		for ps in game_manager.selected_hero.passive_skills:
-			if ps.effect_type == PassiveSkillDataClass.EffectType.DAMAGE_REFLECTION:
-				reflect_rate += ps.effect_value / 100.0
-	reflect_rate = clampf(reflect_rate, 0.0, 1.0)
-
-	# 冷却缩减（被动技能）
-	var cd_reduction: float = 0.0
-	if game_manager.selected_hero and game_manager.selected_hero.passive_skills:
-		for ps in game_manager.selected_hero.passive_skills:
-			if ps.effect_type == PassiveSkillDataClass.EffectType.COOLDOWN_REDUCTION:
-				cd_reduction += ps.effect_value / 100.0
-	cd_reduction = clampf(cd_reduction + float(skill_modifiers.get("cooldown_reduction", 0.0)), 0.0, 0.8)
+	# 生命偷取率 / 伤害反弹率 / 冷却缩减（通过被动技能统计）
+	var passive_stats: Dictionary = _get_passive_combat_stats()
+	var lifesteal_rate: float = passive_stats["lifesteal"]
+	var cd_reduction: float = passive_stats["cd_reduction"]
 
 	# 技能燃烧/中毒加成
 	var burn_bonus: float = skill_modifiers.get("burn_bonus", 0.0)
@@ -208,7 +213,6 @@ func _trigger_player_items() -> void:
 
 		# 判定暴击
 		var is_crit: bool = randf() < hero_crit_rate
-		var rarity_mult: float = item.get_rarity_multiplier()
 		var crit_text: String = "（暴击!）" if is_crit else ""
 
 		# 伤害效果
@@ -223,23 +227,27 @@ func _trigger_player_items() -> void:
 				if stolen > 0:
 					game_manager.heal(stolen)
 
-		# 护盾效果（加己方护盾，MVP 暂简化为回血）
+		# 护盾效果（MVP 简化为半量治疗）
 		if item.shield > 0:
-			var total_shield: int = ItemEffectsClass.calculate_shield(item) * (2 if is_crit else 1)
-			game_manager.heal(int(total_shield * 0.5))  # 护盾效果简化为回一半血
+			var total_shield: int = ItemEffectsClass.calculate_shield(item)
+			if is_crit:
+				total_shield *= 2
+			game_manager.heal(int(total_shield * 0.5))
 			effect_applied.emit(item.item_name, "shield", total_shield, "self")
 			print("🛡️ [%s] 触发！获得 %d 护盾%s" % [item.item_name, total_shield, crit_text])
 
 		# 治疗效果
 		if item.heal > 0:
-			var total_heal: int = ItemEffectsClass.calculate_heal(item) * (2 if is_crit else 1)
+			var total_heal: int = ItemEffectsClass.calculate_heal(item)
+			if is_crit:
+				total_heal *= 2
 			game_manager.heal(total_heal)
 			effect_applied.emit(item.item_name, "heal", total_heal, "self")
 			print("💚 [%s] 触发！恢复 %d 生命%s" % [item.item_name, total_heal, crit_text])
 
 		# 特殊效果（通过 ItemEffects 集中处理）
 		if item.has_special_effect():
-			_apply_item_special_effects(item, is_crit, rarity_mult, burn_bonus, poison_bonus)
+			_apply_item_special_effects(item, is_crit, burn_bonus, poison_bonus)
 
 		# 重置冷却（应用冷却缩减）
 		item.current_cooldown = maxf(item.cooldown * (1.0 - cd_reduction), 0.1)
@@ -259,13 +267,9 @@ func _trigger_monster_items() -> void:
 	if not current_monster or not current_monster.is_alive():
 		return
 
-	# 计算伤害反弹率
-	var reflect_rate: float = 0.0
-	if game_manager.selected_hero and game_manager.selected_hero.passive_skills:
-		for ps in game_manager.selected_hero.passive_skills:
-			if ps.effect_type == PassiveSkillDataClass.EffectType.DAMAGE_REFLECTION:
-				reflect_rate += ps.effect_value / 100.0
-	reflect_rate = clampf(reflect_rate, 0.0, 1.0)
+	# 计算伤害反弹率（被动技能）
+	var passive_stats: Dictionary = _get_passive_combat_stats()
+	var reflect_rate: float = passive_stats["reflect"]
 
 	# AI 自我治疗
 	if current_monster.ai and current_monster.ai.should_heal(current_monster):
@@ -307,10 +311,8 @@ func _trigger_monster_items() -> void:
 ## ============ 持续效果处理 ============
 
 ## 应用物品特殊效果（集成 ItemEffects + 技能加成）
-func _apply_item_special_effects(item: ItemData, is_crit: bool, rarity_mult: float, burn_bonus: float = 0.0, poison_bonus: float = 0.0) -> void:
-	var crit_mult: float = 2.0 if is_crit else 1.0
-
-	# 通过 ItemEffects 构建效果列表
+func _apply_item_special_effects(item: ItemData, is_crit: bool, burn_bonus: float = 0.0, poison_bonus: float = 0.0) -> void:
+	# 通过 ItemEffects 构建效果列表（build_active_effects 内部处理暴击倍率）
 	var effects: Array = ItemEffectsClass.build_active_effects(item, is_crit)
 
 	# 合并技能加成到效果

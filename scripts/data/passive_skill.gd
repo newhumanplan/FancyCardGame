@@ -37,13 +37,17 @@ static func apply_to_hero(skill: PassiveSkillData, hero: HeroData) -> void:
 		EffectType.CRIT_BONUS:
 			hero.crit_chance = clampf(hero.crit_chance + skill.effect_value / 100.0, 0.0, 1.0)
 		EffectType.SHIELD_BONUS:
-			pass  # 护盾在战斗系统中处理
+			# 战斗系统处理：_apply_passive_combat_effects() 战斗开始时转化为治疗
+			pass
 		EffectType.COOLDOWN_REDUCTION:
-			pass  # 冷却在物品系统中处理
+			# 战斗系统处理：_trigger_player_items() 计算综合 cd_reduction
+			pass
 		EffectType.DAMAGE_REFLECTION:
-			pass  # 反弹在战斗系统中处理
+			# 战斗系统处理：_trigger_monster_items() 受伤时反弹
+			pass
 		EffectType.LIFESTEAL:
-			pass  # 生命偷取在战斗系统中处理
+			# 战斗系统处理：_trigger_player_items() 伤害时按比例回血
+			pass
 	print("被动技能生效: %s — %s (+%.1f)" % [skill.skill_name, skill.get_type_description(), skill.effect_value])
 
 ## 获取效果描述文本
