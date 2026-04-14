@@ -27,6 +27,11 @@ var player_gold: int = 0
 ## 背包实例（引用 InventoryUI）
 var inventory: LinearInventory = null
 
+## 刷新/锁定机制
+var free_refresh_used: bool = false  ## 今日免费刷新已使用
+var locked_indices: Array[int] = []  ## 锁定的槽位索引
+const REFRESH_COST: int = 2  ## 刷新费用（金币）
+
 ## 信号
 signal shop_closed()
 signal item_purchased(item: ItemData)
@@ -53,6 +58,8 @@ func show_shop(inventory_ref: LinearInventory) -> void:
 
 	# 生成商店物品
 	_generate_shop_items()
+	free_refresh_used = false
+	locked_indices.clear()
 	print("  shop_items generated: " + str(shop_items.size()))
 
 	# 更新 UI
@@ -187,12 +194,25 @@ func _refresh_shop_items() -> void:
 		child.queue_free()
 
 	# 创建每个物品的显示
-	for item in shop_items:
-		var item_display = _create_item_display(item)
+	for i in range(shop_items.size()):
+		var item_display = _create_item_display(shop_items[i], i)
 		shop_items_container.add_child(item_display)
 
+	# 底部按钮栏（刷新）
+	var btn_bar = HBoxContainer.new()
+	btn_bar.alignment = BoxContainer.ALIGNMENT_CENTER
+	btn_bar.add_theme_constant_override("separation", 20)
+
+	var refresh_btn = Button.new()
+	refresh_btn.text = "🔄 刷新 (%d金币)" % REFRESH_COST if free_refresh_used else "🔄 免费刷新"
+	refresh_btn.custom_minimum_size = Vector2(140, 40)
+	refresh_btn.pressed.connect(_on_refresh_pressed.bind(refresh_btn))
+	btn_bar.add_child(refresh_btn)
+
+	shop_items_container.add_child(btn_bar)
+
 ## 创建物品显示面板
-func _create_item_display(item: ItemData) -> Control:
+func _create_item_display(item: ItemData, idx: int) -> Control:
 	var container = HBoxContainer.new()
 	container.custom_minimum_size = Vector2(0, 120)
 
@@ -270,6 +290,14 @@ func _create_item_display(item: ItemData) -> Control:
 		if empty_slots.is_empty():
 			buy_button.disabled = true
 			buy_button.tooltip_text = "背包空间不足"
+
+	# 锁定按钮
+	var lock_btn = Button.new()
+	var is_locked = idx in locked_indices
+	lock_btn.text = "🔒 解锁" if is_locked else "🔓 锁定"
+	lock_btn.custom_minimum_size = Vector2(60, 30)
+	lock_btn.pressed.connect(_on_lock_pressed.bind(idx, lock_btn))
+	buy_vbox.add_child(lock_btn)
 
 	container.add_child(buy_vbox)
 
@@ -373,6 +401,59 @@ func _add_item_to_inventory(item: ItemData) -> void:
 		print("物品已放入背包，槽位: %d" % slot)
 	else:
 		print("警告: 没有可用槽位")
+
+## 刷新商店（保留锁定物品）
+func _on_refresh_pressed(refresh_btn: Button) -> void:
+	# 扣费
+	if not free_refresh_used:
+		free_refresh_used = true
+	else:
+		if not GameManager.can_afford(REFRESH_COST):
+			print("金币不足，无法刷新！")
+			return
+		GameManager.spend_gold(REFRESH_COST)
+
+	# 保留锁定物品
+	var locked_items: Array[ItemData] = []
+	var locked_idx_map: Array[int] = []
+	for idx in locked_indices:
+		if idx < shop_items.size():
+			locked_items.append(shop_items[idx])
+			locked_idx_map.append(idx)
+
+	# 重新生成未锁定的物品
+	var day = GameManager.current_day
+	var max_rarity = _get_max_rarity_for_day(day)
+	var new_items: Array[ItemData] = []
+	for i in range(shop_items.size()):
+		if i in locked_indices:
+			new_items.append(shop_items[i])
+		else:
+			new_items.append(_create_random_item(day, max_rarity))
+
+	shop_items = new_items
+	# 更新锁定索引（保持锁定状态）
+	var new_locked: Array[int] = []
+	var li = 0
+	for i in range(shop_items.size()):
+		if li < locked_idx_map.size() and i == locked_idx_map[li]:
+			new_locked.append(i)
+			li += 1
+	locked_indices = new_locked
+
+	_update_gold_label()
+	_refresh_shop_items()
+	print("商店已刷新！锁定了 %d 个物品" % locked_indices.size())
+
+## 锁定/解锁物品
+func _on_lock_pressed(idx: int, lock_btn: Button) -> void:
+	if idx in locked_indices:
+		locked_indices.erase(idx)
+		lock_btn.text = "🔓 锁定"
+	else:
+		locked_indices.append(idx)
+		lock_btn.text = "🔒 解锁"
+	print("商店物品 %d %s" % [idx, "已锁定" if idx in locked_indices else "已解锁"])
 
 ## 关闭按钮点击
 func _on_close_pressed() -> void:

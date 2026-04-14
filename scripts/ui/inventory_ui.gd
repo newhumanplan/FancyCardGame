@@ -747,7 +747,21 @@ func _create_inline_detail_panel(item: ItemData) -> void:
 	
 	add_child(detail_panel)
 	detail_panel.move_to_front()
-	
+
+	# 出售按钮
+	var sell_price: int = _calculate_sell_price(item)
+	var sell_btn = Button.new()
+	sell_btn.text = "出售 (%d金币)" % sell_price
+	sell_btn.custom_minimum_size = Vector2(130, 36)
+	sell_btn.position = Vector2(15, 230)
+	var sell_style = StyleBoxFlat.new()
+	sell_style.bg_color = Color(0.2, 0.4, 0.2, 0.9)
+	sell_style.set_corner_radius_all(6)
+	sell_btn.add_theme_stylebox_override("normal", sell_style)
+	sell_btn.add_theme_font_size_override("font_size", 18)
+	sell_btn.pressed.connect(_on_sell_pressed.bind(item, sell_price))
+	detail_panel.add_child(sell_btn)
+
 	# 定位
 	_position_detail_panel(item)
 
@@ -771,6 +785,23 @@ func _position_detail_panel(item: ItemData) -> void:
 		target_pos.y = item_pos.y - panel_size.y
 	
 	detail_panel.global_position = target_pos
+
+## 计算出售价格（购买价的 60%）
+func _calculate_sell_price(item: ItemData) -> int:
+	if item == null or item.buy_price <= 0:
+		return 0
+	return maxi(int(float(item.buy_price) * 0.6), 1)
+
+## 出售物品
+func _on_sell_pressed(item: ItemData, sell_price: int) -> void:
+	if item == null or inventory == null:
+		return
+	var slot_idx = item.slot_index
+	inventory.remove_item(item)
+	GameManager.add_gold(sell_price)
+	_close_detail_panel()
+	_refresh_display()
+	print("出售 %s 获得 %d 金币" % [item.item_name, sell_price])
 
 ## 关闭详情面板
 func _close_detail_panel() -> void:

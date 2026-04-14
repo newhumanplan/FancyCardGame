@@ -42,6 +42,13 @@ const PassiveSkillType = preload("res://scripts/data/passive_skill.gd")
 ## 英雄专属被动技能列表
 var passive_skills: Array = []  ## Array[PassiveSkillData]
 
+## ============ 战斗被动加成（由 passive_skill.gd apply_to_hero 设置）============
+
+var _combat_bonus_shield: float = 0.0    ## 战斗开始护盾（转治疗）
+var _combat_cd_reduction: float = 0.0    ## 冷却缩减百分比
+var _combat_reflect: float = 0.0         ## 伤害反弹百分比
+var _combat_lifesteal: float = 0.0       ## 生命偷取百分比
+
 ## ============ 技能与物品 ============
 
 ## 技能列表

@@ -53,9 +53,10 @@ func _ready():
 	# Test 6: build_active_effects — 中毒
 	var item6 = ItemData.new()
 	item6.poison_damage = 5.0
+	item6.rarity = 1  # 普通 1.0x
 	item6.item_name = "毒匕首"
 	var effects6 = ItemEffects.build_active_effects(item6, false)
-	var t6 = effects6.size() >= 1 and effects6[0]["type"] == "poison" and effects6[0]["value"] == 5.0
+	var t6 = effects6.size() >= 1 and effects6[0]["type"] == "poison" and abs(effects6[0]["value"] - 5.0) < 0.01
 	print("test_poison_effect: %s (count=%d)" % ["PASS" if t6 else "FAIL", effects6.size()])
 	if t6: passed += 1
 

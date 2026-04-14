@@ -27,6 +27,8 @@ enum EffectType {
 }
 
 ## 应用被动技能效果到英雄
+## HEALTH/CRIT 立即修改英雄属性
+## SHIELD/CD_REDUCTION/REFLECT/LIFESTEAL 存储到英雄字典供战斗系统读取
 static func apply_to_hero(skill: PassiveSkillData, hero: HeroData) -> void:
 	if not skill or not hero:
 		return
@@ -37,17 +39,17 @@ static func apply_to_hero(skill: PassiveSkillData, hero: HeroData) -> void:
 		EffectType.CRIT_BONUS:
 			hero.crit_chance = clampf(hero.crit_chance + skill.effect_value / 100.0, 0.0, 1.0)
 		EffectType.SHIELD_BONUS:
-			# 战斗系统处理：_apply_passive_combat_effects() 战斗开始时转化为治疗
-			pass
+			# 存储护盾值，战斗开始时一次性转化为治疗
+			hero._combat_bonus_shield = hero._combat_bonus_shield + skill.effect_value
 		EffectType.COOLDOWN_REDUCTION:
-			# 战斗系统处理：_trigger_player_items() 计算综合 cd_reduction
-			pass
+			# 存储冷却缩减百分比，战斗系统在计算 CD 时读取
+			hero._combat_cd_reduction = clampf(hero._combat_cd_reduction + skill.effect_value / 100.0, 0.0, 0.8)
 		EffectType.DAMAGE_REFLECTION:
-			# 战斗系统处理：_trigger_monster_items() 受伤时反弹
-			pass
+			# 存储反弹百分比，战斗系统在受伤时读取
+			hero._combat_reflect = clampf(hero._combat_reflect + skill.effect_value / 100.0, 0.0, 1.0)
 		EffectType.LIFESTEAL:
-			# 战斗系统处理：_trigger_player_items() 伤害时按比例回血
-			pass
+			# 存储吸血百分比，战斗系统在造成伤害时读取
+			hero._combat_lifesteal = clampf(hero._combat_lifesteal + skill.effect_value / 100.0, 0.0, 1.0)
 	print("被动技能生效: %s — %s (+%.1f)" % [skill.skill_name, skill.get_type_description(), skill.effect_value])
 
 ## 获取效果描述文本
