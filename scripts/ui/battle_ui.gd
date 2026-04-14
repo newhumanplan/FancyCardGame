@@ -28,6 +28,7 @@ var is_battle_active: bool = false
 
 ## 战斗计时器
 var battle_timer: float = 0.0
+var elapsed_since_last_tick: float = 0.0
 
 ## 回合间隔（0.5秒）
 const BATTLE_TICK: float = 0.5
@@ -114,6 +115,7 @@ func _on_effect_applied(item_name: String, effect_type: String, value: int, targ
 func start_battle(monster: MonsterData = null, pvp: bool = false, enemy_atk_bonus: int = 0) -> void:
 	is_pvp = pvp
 	battle_timer = 0.0
+	elapsed_since_last_tick = 0.0
 
 	# 获取背包系统
 	var main = get_parent()
@@ -289,16 +291,19 @@ func _process(delta: float) -> void:
 
 	# 更新战斗计时器
 	battle_timer += delta
+	elapsed_since_last_tick += delta
 
 	# 每 0.5 秒执行一个 tick
 	if battle_timer >= BATTLE_TICK:
-		battle_timer = 0.0
-		_execute_battle_tick()
+		var elapsed_time: float = elapsed_since_last_tick
+		battle_timer -= BATTLE_TICK
+		elapsed_since_last_tick = battle_timer
+		_execute_battle_tick(elapsed_time)
 
 ## 执行一个战斗 tick（纯物品触发）
-func _execute_battle_tick() -> void:
+func _execute_battle_tick(elapsed_time: float = BATTLE_TICK) -> void:
 	# 委托给战斗系统处理
-	var battle_ended: bool = battle_system.execute_battle_tick()
+	var battle_ended: bool = battle_system.execute_battle_tick(elapsed_time)
 
 	# 更新 UI
 	_update_battle_ui()

@@ -82,18 +82,19 @@ func _reset_player_item_cooldowns(fill_to_max: bool) -> void:
 			continue
 		item.current_cooldown = item.cooldown if fill_to_max and item.cooldown > 0 else 0.0
 
-func execute_battle_tick() -> bool:
+func execute_battle_tick(elapsed_time: float = BATTLE_TICK) -> bool:
 	if not is_battle_active:
 		return false
+	var tick_time: float = maxf(elapsed_time, 0.0)
 	if _check_battle_end():
 		return true
-	_update_player_item_cooldowns()
-	_update_monster_item_cooldowns()
+	_update_player_item_cooldowns(tick_time)
+	_update_monster_item_cooldowns(tick_time)
 	_trigger_player_items()
 	if _check_battle_end():
 		return true
 	_trigger_monster_items()
-	_process_active_effects()
+	_process_active_effects(tick_time)
 	_check_battle_end()
 	return false
 
@@ -103,12 +104,12 @@ func _get_passive_combat_stats() -> Dictionary:
 	stats["cd_reduction"] = clampf(float(stats.get("cd_reduction", 0.0)) + float(skill_modifiers.get("cooldown_reduction", 0.0)), 0.0, 0.8)
 	return stats
 
-func _update_player_item_cooldowns() -> void:
+func _update_player_item_cooldowns(elapsed_time: float) -> void:
 	if inventory == null:
 		return
 	for item in inventory.items:
 		if item != null and item.current_cooldown > 0:
-			item.current_cooldown = maxf(item.current_cooldown - BATTLE_TICK, 0.0)
+			item.current_cooldown = maxf(item.current_cooldown - elapsed_time, 0.0)
 
 func _trigger_player_items() -> void:
 	if inventory == null or current_monster == null:
@@ -154,13 +155,13 @@ func _trigger_player_items() -> void:
 			_apply_item_special_effects(item, is_crit, burn_bonus, poison_bonus)
 		item.current_cooldown = maxf(item.cooldown * (1.0 - cd_reduction), 0.1)
 
-func _update_monster_item_cooldowns() -> void:
+func _update_monster_item_cooldowns(elapsed_time: float) -> void:
 	if current_monster == null:
 		return
 	for item in current_monster.monster_items:
 		var current_cooldown: float = float(item.get("current_cooldown", 0.0))
 		if current_cooldown > 0:
-			item["current_cooldown"] = maxf(current_cooldown - BATTLE_TICK, 0.0)
+			item["current_cooldown"] = maxf(current_cooldown - elapsed_time, 0.0)
 
 func _trigger_monster_items() -> void:
 	if current_monster == null or not current_monster.is_alive():
@@ -196,8 +197,8 @@ func _apply_item_special_effects(item: ItemData, is_crit: bool, burn_bonus: floa
 		if not log_text.is_empty():
 			print(log_text)
 
-func _process_active_effects() -> void:
-	for log_text in BattleEffectRuntimeClass.process_active_effects(active_effects, BATTLE_TICK, current_monster, game_manager):
+func _process_active_effects(elapsed_time: float) -> void:
+	for log_text in BattleEffectRuntimeClass.process_active_effects(active_effects, elapsed_time, current_monster, game_manager):
 		print(log_text)
 
 func _check_battle_end() -> bool:
