@@ -16,8 +16,8 @@ const PVP_BASE_VIEWPORT_SIZE: Vector2 = Vector2(1920.0, 1080.0)
 const PVP_MIN_SCALE: float = 0.5
 const PVP_MAX_SCALE: float = 1.0
 const PVP_RESIZE_CHECK_INTERVAL: float = 2.0
-const PVP_RIVER_TOP: float = 0.45
-const PVP_RIVER_BOTTOM: float = 0.55
+const PVP_RIVER_TOP: float = 0.50
+const PVP_RIVER_BOTTOM: float = 0.506
 const PVP_CENTER_LEFT: float = 0.08
 const PVP_CENTER_RIGHT: float = 0.92
 const PVP_SHOP_TOP: float = PVP_PANEL_TOP_BOTTOM + 0.04
@@ -98,6 +98,7 @@ var pvp_opponent_shield_bar: ProgressBar = null
 var pvp_opponent_shield_label: Label = null
 var pvp_opponent_meta_label: Label = null
 var pvp_opponent_skill_labels: Array[Label] = []
+var pvp_opponent_hand_container: HBoxContainer = null
 var pvp_shop_container: HBoxContainer = null
 var pvp_player_name_label: Label = null
 var pvp_player_hp_bar: ProgressBar = null
@@ -384,6 +385,7 @@ func _destroy_pvp_layout() -> void:
 	pvp_opponent_shield_label = null
 	pvp_opponent_meta_label = null
 	pvp_opponent_skill_labels.clear()
+	pvp_opponent_hand_container = null
 	pvp_shop_container = null
 	pvp_player_name_label = null
 	pvp_player_hp_bar = null
@@ -455,6 +457,12 @@ func _create_pvp_opponent_bar() -> void:
 		skills_box.add_child(skill_label)
 		pvp_opponent_skill_labels.append(skill_label)
 
+	pvp_opponent_hand_container = HBoxContainer.new()
+	pvp_opponent_hand_container.alignment = BoxContainer.ALIGNMENT_END
+	pvp_opponent_hand_container.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	pvp_opponent_hand_container.theme_override_constants.separation = PVP_HAND_SPACING
+	root_hbox.add_child(pvp_opponent_hand_container)
+
 func _create_pvp_battle_center() -> void:
 	pvp_battle_center = Control.new()
 	pvp_battle_center.name = "BattleCenter"
@@ -485,6 +493,10 @@ func _create_pvp_battle_center() -> void:
 	pvp_shop_container.alignment = BoxContainer.ALIGNMENT_CENTER
 	pvp_shop_container.theme_override_constants.separation = PVP_HAND_SPACING
 	shop_row.add_child(pvp_shop_container)
+
+	for shop_index in range(PVP_SHOP_CARD_COUNT):
+		var shop_card: Panel = _create_pvp_shop_card_placeholder()
+		pvp_shop_container.add_child(shop_card)
 
 	pvp_river_rect = ColorRect.new()
 	pvp_river_rect.name = "RiverDivider"
@@ -719,25 +731,24 @@ func _update_pvp_player_hand() -> void:
 	_add_empty_player_slots(maxi(PVP_HAND_SLOT_COUNT - card_count, 0))
 
 func _update_pvp_opponent_hand() -> void:
-	if pvp_shop_container == null:
+	if pvp_opponent_hand_container == null:
 		return
 
-	for child in pvp_shop_container.get_children():
+	for child in pvp_opponent_hand_container.get_children():
 		child.queue_free()
 
-	var revealed_count: int = 0
-	if current_monster != null:
-		revealed_count = mini(current_monster.monster_items.size(), PVP_SHOP_CARD_COUNT)
+	if current_monster == null:
+		return
 
-	for item_index in range(PVP_SHOP_CARD_COUNT):
+	for item_index in range(current_monster.monster_items.size()):
 		var card_panel: Panel = Panel.new()
 		card_panel.custom_minimum_size = PVP_CARD_SIZE
 		card_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		card_panel.add_theme_stylebox_override("panel", _create_shop_card_style(item_index < revealed_count))
-		pvp_shop_container.add_child(card_panel)
+		card_panel.add_theme_stylebox_override("panel", _create_card_back_style())
+		pvp_opponent_hand_container.add_child(card_panel)
 
 		var center_label: Label = Label.new()
-		center_label.text = "✦" if item_index < revealed_count else ""
+		center_label.text = "✦"
 		center_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		center_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		center_label.add_theme_font_size_override("font_size", 28)
@@ -1460,6 +1471,27 @@ func _create_pvp_hp_stack() -> Control:
 	hp_stack.add_child(shield_label)
 
 	return hp_stack
+
+func _create_pvp_shop_card_placeholder() -> Panel:
+	var card: Panel = Panel.new()
+	card.custom_minimum_size = PVP_CARD_SIZE
+	card.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var style: StyleBoxFlat = StyleBoxFlat.new()
+	style.bg_color = Color(0.15, 0.18, 0.25, 0.6)
+	style.border_color = PVP_SHOP_BORDER_COLOR
+	style.set_border_width_all(2)
+	style.set_corner_radius_all(6)
+	card.add_theme_stylebox_override("panel", style)
+
+	var center_label: Label = Label.new()
+	center_label.text = "Shop"
+	center_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	center_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	center_label.add_theme_font_size_override("font_size", 16)
+	center_label.add_theme_color_override("font_color", Color(0.86, 0.92, 1.0, 0.92))
+	center_label.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	card.add_child(center_label)
+	return card
 
 func _create_transparent_progress_style() -> StyleBoxFlat:
 	var style: StyleBoxFlat = StyleBoxFlat.new()
