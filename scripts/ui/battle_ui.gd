@@ -11,11 +11,24 @@ const BATTLE_TICK: float = 0.5
 const PVP_PANEL_TOP_BOTTOM: float = 0.18
 const PVP_PLAYER_TOP: float = 0.78
 const PVP_CARD_SIZE: Vector2 = Vector2(80.0, 110.0)
-const PVP_HAND_SPACING: int = 8
+const PVP_HAND_SPACING: int = 12
 const PVP_BASE_VIEWPORT_SIZE: Vector2 = Vector2(1920.0, 1080.0)
 const PVP_MIN_SCALE: float = 0.5
 const PVP_MAX_SCALE: float = 1.0
 const PVP_RESIZE_CHECK_INTERVAL: float = 2.0
+const PVP_RIVER_TOP: float = 0.45
+const PVP_RIVER_BOTTOM: float = 0.55
+const PVP_CENTER_LEFT: float = 0.08
+const PVP_CENTER_RIGHT: float = 0.92
+const PVP_SHOP_TOP: float = PVP_PANEL_TOP_BOTTOM + 0.04
+const PVP_SHOP_BOTTOM: float = PVP_RIVER_TOP - 0.02
+const PVP_HAND_TOP: float = PVP_RIVER_BOTTOM + 0.02
+const PVP_HAND_BOTTOM: float = PVP_PLAYER_TOP - 0.02
+const PVP_SHOP_CARD_COUNT: int = 5
+const PVP_HAND_SLOT_COUNT: int = 10
+const PVP_RIVER_COLOR: Color = Color(0.15, 0.35, 0.55, 0.8)
+const PVP_SHOP_BORDER_COLOR: Color = Color8(74, 158, 255, 255)
+const PVP_HAND_BORDER_COLOR: Color = Color8(42, 42, 62, 255)
 
 ## GameManager 引用
 var game_manager: Node
@@ -76,7 +89,8 @@ var player_shield_label: Label = null
 var pvp_root: Control = null
 var pvp_opponent_bar: PanelContainer = null
 var pvp_player_bar: PanelContainer = null
-var pvp_battle_center: PanelContainer = null
+var pvp_battle_center: Control = null
+var pvp_river_rect: ColorRect = null
 var pvp_opponent_name_label: Label = null
 var pvp_opponent_hp_bar: ProgressBar = null
 var pvp_opponent_hp_label: Label = null
@@ -84,7 +98,7 @@ var pvp_opponent_shield_bar: ProgressBar = null
 var pvp_opponent_shield_label: Label = null
 var pvp_opponent_meta_label: Label = null
 var pvp_opponent_skill_labels: Array[Label] = []
-var pvp_opponent_hand_container: HBoxContainer = null
+var pvp_shop_container: HBoxContainer = null
 var pvp_player_name_label: Label = null
 var pvp_player_hp_bar: ProgressBar = null
 var pvp_player_hp_label: Label = null
@@ -362,6 +376,7 @@ func _destroy_pvp_layout() -> void:
 	pvp_opponent_bar = null
 	pvp_player_bar = null
 	pvp_battle_center = null
+	pvp_river_rect = null
 	pvp_opponent_name_label = null
 	pvp_opponent_hp_bar = null
 	pvp_opponent_hp_label = null
@@ -369,7 +384,7 @@ func _destroy_pvp_layout() -> void:
 	pvp_opponent_shield_label = null
 	pvp_opponent_meta_label = null
 	pvp_opponent_skill_labels.clear()
-	pvp_opponent_hand_container = null
+	pvp_shop_container = null
 	pvp_player_name_label = null
 	pvp_player_hp_bar = null
 	pvp_player_hp_label = null
@@ -422,7 +437,7 @@ func _create_pvp_opponent_bar() -> void:
 	var hp_stack: Control = _create_pvp_hp_stack()
 	info_box.add_child(hp_stack)
 	pvp_opponent_hp_bar = hp_stack.get_node("HPBar") as ProgressBar
-	pvp_opponent_hp_label = hp_stack.get_node("HPBar/HPText") as Label
+	pvp_opponent_hp_label = hp_stack.get_node("HPText") as Label
 	pvp_opponent_shield_bar = hp_stack.get_node("ShieldBar") as ProgressBar
 	pvp_opponent_shield_label = hp_stack.get_node("ShieldLabel") as Label
 
@@ -440,58 +455,109 @@ func _create_pvp_opponent_bar() -> void:
 		skills_box.add_child(skill_label)
 		pvp_opponent_skill_labels.append(skill_label)
 
-	pvp_opponent_hand_container = HBoxContainer.new()
-	pvp_opponent_hand_container.alignment = BoxContainer.ALIGNMENT_END
-	pvp_opponent_hand_container.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	pvp_opponent_hand_container.theme_override_constants.separation = PVP_HAND_SPACING
-	root_hbox.add_child(pvp_opponent_hand_container)
-
 func _create_pvp_battle_center() -> void:
-	pvp_battle_center = PanelContainer.new()
+	pvp_battle_center = Control.new()
 	pvp_battle_center.name = "BattleCenter"
-	pvp_battle_center.anchor_left = 0.10
-	pvp_battle_center.anchor_top = PVP_PANEL_TOP_BOTTOM + 0.02
-	pvp_battle_center.anchor_right = 0.90
-	pvp_battle_center.anchor_bottom = PVP_PLAYER_TOP - 0.02
+	pvp_battle_center.anchor_left = 0.0
+	pvp_battle_center.anchor_top = 0.0
+	pvp_battle_center.anchor_right = 1.0
+	pvp_battle_center.anchor_bottom = 1.0
 	pvp_battle_center.offset_left = 0.0
 	pvp_battle_center.offset_top = 0.0
 	pvp_battle_center.offset_right = 0.0
 	pvp_battle_center.offset_bottom = 0.0
-	pvp_battle_center.add_theme_stylebox_override("panel", _create_panel_style(Color(0.08, 0.09, 0.14, 0.94), Color(0.24, 0.28, 0.38, 1.0)))
 	pvp_root.add_child(pvp_battle_center)
 
-	var center_vbox: VBoxContainer = VBoxContainer.new()
-	center_vbox.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	center_vbox.offset_left = 16.0
-	center_vbox.offset_top = 12.0
-	center_vbox.offset_right = -16.0
-	center_vbox.offset_bottom = -12.0
-	center_vbox.theme_override_constants.separation = 10
-	pvp_battle_center.add_child(center_vbox)
+	var shop_row: CenterContainer = CenterContainer.new()
+	shop_row.name = "ShopRow"
+	shop_row.anchor_left = PVP_CENTER_LEFT
+	shop_row.anchor_top = PVP_SHOP_TOP
+	shop_row.anchor_right = PVP_CENTER_RIGHT
+	shop_row.anchor_bottom = PVP_SHOP_BOTTOM
+	shop_row.offset_left = 0.0
+	shop_row.offset_top = 0.0
+	shop_row.offset_right = 0.0
+	shop_row.offset_bottom = 0.0
+	pvp_battle_center.add_child(shop_row)
 
-	var vs_label: Label = Label.new()
-	vs_label.text = "VS"
-	vs_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	vs_label.add_theme_font_size_override("font_size", 28)
-	center_vbox.add_child(vs_label)
+	pvp_shop_container = HBoxContainer.new()
+	pvp_shop_container.name = "ShopContainer"
+	pvp_shop_container.alignment = BoxContainer.ALIGNMENT_CENTER
+	pvp_shop_container.theme_override_constants.separation = PVP_HAND_SPACING
+	shop_row.add_child(pvp_shop_container)
+
+	pvp_river_rect = ColorRect.new()
+	pvp_river_rect.name = "RiverDivider"
+	pvp_river_rect.color = PVP_RIVER_COLOR
+	pvp_river_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	pvp_river_rect.anchor_left = PVP_CENTER_LEFT
+	pvp_river_rect.anchor_top = PVP_RIVER_TOP
+	pvp_river_rect.anchor_right = PVP_CENTER_RIGHT
+	pvp_river_rect.anchor_bottom = PVP_RIVER_BOTTOM
+	pvp_river_rect.offset_left = 0.0
+	pvp_river_rect.offset_top = 0.0
+	pvp_river_rect.offset_right = 0.0
+	pvp_river_rect.offset_bottom = 0.0
+	pvp_battle_center.add_child(pvp_river_rect)
+
+	var hand_row: CenterContainer = CenterContainer.new()
+	hand_row.name = "HandRow"
+	hand_row.anchor_left = PVP_CENTER_LEFT
+	hand_row.anchor_top = PVP_HAND_TOP
+	hand_row.anchor_right = PVP_CENTER_RIGHT
+	hand_row.anchor_bottom = PVP_HAND_BOTTOM
+	hand_row.offset_left = 0.0
+	hand_row.offset_top = 0.0
+	hand_row.offset_right = 0.0
+	hand_row.offset_bottom = 0.0
+	pvp_battle_center.add_child(hand_row)
+
+	pvp_player_hand_container = HBoxContainer.new()
+	pvp_player_hand_container.name = "PlayerHandContainer"
+	pvp_player_hand_container.alignment = BoxContainer.ALIGNMENT_CENTER
+	pvp_player_hand_container.theme_override_constants.separation = PVP_HAND_SPACING
+	hand_row.add_child(pvp_player_hand_container)
+
+	var log_panel: PanelContainer = PanelContainer.new()
+	log_panel.name = "BattleLogPanel"
+	log_panel.anchor_left = 0.73
+	log_panel.anchor_top = PVP_SHOP_TOP
+	log_panel.anchor_right = 0.97
+	log_panel.anchor_bottom = PVP_HAND_BOTTOM
+	log_panel.offset_left = 0.0
+	log_panel.offset_top = 0.0
+	log_panel.offset_right = 0.0
+	log_panel.offset_bottom = 0.0
+	log_panel.add_theme_stylebox_override("panel", _create_panel_style(Color(0.08, 0.09, 0.14, 0.92), Color(0.24, 0.28, 0.38, 1.0)))
+	pvp_battle_center.add_child(log_panel)
+
+	var log_vbox: VBoxContainer = VBoxContainer.new()
+	log_vbox.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	log_vbox.offset_left = 12.0
+	log_vbox.offset_top = 12.0
+	log_vbox.offset_right = -12.0
+	log_vbox.offset_bottom = -12.0
+	log_vbox.theme_override_constants.separation = 10
+	log_panel.add_child(log_vbox)
 
 	pvp_battle_log = RichTextLabel.new()
 	pvp_battle_log.bbcode_enabled = true
 	pvp_battle_log.scroll_following = true
 	pvp_battle_log.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	center_vbox.add_child(pvp_battle_log)
+	log_vbox.add_child(pvp_battle_log)
 
 	pvp_result_label = Label.new()
 	pvp_result_label.visible = false
 	pvp_result_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	pvp_result_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	pvp_result_label.add_theme_font_size_override("font_size", 22)
-	center_vbox.add_child(pvp_result_label)
+	log_vbox.add_child(pvp_result_label)
 
 	pvp_continue_button = Button.new()
 	pvp_continue_button.text = "继续"
 	pvp_continue_button.visible = false
 	pvp_continue_button.pressed.connect(_on_continue_pressed)
-	center_vbox.add_child(pvp_continue_button)
+	log_vbox.add_child(pvp_continue_button)
 
 func _create_pvp_player_bar() -> void:
 	pvp_player_bar = PanelContainer.new()
@@ -532,7 +598,7 @@ func _create_pvp_player_bar() -> void:
 	var hp_stack: Control = _create_pvp_hp_stack()
 	info_box.add_child(hp_stack)
 	pvp_player_hp_bar = hp_stack.get_node("HPBar") as ProgressBar
-	pvp_player_hp_label = hp_stack.get_node("HPBar/HPText") as Label
+	pvp_player_hp_label = hp_stack.get_node("HPText") as Label
 	pvp_player_shield_bar = hp_stack.get_node("ShieldBar") as ProgressBar
 	pvp_player_shield_label = hp_stack.get_node("ShieldLabel") as Label
 
@@ -548,11 +614,6 @@ func _create_pvp_player_bar() -> void:
 		var skill_label: Label = _create_skill_slot_label("Empty")
 		skills_box.add_child(skill_label)
 		pvp_player_skill_labels.append(skill_label)
-
-	pvp_player_hand_container = HBoxContainer.new()
-	pvp_player_hand_container.alignment = BoxContainer.ALIGNMENT_BEGIN
-	pvp_player_hand_container.theme_override_constants.separation = PVP_HAND_SPACING
-	root_vbox.add_child(pvp_player_hand_container)
 
 	var action_bar: HBoxContainer = HBoxContainer.new()
 	action_bar.theme_override_constants.separation = 12
@@ -582,8 +643,10 @@ func _update_pvp_player_hand() -> void:
 	pvp_player_card_panels.clear()
 
 	if inventory == null:
+		_add_empty_player_slots(PVP_HAND_SLOT_COUNT)
 		return
 
+	var card_count: int = 0
 	for item in inventory.items:
 		var item_data: ItemData = item as ItemData
 		if item_data == null:
@@ -600,6 +663,7 @@ func _update_pvp_player_hand() -> void:
 		card_panel.gui_input.connect(_on_pvp_card_input.bind(card_panel, item_data))
 		pvp_player_hand_container.add_child(card_panel)
 		pvp_player_card_panels.append(card_panel)
+		card_count += 1
 
 		var illustration: ColorRect = _create_illustration_block(item_data.type)
 		card_panel.add_child(illustration)
@@ -652,25 +716,28 @@ func _update_pvp_player_hand() -> void:
 			cooldown_overlay.name = "CooldownOverlay"
 			card_panel.add_child(cooldown_overlay)
 
+	_add_empty_player_slots(maxi(PVP_HAND_SLOT_COUNT - card_count, 0))
+
 func _update_pvp_opponent_hand() -> void:
-	if pvp_opponent_hand_container == null:
+	if pvp_shop_container == null:
 		return
 
-	for child in pvp_opponent_hand_container.get_children():
+	for child in pvp_shop_container.get_children():
 		child.queue_free()
 
-	if current_monster == null:
-		return
+	var revealed_count: int = 0
+	if current_monster != null:
+		revealed_count = mini(current_monster.monster_items.size(), PVP_SHOP_CARD_COUNT)
 
-	for item_index in range(current_monster.monster_items.size()):
+	for item_index in range(PVP_SHOP_CARD_COUNT):
 		var card_panel: Panel = Panel.new()
 		card_panel.custom_minimum_size = PVP_CARD_SIZE
 		card_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		card_panel.add_theme_stylebox_override("panel", _create_card_back_style())
-		pvp_opponent_hand_container.add_child(card_panel)
+		card_panel.add_theme_stylebox_override("panel", _create_shop_card_style(item_index < revealed_count))
+		pvp_shop_container.add_child(card_panel)
 
 		var center_label: Label = Label.new()
-		center_label.text = "✦"
+		center_label.text = "✦" if item_index < revealed_count else ""
 		center_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		center_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		center_label.add_theme_font_size_override("font_size", 28)
@@ -693,8 +760,9 @@ func _update_pvp_battle_ui() -> void:
 	if pvp_player_hp_bar != null:
 		pvp_player_hp_bar.max_value = maxf(float(max_hp), 1.0)
 		pvp_player_hp_bar.value = game_manager.player_health
+		_update_hp_bar_color(pvp_player_hp_bar)
 	if pvp_player_hp_label != null:
-		pvp_player_hp_label.text = "%d/%d" % [game_manager.player_health, max_hp]
+		pvp_player_hp_label.text = "%d" % game_manager.player_health
 	_update_pvp_shield_ui(pvp_player_shield_bar, pvp_player_shield_label, max_hp, current_shield)
 
 	if pvp_player_meta_label != null:
@@ -710,8 +778,9 @@ func _update_pvp_battle_ui() -> void:
 		if pvp_opponent_hp_bar != null:
 			pvp_opponent_hp_bar.max_value = maxf(float(current_monster.max_hp), 1.0)
 			pvp_opponent_hp_bar.value = current_monster.current_hp
+			_update_hp_bar_color(pvp_opponent_hp_bar)
 		if pvp_opponent_hp_label != null:
-			pvp_opponent_hp_label.text = "%d/%d" % [current_monster.current_hp, current_monster.max_hp]
+			pvp_opponent_hp_label.text = "%d" % current_monster.current_hp
 		_update_pvp_shield_ui(pvp_opponent_shield_bar, pvp_opponent_shield_label, current_monster.max_hp, 0.0)
 		if pvp_opponent_meta_label != null:
 			var monster_damage: int = _get_monster_total_damage()
@@ -929,6 +998,22 @@ func _update_pvp_shield_ui(bar: ProgressBar, label: Label, max_hp: int, current_
 	bar.visible = has_shield
 	label.text = "🛡️ %d" % int(round(shield_value))
 	label.visible = has_shield
+
+func _update_hp_bar_color(hp_bar: ProgressBar) -> void:
+	if hp_bar == null or hp_bar.max_value <= 0.0:
+		return
+
+	var ratio: float = hp_bar.value / hp_bar.max_value
+	var fill_style: StyleBoxFlat = hp_bar.get_theme_stylebox("fill") as StyleBoxFlat
+	if fill_style == null:
+		return
+
+	if ratio > 0.6:
+		fill_style.bg_color = Color(0.2, 0.75, 0.2, 1.0)
+	elif ratio > 0.3:
+		fill_style.bg_color = Color(0.85, 0.75, 0.2, 1.0)
+	else:
+		fill_style.bg_color = Color(0.8, 0.2, 0.2, 1.0)
 
 ## ============ 日志 ============
 
@@ -1151,6 +1236,32 @@ func _create_card_back_style() -> StyleBoxFlat:
 	style.corner_radius_bottom_left = 6
 	return style
 
+func _create_shop_card_style(active: bool) -> StyleBoxFlat:
+	var style: StyleBoxFlat = StyleBoxFlat.new()
+	style.bg_color = Color(0.10, 0.15, 0.24, 0.96) if active else Color(0.10, 0.15, 0.24, 0.38)
+	style.border_color = PVP_SHOP_BORDER_COLOR if active else Color(
+		PVP_SHOP_BORDER_COLOR.r,
+		PVP_SHOP_BORDER_COLOR.g,
+		PVP_SHOP_BORDER_COLOR.b,
+		0.45
+	)
+	style.set_border_width_all(2)
+	style.set_corner_radius_all(6)
+	return style
+
+func _create_empty_hand_slot_style() -> StyleBoxFlat:
+	var style: StyleBoxFlat = StyleBoxFlat.new()
+	style.bg_color = Color(0.09, 0.09, 0.14, 0.25)
+	style.border_color = Color(
+		PVP_HAND_BORDER_COLOR.r,
+		PVP_HAND_BORDER_COLOR.g,
+		PVP_HAND_BORDER_COLOR.b,
+		0.55
+	)
+	style.set_border_width_all(2)
+	style.set_corner_radius_all(6)
+	return style
+
 func _get_illustration_color(item_type: int) -> Color:
 	match item_type:
 		ItemData.Type.WEAPON:
@@ -1214,13 +1325,24 @@ func _create_player_card_style(item_data: ItemData, hovered: bool = false, selec
 		style.border_color = Color(1.0, 0.84, 0.0, 1.0)
 		style.set_border_width_all(3)
 	elif hovered:
-		style.border_color = (colors["border"] as Color).lerp(Color.WHITE, 0.3)
+		style.border_color = PVP_HAND_BORDER_COLOR.lerp(Color.WHITE, 0.3)
 		style.set_border_width_all(3)
 	else:
-		style.border_color = colors["border"]
+		style.border_color = PVP_HAND_BORDER_COLOR
 		style.set_border_width_all(2)
 	style.set_corner_radius_all(6)
 	return style
+
+func _add_empty_player_slots(empty_count: int) -> void:
+	if pvp_player_hand_container == null or empty_count <= 0:
+		return
+
+	for slot_index in range(empty_count):
+		var empty_panel: Panel = Panel.new()
+		empty_panel.custom_minimum_size = PVP_CARD_SIZE
+		empty_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		empty_panel.add_theme_stylebox_override("panel", _create_empty_hand_slot_style())
+		pvp_player_hand_container.add_child(empty_panel)
 
 func _get_card_colors_by_rarity(rarity: int) -> Dictionary:
 	match rarity:
@@ -1258,28 +1380,49 @@ func _create_skill_slot_label(initial_text: String) -> Label:
 
 func _create_pvp_hp_stack() -> Control:
 	var hp_stack: Control = Control.new()
-	hp_stack.custom_minimum_size = Vector2(300.0, 34.0)
+	hp_stack.custom_minimum_size = Vector2(300.0, 50.0)
+
+	var hp_text: Label = Label.new()
+	hp_text.name = "HPText"
+	hp_text.text = "0"
+	hp_text.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	hp_text.vertical_alignment = VERTICAL_ALIGNMENT_TOP
+	hp_text.anchor_left = 0.0
+	hp_text.anchor_top = 0.0
+	hp_text.anchor_right = 0.0
+	hp_text.anchor_bottom = 0.0
+	hp_text.offset_left = 0.0
+	hp_text.offset_top = 0.0
+	hp_text.offset_right = 300.0
+	hp_text.offset_bottom = 32.0
+	hp_text.add_theme_font_size_override("font_size", 36)
+	hp_text.add_theme_color_override("font_color", Color.WHITE)
+	hp_text.add_theme_color_override("font_outline_color", Color(0.0, 0.0, 0.0, 0.6))
+	hp_text.add_theme_constant_override("outline_size", 2)
+	hp_stack.add_child(hp_text)
 
 	var hp_bar: ProgressBar = ProgressBar.new()
 	hp_bar.name = "HPBar"
-	hp_bar.custom_minimum_size = Vector2(300.0, 20.0)
+	hp_bar.custom_minimum_size = Vector2(300.0, 12.0)
 	hp_bar.show_percentage = false
+	hp_bar.min_value = 0.0
+	hp_bar.max_value = 100.0
+	hp_bar.value = 100.0
 	hp_bar.anchor_left = 0.0
 	hp_bar.anchor_top = 0.0
 	hp_bar.anchor_right = 0.0
 	hp_bar.anchor_bottom = 0.0
 	hp_bar.offset_left = 0.0
-	hp_bar.offset_top = 10.0
+	hp_bar.offset_top = 34.0
 	hp_bar.offset_right = 300.0
-	hp_bar.offset_bottom = 30.0
+	hp_bar.offset_bottom = 46.0
+	var fill_style: StyleBoxFlat = StyleBoxFlat.new()
+	fill_style.bg_color = Color(0.2, 0.75, 0.2, 1.0)
+	hp_bar.add_theme_stylebox_override("fill", fill_style)
+	var bg_style: StyleBoxFlat = StyleBoxFlat.new()
+	bg_style.bg_color = Color(0.15, 0.15, 0.15, 1.0)
+	hp_bar.add_theme_stylebox_override("background", bg_style)
 	hp_stack.add_child(hp_bar)
-
-	var hp_text: Label = Label.new()
-	hp_text.name = "HPText"
-	hp_text.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	hp_text.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	hp_text.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	hp_bar.add_child(hp_text)
 
 	var shield_bar: ProgressBar = ProgressBar.new()
 	shield_bar.name = "ShieldBar"
@@ -1292,9 +1435,9 @@ func _create_pvp_hp_stack() -> Control:
 	shield_bar.anchor_right = 0.0
 	shield_bar.anchor_bottom = 0.0
 	shield_bar.offset_left = 0.0
-	shield_bar.offset_top = 0.0
+	shield_bar.offset_top = 34.0
 	shield_bar.offset_right = 300.0
-	shield_bar.offset_bottom = 8.0
+	shield_bar.offset_bottom = 46.0
 	shield_bar.add_theme_stylebox_override("background", _create_transparent_progress_style())
 	shield_bar.add_theme_stylebox_override("fill", _create_shield_fill_style())
 	hp_stack.add_child(shield_bar)
@@ -1309,10 +1452,11 @@ func _create_pvp_hp_stack() -> Control:
 	shield_label.anchor_right = 0.0
 	shield_label.anchor_bottom = 0.0
 	shield_label.offset_left = 0.0
-	shield_label.offset_top = -20.0
+	shield_label.offset_top = 34.0
 	shield_label.offset_right = 300.0
-	shield_label.offset_bottom = 0.0
-	shield_label.add_theme_color_override("font_color", Color(0.75, 0.88, 1.0, 1.0))
+	shield_label.offset_bottom = 46.0
+	shield_label.add_theme_font_size_override("font_size", 9)
+	shield_label.add_theme_color_override("font_color", Color(0.3, 0.6, 1.0, 1.0))
 	hp_stack.add_child(shield_label)
 
 	return hp_stack

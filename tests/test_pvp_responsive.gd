@@ -9,6 +9,7 @@ func _ready() -> void:
 		print("== tests/test_pvp_responsive.gd ==")
 		_run_tests()
 		_print_summary()
+		get_tree().quit(0)
 
 
 ## Replicates _calculate_pvp_scale() logic for pure data testing
