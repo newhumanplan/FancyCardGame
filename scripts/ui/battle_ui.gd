@@ -99,6 +99,10 @@ var pvp_battle_log: RichTextLabel = null
 var pvp_result_label: Label = null
 var pvp_continue_button: Button = null
 var pvp_player_card_panels: Array[Panel] = []
+var pvp_selected_card: Panel = null
+var pvp_hover_card: Panel = null
+var pvp_tooltip_panel: PanelContainer = null
+var pvp_tooltip_label: RichTextLabel = null
 var _pvp_content_scale: float = 1.0
 var _pvp_resize_timer: float = 0.0
 
@@ -340,6 +344,7 @@ func _create_pvp_layout() -> void:
 	_create_pvp_opponent_bar()
 	_create_pvp_battle_center()
 	_create_pvp_player_bar()
+	_create_pvp_tooltip()
 	_sync_auto_battle_check_state()
 	_update_pvp_player_hand()
 	_update_pvp_opponent_hand()
@@ -373,6 +378,10 @@ func _destroy_pvp_layout() -> void:
 	pvp_battle_log = null
 	pvp_result_label = null
 	pvp_continue_button = null
+	pvp_tooltip_panel = null
+	pvp_tooltip_label = null
+	pvp_selected_card = null
+	pvp_hover_card = null
 	pvp_player_card_panels.clear()
 	_pvp_content_scale = 1.0
 	_pvp_resize_timer = 0.0
@@ -576,6 +585,9 @@ func _update_pvp_player_hand() -> void:
 		card_panel.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		card_panel.add_theme_stylebox_override("panel", _create_player_card_style(item_data))
 		card_panel.set_meta("item_data", item_data)
+		card_panel.mouse_entered.connect(_on_pvp_card_hovered.bind(card_panel))
+		card_panel.mouse_exited.connect(_on_pvp_card_unhovered)
+		card_panel.gui_input.connect(_on_pvp_card_input.bind(card_panel, item_data))
 		pvp_player_hand_container.add_child(card_panel)
 		pvp_player_card_panels.append(card_panel)
 
@@ -910,6 +922,7 @@ func _log(message: String) -> void:
 
 func _on_battle_win() -> void:
 	is_battle_active = false
+	pvp_selected_card = null
 
 	var gold_reward: int = 0
 	if is_pvp:
@@ -938,6 +951,7 @@ func _on_battle_win() -> void:
 
 func _on_battle_lose() -> void:
 	is_battle_active = false
+	pvp_selected_card = null
 
 	if is_pvp:
 		game_manager.on_pvp_lose()
@@ -976,6 +990,107 @@ func _sync_auto_battle_check_state() -> void:
 	if pvp_auto_battle_check != null:
 		pvp_auto_battle_check.button_pressed = auto_battle
 
+func _create_pvp_tooltip() -> void:
+	if pvp_tooltip_panel != null:
+		return
+
+	pvp_tooltip_panel = PanelContainer.new()
+	pvp_tooltip_panel.name = "PvPTooltip"
+	pvp_tooltip_panel.visible = false
+	pvp_tooltip_panel.z_index = 100
+
+	var style: StyleBoxFlat = StyleBoxFlat.new()
+	style.bg_color = Color(0.1, 0.1, 0.15, 0.95)
+	style.border_color = Color(0.4, 0.4, 0.5, 1.0)
+	style.set_border_width_all(2)
+	style.set_corner_radius_all(8)
+	style.set_content_margin_all(8)
+	pvp_tooltip_panel.add_theme_stylebox_override("panel", style)
+	pvp_tooltip_panel.set_anchor_and_offset_preset(Control.PRESET_TOP_LEFT)
+
+	pvp_tooltip_label = RichTextLabel.new()
+	pvp_tooltip_label.bbcode_enabled = true
+	pvp_tooltip_label.fit_content = true
+	pvp_tooltip_label.scroll_active = false
+	pvp_tooltip_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	pvp_tooltip_panel.add_child(pvp_tooltip_label)
+
+	if pvp_root != null:
+		pvp_root.add_child(pvp_tooltip_panel)
+
+func _show_pvp_tooltip(card_panel: Panel, item_data: ItemData) -> void:
+	if pvp_tooltip_panel == null or pvp_tooltip_label == null:
+		return
+
+	var text: String = "[b]%s[/b]\n" % item_data.item_name
+	text += "Type: %s\n" % item_data.get_type_name()
+	if item_data.damage > 0:
+		text += "ATK: %d\n" % item_data.get_rarity_adjusted_damage()
+	if item_data.heal > 0:
+		text += "Heal: %d\n" % item_data.get_rarity_adjusted_heal()
+	if item_data.shield > 0:
+		text += "Shield: %d\n" % item_data.get_rarity_adjusted_shield()
+	if item_data.crit_chance_bonus > 0:
+		text += "Crit: +%.0f%%\n" % (item_data.crit_chance_bonus * 100.0)
+	if item_data.cooldown > 0:
+		text += "CD: %.1fs\n" % item_data.cooldown
+	if item_data.poison_damage > 0:
+		text += "Poison: %.1f/tick\n" % item_data.poison_damage
+	if item_data.burn_damage > 0:
+		text += "Burn: %.1f/tick\n" % item_data.burn_damage
+	if item_data.regeneration > 0:
+		text += "Regen: %.1f/tick\n" % item_data.regeneration
+
+	pvp_tooltip_label.text = text
+	pvp_tooltip_panel.visible = true
+	pvp_tooltip_panel.reset_size()
+
+	var card_rect: Rect2 = card_panel.get_global_rect()
+	var tip_pos: Vector2 = card_rect.position - Vector2(0.0, pvp_tooltip_panel.size.y + 8.0)
+	var vp_size: Vector2 = get_viewport().get_visible_rect().size
+	tip_pos.x = clampf(tip_pos.x, 8.0, vp_size.x - pvp_tooltip_panel.size.x - 8.0)
+	tip_pos.y = maxf(tip_pos.y, 8.0)
+	pvp_tooltip_panel.global_position = tip_pos
+
+func _hide_pvp_tooltip() -> void:
+	if pvp_tooltip_panel != null:
+		pvp_tooltip_panel.visible = false
+
+func _on_pvp_card_hovered(card_panel: Panel) -> void:
+	if pvp_hover_card != null and is_instance_valid(pvp_hover_card) and pvp_hover_card != card_panel:
+		_on_pvp_card_unhovered()
+
+	pvp_hover_card = card_panel
+	var item_data: ItemData = card_panel.get_meta("item_data", null) as ItemData
+	if item_data != null:
+		card_panel.add_theme_stylebox_override("panel", _create_player_card_style(item_data, true))
+		_show_pvp_tooltip(card_panel, item_data)
+
+func _on_pvp_card_unhovered() -> void:
+	if pvp_hover_card != null and is_instance_valid(pvp_hover_card):
+		var item_data: ItemData = pvp_hover_card.get_meta("item_data", null) as ItemData
+		var is_selected: bool = pvp_hover_card == pvp_selected_card
+		if item_data != null:
+			pvp_hover_card.add_theme_stylebox_override("panel", _create_player_card_style(item_data, false, is_selected))
+
+	pvp_hover_card = null
+	_hide_pvp_tooltip()
+
+func _on_pvp_card_input(event: InputEvent, card_panel: Panel, item_data: ItemData) -> void:
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
+		if pvp_selected_card == card_panel:
+			var old: Panel = pvp_selected_card
+			pvp_selected_card = null
+			old.add_theme_stylebox_override("panel", _create_player_card_style(item_data, false, false))
+		else:
+			if pvp_selected_card != null and is_instance_valid(pvp_selected_card):
+				var old_data: ItemData = pvp_selected_card.get_meta("item_data", null) as ItemData
+				if old_data != null:
+					pvp_selected_card.add_theme_stylebox_override("panel", _create_player_card_style(old_data, false, false))
+
+			pvp_selected_card = card_panel
+			card_panel.add_theme_stylebox_override("panel", _create_player_card_style(item_data, false, true))
+
 func _create_panel_style(background_color: Color, border_color: Color) -> StyleBoxFlat:
 	var style: StyleBoxFlat = StyleBoxFlat.new()
 	style.bg_color = background_color
@@ -1008,19 +1123,20 @@ func _create_card_back_style() -> StyleBoxFlat:
 	style.corner_radius_bottom_left = 6
 	return style
 
-func _create_player_card_style(item_data: ItemData) -> StyleBoxFlat:
+func _create_player_card_style(item_data: ItemData, hovered: bool = false, selected: bool = false) -> StyleBoxFlat:
 	var colors: Dictionary = _get_card_colors_by_rarity(item_data.rarity)
 	var style: StyleBoxFlat = StyleBoxFlat.new()
 	style.bg_color = colors["background"]
-	style.border_color = colors["border"]
-	style.border_width_left = 2
-	style.border_width_top = 2
-	style.border_width_right = 2
-	style.border_width_bottom = 2
-	style.corner_radius_top_left = 6
-	style.corner_radius_top_right = 6
-	style.corner_radius_bottom_right = 6
-	style.corner_radius_bottom_left = 6
+	if selected:
+		style.border_color = Color(1.0, 0.84, 0.0, 1.0)
+		style.set_border_width_all(3)
+	elif hovered:
+		style.border_color = (colors["border"] as Color).lerp(Color.WHITE, 0.3)
+		style.set_border_width_all(3)
+	else:
+		style.border_color = colors["border"]
+		style.set_border_width_all(2)
+	style.set_corner_radius_all(6)
 	return style
 
 func _get_card_colors_by_rarity(rarity: int) -> Dictionary:
