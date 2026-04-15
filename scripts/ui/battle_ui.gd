@@ -12,6 +12,10 @@ const PVP_PANEL_TOP_BOTTOM: float = 0.18
 const PVP_PLAYER_TOP: float = 0.78
 const PVP_CARD_SIZE: Vector2 = Vector2(80.0, 110.0)
 const PVP_HAND_SPACING: int = 8
+const PVP_BASE_VIEWPORT_SIZE: Vector2 = Vector2(1920.0, 1080.0)
+const PVP_MIN_SCALE: float = 0.5
+const PVP_MAX_SCALE: float = 1.0
+const PVP_RESIZE_CHECK_INTERVAL: float = 2.0
 
 ## GameManager 引用
 var game_manager: Node
@@ -95,6 +99,8 @@ var pvp_battle_log: RichTextLabel = null
 var pvp_result_label: Label = null
 var pvp_continue_button: Button = null
 var pvp_player_card_panels: Array[Panel] = []
+var _pvp_content_scale: float = 1.0
+var _pvp_resize_timer: float = 0.0
 
 func _ready() -> void:
 	game_manager = get_node("/root/GameManager")
@@ -148,6 +154,7 @@ func start_battle(monster: MonsterData = null, pvp: bool = false, enemy_atk_bonu
 	is_pvp = pvp
 	battle_timer = 0.0
 	elapsed_since_last_tick = 0.0
+	_pvp_resize_timer = 0.0
 
 	var main: Node = get_parent()
 	if main != null and main.has_node("InventoryUI"):
@@ -328,6 +335,7 @@ func _create_pvp_layout() -> void:
 	pvp_root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	pvp_root.mouse_filter = Control.MOUSE_FILTER_STOP
 	add_child(pvp_root)
+	_apply_pvp_content_scale()
 
 	_create_pvp_opponent_bar()
 	_create_pvp_battle_center()
@@ -366,6 +374,8 @@ func _destroy_pvp_layout() -> void:
 	pvp_result_label = null
 	pvp_continue_button = null
 	pvp_player_card_panels.clear()
+	_pvp_content_scale = 1.0
+	_pvp_resize_timer = 0.0
 
 func _create_pvp_opponent_bar() -> void:
 	pvp_opponent_bar = PanelContainer.new()
@@ -693,6 +703,40 @@ func _update_pvp_cooldown_overlays() -> void:
 		if cooldown_overlay != null:
 			_update_card_cooldown_overlay(cooldown_overlay, item_data)
 
+func _calculate_pvp_scale() -> float:
+	var viewport_size: Vector2 = get_viewport().get_visible_rect().size
+	if viewport_size.x <= 0.0 or viewport_size.y <= 0.0:
+		return 1.0
+
+	var scale_x: float = viewport_size.x / PVP_BASE_VIEWPORT_SIZE.x
+	var scale_y: float = viewport_size.y / PVP_BASE_VIEWPORT_SIZE.y
+	return clampf(minf(scale_x, scale_y), PVP_MIN_SCALE, PVP_MAX_SCALE)
+
+func _apply_pvp_content_scale() -> void:
+	if pvp_root == null:
+		return
+
+	var viewport_size: Vector2 = get_viewport().get_visible_rect().size
+	if viewport_size.x <= 0.0 or viewport_size.y <= 0.0:
+		return
+
+	_pvp_content_scale = _calculate_pvp_scale()
+	pvp_root.pivot_offset = viewport_size * 0.5
+	pvp_root.scale = Vector2.ONE * _pvp_content_scale
+
+func _get_pvp_scale() -> float:
+	return _pvp_content_scale
+
+func _refresh_pvp_responsive_layout() -> void:
+	var previous_scale: float = _get_pvp_scale()
+	_apply_pvp_content_scale()
+	if is_equal_approx(previous_scale, _get_pvp_scale()):
+		return
+
+	_update_pvp_player_hand()
+	_update_pvp_opponent_hand()
+	_update_pvp_battle_ui()
+
 ## ============ 战斗循环 ============
 
 func _process(delta: float) -> void:
@@ -702,6 +746,10 @@ func _process(delta: float) -> void:
 	battle_system.reduce_cooldowns(delta)
 
 	if is_pvp:
+		_pvp_resize_timer += delta
+		if _pvp_resize_timer >= PVP_RESIZE_CHECK_INTERVAL:
+			_pvp_resize_timer = 0.0
+			_refresh_pvp_responsive_layout()
 		_update_pvp_cooldown_overlays()
 
 	if not auto_battle:
@@ -1210,4 +1258,3 @@ func _update_skill_labels(skill_labels: Array[Label], skill_names: Array[String]
 			skill_label.text = skill_names[index]
 		else:
 			skill_label.text = "Empty"
-
