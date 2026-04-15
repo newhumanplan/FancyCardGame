@@ -25,6 +25,9 @@ const PVP_SHOP_BOTTOM: float = PVP_RIVER_TOP - 0.02
 const PVP_HAND_TOP: float = PVP_RIVER_BOTTOM + 0.02
 const PVP_HAND_BOTTOM: float = PVP_PLAYER_TOP - 0.02
 const PVP_SHOP_CARD_COUNT: int = 5
+const PVP_CLOCK_ICON: String = "res://assets/art/ui/pvp/pvp_clock_icon.png"
+const PVP_AVATAR_FRAME: String = "res://assets/art/ui/pvp/pvp_avatar_frame.png"
+const PVP_HERO_AVATAR: String = "res://assets/art/ui/pvp/pvp_hero_avatar.png"
 const PVP_HAND_SLOT_COUNT: int = 10
 const PVP_RIVER_COLOR: Color = Color(0.15, 0.35, 0.55, 0.8)
 const PVP_SHOP_BORDER_COLOR: Color = Color8(74, 158, 255, 255)
@@ -113,6 +116,9 @@ var pvp_end_turn_button: Button = null
 var pvp_battle_log: RichTextLabel = null
 var pvp_result_label: Label = null
 var pvp_continue_button: Button = null
+var pvp_clock_texture: TextureRect = null
+var pvp_avatar_frame_opponent: TextureRect = null
+var pvp_avatar_frame_player: TextureRect = null
 var pvp_player_card_panels: Array[Panel] = []
 var pvp_selected_card: Panel = null
 var pvp_hover_card: Panel = null
@@ -398,6 +404,9 @@ func _destroy_pvp_layout() -> void:
 	pvp_auto_battle_check = null
 	pvp_end_turn_button = null
 	pvp_battle_log = null
+	pvp_clock_texture = null
+	pvp_avatar_frame_opponent = null
+	pvp_avatar_frame_player = null
 	pvp_result_label = null
 	pvp_continue_button = null
 	pvp_tooltip_panel = null
@@ -426,6 +435,16 @@ func _create_pvp_opponent_bar() -> void:
 	root_hbox.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	root_hbox.theme_override_constants.separation = 18
 	pvp_opponent_bar.add_child(root_hbox)
+
+	# 头像框（64x64，在info_box左边）
+	pvp_avatar_frame_opponent = TextureRect.new()
+	pvp_avatar_frame_opponent.name = "AvatarFrame"
+	pvp_avatar_frame_opponent.texture = load(PVP_AVATAR_FRAME)
+	pvp_avatar_frame_opponent.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	pvp_avatar_frame_opponent.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	pvp_avatar_frame_opponent.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	pvp_avatar_frame_opponent.custom_minimum_size = Vector2(64.0, 64.0)
+	root_hbox.add_child(pvp_avatar_frame_opponent)
 
 	var info_box: VBoxContainer = VBoxContainer.new()
 	info_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -497,6 +516,24 @@ func _create_pvp_battle_center() -> void:
 	for shop_index in range(PVP_SHOP_CARD_COUNT):
 		var shop_card: Panel = _create_pvp_shop_card_placeholder()
 		pvp_shop_container.add_child(shop_card)
+
+	# 时钟图标（河流上方居中）
+	pvp_clock_texture = TextureRect.new()
+	pvp_clock_texture.name = "ClockIcon"
+	pvp_clock_texture.texture = load(PVP_CLOCK_ICON)
+	pvp_clock_texture.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	pvp_clock_texture.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	pvp_clock_texture.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	pvp_clock_texture.custom_minimum_size = Vector2(48.0, 48.0)
+	pvp_clock_texture.anchor_left = 0.5
+	pvp_clock_texture.anchor_right = 0.5
+	pvp_clock_texture.anchor_top = PVP_SHOP_BOTTOM + 0.005
+	pvp_clock_texture.anchor_bottom = PVP_RIVER_TOP - 0.005
+	pvp_clock_texture.offset_left = -24.0
+	pvp_clock_texture.offset_right = 24.0
+	pvp_clock_texture.offset_top = 0.0
+	pvp_clock_texture.offset_bottom = 0.0
+	pvp_battle_center.add_child(pvp_clock_texture)
 
 	pvp_river_rect = ColorRect.new()
 	pvp_river_rect.name = "RiverDivider"
@@ -598,10 +635,29 @@ func _create_pvp_player_bar() -> void:
 	info_row.theme_override_constants.separation = 18
 	root_vbox.add_child(info_row)
 
+	# 头像框（64x64）
+	pvp_avatar_frame_player = TextureRect.new()
+	pvp_avatar_frame_player.name = "AvatarFrame"
+	pvp_avatar_frame_player.texture = load(PVP_AVATAR_FRAME)
+	pvp_avatar_frame_player.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	pvp_avatar_frame_player.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	pvp_avatar_frame_player.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	pvp_avatar_frame_player.custom_minimum_size = Vector2(64.0, 64.0)
+	info_row.add_child(pvp_avatar_frame_player)
+
 	var info_box: VBoxContainer = VBoxContainer.new()
 	info_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	info_box.theme_override_constants.separation = 6
 	info_row.add_child(info_box)
+
+	var hero_avatar: TextureRect = TextureRect.new()
+	hero_avatar.name = "HeroAvatar"
+	hero_avatar.texture = load(PVP_HERO_AVATAR)
+	hero_avatar.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	hero_avatar.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	hero_avatar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	hero_avatar.custom_minimum_size = Vector2(48.0, 48.0)
+	info_box.add_child(hero_avatar)
 
 	pvp_player_name_label = Label.new()
 	pvp_player_name_label.add_theme_font_size_override("font_size", 22)
