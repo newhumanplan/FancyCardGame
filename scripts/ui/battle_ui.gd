@@ -601,34 +601,49 @@ func _update_pvp_player_hand() -> void:
 		pvp_player_hand_container.add_child(card_panel)
 		pvp_player_card_panels.append(card_panel)
 
+		var illustration: ColorRect = _create_illustration_block(item_data.type)
+		card_panel.add_child(illustration)
+
+		var price_badge: Panel = _create_price_badge(item_data.buy_price)
+		card_panel.add_child(price_badge)
+
 		var content_vbox: VBoxContainer = VBoxContainer.new()
+		content_vbox.name = "ContentVBox"
 		content_vbox.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-		content_vbox.offset_left = 8.0
-		content_vbox.offset_top = 8.0
-		content_vbox.offset_right = -8.0
-		content_vbox.offset_bottom = -8.0
-		content_vbox.theme_override_constants.separation = 6
+		content_vbox.offset_left = 6.0
+		content_vbox.offset_top = 66.0
+		content_vbox.offset_right = -6.0
+		content_vbox.offset_bottom = -6.0
+		content_vbox.theme_override_constants.separation = 1
 		card_panel.add_child(content_vbox)
 
 		var name_label: Label = Label.new()
 		name_label.text = item_data.item_name
 		name_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		name_label.add_theme_font_size_override("font_size", 12)
+		name_label.clip_text = true
+		name_label.max_lines_visible = 1
+		name_label.add_theme_font_size_override("font_size", 11)
 		name_label.add_theme_color_override("font_color", Color.WHITE)
+		name_label.add_theme_color_override("font_outline_color", Color(0.0, 0.0, 0.0, 0.55))
+		name_label.add_theme_constant_override("outline_size", 1)
 		content_vbox.add_child(name_label)
 
 		var stat_label: Label = Label.new()
 		stat_label.text = _get_item_stat_text(item_data)
 		stat_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		stat_label.add_theme_font_size_override("font_size", 11)
-		stat_label.add_theme_color_override("font_color", Color(0.95, 0.83, 0.42, 1.0))
+		stat_label.clip_text = true
+		stat_label.max_lines_visible = 1
+		stat_label.add_theme_font_size_override("font_size", 10)
+		stat_label.add_theme_color_override("font_color", Color(0.85, 0.85, 0.9, 1.0))
 		content_vbox.add_child(stat_label)
 
 		var cooldown_label: Label = Label.new()
 		cooldown_label.name = "CooldownLabel"
 		cooldown_label.text = _get_item_cooldown_text(item_data)
 		cooldown_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		cooldown_label.add_theme_font_size_override("font_size", 11)
+		cooldown_label.clip_text = true
+		cooldown_label.max_lines_visible = 1
+		cooldown_label.add_theme_font_size_override("font_size", 10)
 		cooldown_label.add_theme_color_override("font_color", Color(0.86, 0.90, 1.0, 1.0))
 		content_vbox.add_child(cooldown_label)
 
@@ -717,7 +732,7 @@ func _update_pvp_cooldown_overlays() -> void:
 		if item_data == null:
 			continue
 
-		var cooldown_label: Label = card_panel.get_node_or_null("VBoxContainer/CooldownLabel") as Label
+		var cooldown_label: Label = card_panel.get_node_or_null("ContentVBox/CooldownLabel") as Label
 		if cooldown_label != null:
 			cooldown_label.text = _get_item_cooldown_text(item_data)
 
@@ -1136,6 +1151,61 @@ func _create_card_back_style() -> StyleBoxFlat:
 	style.corner_radius_bottom_left = 6
 	return style
 
+func _get_illustration_color(item_type: int) -> Color:
+	match item_type:
+		ItemData.Type.WEAPON:
+			return Color(0.6, 0.2, 0.2, 0.8)
+		ItemData.Type.SHIELD:
+			return Color(0.2, 0.4, 0.7, 0.8)
+		ItemData.Type.HEAL:
+			return Color(0.2, 0.6, 0.3, 0.8)
+		ItemData.Type.UTILITY:
+			return Color(0.5, 0.2, 0.6, 0.8)
+		_:
+			return Color(0.35, 0.35, 0.4, 0.8)
+
+func _create_price_badge(price: int) -> Panel:
+	var badge: Panel = Panel.new()
+	badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	badge.anchor_left = 0.0
+	badge.anchor_top = 0.0
+	badge.anchor_right = 0.0
+	badge.anchor_bottom = 0.0
+	badge.offset_left = 2.0
+	badge.offset_top = 2.0
+	badge.offset_right = 22.0
+	badge.offset_bottom = 22.0
+
+	var badge_style: StyleBoxFlat = StyleBoxFlat.new()
+	badge_style.bg_color = Color8(74, 158, 255, 255)
+	badge_style.set_corner_radius_all(10)
+	badge.add_theme_stylebox_override("panel", badge_style)
+
+	var badge_label: Label = Label.new()
+	badge_label.text = str(price)
+	badge_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	badge_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	badge_label.add_theme_font_size_override("font_size", 10)
+	badge_label.add_theme_color_override("font_color", Color.WHITE)
+	badge_label.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	badge.add_child(badge_label)
+
+	return badge
+
+func _create_illustration_block(item_type: int) -> ColorRect:
+	var illustration: ColorRect = ColorRect.new()
+	illustration.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	illustration.color = _get_illustration_color(item_type)
+	illustration.anchor_left = 0.0
+	illustration.anchor_top = 0.0
+	illustration.anchor_right = 1.0
+	illustration.anchor_bottom = 0.0
+	illustration.offset_left = 4.0
+	illustration.offset_top = 4.0
+	illustration.offset_right = -4.0
+	illustration.offset_bottom = 60.0
+	return illustration
+
 func _create_player_card_style(item_data: ItemData, hovered: bool = false, selected: bool = false) -> StyleBoxFlat:
 	var colors: Dictionary = _get_card_colors_by_rarity(item_data.rarity)
 	var style: StyleBoxFlat = StyleBoxFlat.new()
@@ -1317,7 +1387,7 @@ func _update_pvp_player_hand_labels() -> void:
 		if item_data == null:
 			continue
 
-		var cooldown_label: Label = card_panel.get_node_or_null("VBoxContainer/CooldownLabel") as Label
+		var cooldown_label: Label = card_panel.get_node_or_null("ContentVBox/CooldownLabel") as Label
 		if cooldown_label != null:
 			cooldown_label.text = _get_item_cooldown_text(item_data)
 
