@@ -37,6 +37,9 @@ var current_hover_slot: int = -1
 var detail_panel: Control = null
 var selected_item: ItemData = null
 
+## 冷却显示节流（与 battle_system BATTLE_TICK 对齐）
+var _cooldown_refresh_accum: float = 0.0
+
 ## 协同效果高亮
 var synergy_highlights: Array[Control] = []  # 协同高亮效果
 
@@ -938,21 +941,29 @@ func _add_test_items() -> void:
 ## 更新 Cooldown 显示（每帧调用）
 ## 注意：冷却倒计时由 battle_system.update_cooldowns() 统一管理
 ## 这里只负责刷新显示，不修改 cooldown 数据
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
 	# 只在战斗中刷新冷却显示
 	var battle_ui_node = get_parent().get_node_or_null("BattleUI")
 	if battle_ui_node and not battle_ui_node.is_battle_active:
 		return
 	
-	# 检查是否有冷却中的物品，有则刷新显示
+	# 检查是否有冷却中的物品
 	var has_active_cooldown = false
 	for item in inventory.items:
 		if item != null and item.current_cooldown > 0:
 			has_active_cooldown = true
 			break
 	
-	if has_active_cooldown:
-		_refresh_display()
+	if not has_active_cooldown:
+		return
+	
+	# 节流：与 battle_system BATTLE_TICK (0.5s) 对齐，避免每帧重建 UI
+	_cooldown_refresh_accum += delta
+	if _cooldown_refresh_accum < 0.5:
+		return
+	_cooldown_refresh_accum = 0.0
+	
+	_refresh_display()
 
 ## 获取库存实例（供外部使用）
 func get_inventory() -> LinearInventory:
