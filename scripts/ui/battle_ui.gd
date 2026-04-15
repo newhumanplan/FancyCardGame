@@ -4,6 +4,15 @@ extends Control
 ## 战斗面板 UI - 管理战斗界面和自动战斗循环
 ## 重构：纯物品触发战斗，移除独立攻击逻辑
 
+const MonsterAIClass = preload("res://scripts/data/monster_ai.gd")
+const SkillDataClass = preload("res://scripts/data/skill_data.gd")
+
+const BATTLE_TICK: float = 0.5
+const PVP_PANEL_TOP_BOTTOM: float = 0.18
+const PVP_PLAYER_TOP: float = 0.78
+const PVP_CARD_SIZE: Vector2 = Vector2(80.0, 110.0)
+const PVP_HAND_SPACING: int = 8
+
 ## GameManager 引用
 var game_manager: Node
 
@@ -30,9 +39,6 @@ var is_battle_active: bool = false
 var battle_timer: float = 0.0
 var elapsed_since_last_tick: float = 0.0
 
-## 回合间隔（0.5秒）
-const BATTLE_TICK: float = 0.5
-
 ## 信号
 signal battle_ended(won: bool, gold_reward: int)
 signal battle_log(message: String)
@@ -53,33 +59,54 @@ signal battle_log(message: String)
 @onready var battle_log_label: RichTextLabel = $BattlePanel/VBox/BattleLogArea/BattleLogLabel
 @onready var result_label: Label = $BattlePanel/VBox/ResultLabel
 @onready var auto_battle_check: CheckButton = $BattlePanel/VBox/AutoBattleCheck
-## 继续按钮（战斗结束后显示）
 @onready var continue_button: Button = $BattlePanel/VBox/ContinueButton
 
 ## 自动战斗开关
 var auto_battle: bool = true
+
+## PvE 护盾 UI
 var player_shield_bar: ProgressBar = null
 var player_shield_label: Label = null
 
-func _ready() -> void:
-	# 获取 GameManager
-	game_manager = get_node("/root/GameManager")
+## PvP 动态布局节点
+var pvp_root: Control = null
+var pvp_opponent_bar: PanelContainer = null
+var pvp_player_bar: PanelContainer = null
+var pvp_battle_center: PanelContainer = null
+var pvp_opponent_name_label: Label = null
+var pvp_opponent_hp_bar: ProgressBar = null
+var pvp_opponent_hp_label: Label = null
+var pvp_opponent_shield_bar: ProgressBar = null
+var pvp_opponent_shield_label: Label = null
+var pvp_opponent_meta_label: Label = null
+var pvp_opponent_skill_labels: Array[Label] = []
+var pvp_opponent_hand_container: HBoxContainer = null
+var pvp_player_name_label: Label = null
+var pvp_player_hp_bar: ProgressBar = null
+var pvp_player_hp_label: Label = null
+var pvp_player_shield_bar: ProgressBar = null
+var pvp_player_shield_label: Label = null
+var pvp_player_meta_label: Label = null
+var pvp_player_skill_labels: Array[Label] = []
+var pvp_player_hand_container: HBoxContainer = null
+var pvp_auto_battle_check: CheckButton = null
+var pvp_end_turn_button: Button = null
+var pvp_battle_log: RichTextLabel = null
+var pvp_result_label: Label = null
+var pvp_continue_button: Button = null
+var pvp_player_card_panels: Array[Panel] = []
 
-	# 获取战斗系统 (autoload)
+func _ready() -> void:
+	game_manager = get_node("/root/GameManager")
 	battle_system = get_node("/root/BattleSystem")
 
-	# 初始隐藏战斗面板，设置鼠标穿透
 	battle_panel.visible = false
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 
-	# 自动战斗默认开启
 	auto_battle_check.button_pressed = true
 	auto_battle_check.toggled.connect(_on_auto_battle_toggled)
-
-	# 继续按钮信号连接
 	continue_button.pressed.connect(_on_continue_pressed)
 
-	# 连接战斗系统信号
 	if battle_system.has_signal("item_triggered"):
 		battle_system.item_triggered.connect(_on_item_triggered)
 	if battle_system.has_signal("monster_item_triggered"):
@@ -94,19 +121,20 @@ func _ready() -> void:
 ## 自动战斗开关回调
 func _on_auto_battle_toggled(toggled_on: bool) -> void:
 	auto_battle = toggled_on
+	if pvp_auto_battle_check != null and pvp_auto_battle_check.button_pressed != toggled_on:
+		pvp_auto_battle_check.button_pressed = toggled_on
+	if auto_battle_check.button_pressed != toggled_on:
+		auto_battle_check.button_pressed = toggled_on
 
 ## ============ 战斗系统信号回调 ============
 
-## 玩家物品触发
 func _on_item_triggered(item_name: String, damage: int, is_crit: bool, target: String) -> void:
 	var crit_text: String = "（暴击!）" if is_crit else ""
 	_log("🗡️ [%s] 触发！造成 %d 伤害%s" % [item_name, damage, crit_text])
 
-## 怪物物品触发
 func _on_monster_item_triggered(monster_name: String, item_name: String, damage: int) -> void:
 	_log("👹 [%s] 的 [%s] 触发！造成 %d 伤害" % [monster_name, item_name, damage])
 
-## 物品效果触发（护盾/治疗）
 func _on_effect_applied(item_name: String, effect_type: String, value: int, target: String) -> void:
 	match effect_type:
 		"shield":
@@ -116,18 +144,15 @@ func _on_effect_applied(item_name: String, effect_type: String, value: int, targ
 
 ## ============ 战斗控制 ============
 
-## 开始战斗
 func start_battle(monster: MonsterData = null, pvp: bool = false, enemy_atk_bonus: int = 0) -> void:
 	is_pvp = pvp
 	battle_timer = 0.0
 	elapsed_since_last_tick = 0.0
 
-	# 获取背包系统
-	var main = get_parent()
+	var main: Node = get_parent()
 	if main != null and main.has_node("InventoryUI"):
 		inventory = main.get_node("InventoryUI").get_inventory()
 
-	# 生成怪物或设置 PvP 对手
 	if monster != null:
 		current_monster = monster
 	elif not is_pvp:
@@ -138,59 +163,54 @@ func start_battle(monster: MonsterData = null, pvp: bool = false, enemy_atk_bonu
 	if current_monster == null or inventory == null:
 		return
 
-	# 启动战斗系统（传入怪物和背包）
 	battle_system.start_battle(current_monster, inventory)
 
-	# 显示战斗面板
+	if is_pvp:
+		_create_pvp_layout()
+
 	_show_battle_panel()
-
-	# 拦截鼠标事件（战斗进行中）
 	mouse_filter = Control.MOUSE_FILTER_STOP
-
-	# 更新 UI
 	_update_battle_ui()
 
-	# 开始自动战斗
 	is_battle_active = true
 	_log("⚔️ 战斗开始! %s 出现!" % current_monster.monster_name)
 
-	# 显示怪物物品信息
 	if current_monster.monster_items.size() > 0:
-		for mi in current_monster.monster_items:
-			_log("   → %s (伤害:%d, CD:%.1fs)" % [mi["name"], mi["damage"], mi["cooldown"]])
-
-const MonsterAIClass = preload("res://scripts/data/monster_ai.gd")
+		for monster_item in current_monster.monster_items:
+			_log("   → %s (伤害:%d, CD:%.1fs)" % [
+				monster_item["name"],
+				monster_item["damage"],
+				monster_item["cooldown"]
+			])
 
 ## ============ 怪物生成 ============
 
-## 根据 MonsterTier 分配 AI 模式
 func _assign_monster_ai(monster: MonsterData, day: int) -> void:
 	match monster.tier:
 		MonsterData.MonsterTier.TIER_1:
-			# Tier 1: 蜂群或激进
 			monster.ai = MonsterAIClass.create_swarm()
 		MonsterData.MonsterTier.TIER_2:
-			# Tier 2: 技术或防御
 			if randf() < 0.5:
 				monster.ai = MonsterAIClass.create_technical()
 			else:
 				monster.ai = MonsterAIClass.create_defensive()
 		MonsterData.MonsterTier.TIER_3:
-			# Tier 3: Boss AI
 			monster.ai = MonsterAIClass.create_boss()
 	print("👹 [%s] AI模式: %s" % [monster.monster_name, monster.ai.get_mode_name()])
 
-## 生成随机怪物（使用物品系统）
 func _generate_random_monster() -> MonsterData:
-	var monster = MonsterData.new()
-	var day = game_manager.current_day
+	var monster: MonsterData = MonsterData.new()
+	var day: int = game_manager.current_day
+	var tier: MonsterData.MonsterTier = MonsterData.MonsterTier.TIER_1
 
-	# 根据天数调整怪物难度
-	var tier = MonsterData.MonsterTier.TIER_1
 	if day >= 3:
 		tier = [MonsterData.MonsterTier.TIER_1, MonsterData.MonsterTier.TIER_2].pick_random()
 	if day >= 5:
-		tier = [MonsterData.MonsterTier.TIER_1, MonsterData.MonsterTier.TIER_2, MonsterData.MonsterTier.TIER_3].pick_random()
+		tier = [
+			MonsterData.MonsterTier.TIER_1,
+			MonsterData.MonsterTier.TIER_2,
+			MonsterData.MonsterTier.TIER_3
+		].pick_random()
 
 	match tier:
 		MonsterData.MonsterTier.TIER_1:
@@ -198,7 +218,6 @@ func _generate_random_monster() -> MonsterData:
 			monster.max_hp = 40 + day * 10
 			monster.gold_reward_min = 5 + day
 			monster.gold_reward_max = 10 + day * 2
-			# 史莱姆物品：酸液喷射
 			monster.monster_items = [
 				{"name": "酸液喷射", "damage": 5 + day, "cooldown": 3.0, "current_cooldown": 3.0}
 			]
@@ -207,7 +226,6 @@ func _generate_random_monster() -> MonsterData:
 			monster.max_hp = 80 + day * 15
 			monster.gold_reward_min = 10 + day * 2
 			monster.gold_reward_max = 20 + day * 3
-			# 哥布林物品：石斧
 			monster.monster_items = [
 				{"name": "石斧", "damage": 8 + day * 2, "cooldown": 3.5, "current_cooldown": 3.5}
 			]
@@ -216,7 +234,6 @@ func _generate_random_monster() -> MonsterData:
 			monster.max_hp = 130 + day * 20
 			monster.gold_reward_min = 20 + day * 3
 			monster.gold_reward_max = 40 + day * 5
-			# 食人魔物品：重锤 + 碎骨（2个物品）
 			monster.monster_items = [
 				{"name": "重锤", "damage": 12 + day * 2, "cooldown": 4.0, "current_cooldown": 4.0},
 				{"name": "碎骨", "damage": 6 + day, "cooldown": 3.0, "current_cooldown": 3.0}
@@ -227,130 +244,518 @@ func _generate_random_monster() -> MonsterData:
 	_assign_monster_ai(monster, day)
 	return monster
 
-## 创建 PvP 对手（使用物品系统）
 func _create_pvp_enemy(enemy_atk_bonus: int = 0) -> MonsterData:
-	var monster = MonsterData.new()
-
-	# 随机选择对手英雄类型
-	var hero_types = [0, 1]  # WARRIOR = 0, MAGE = 1
-	var random_hero_type = hero_types.pick_random()
-	var day = game_manager.current_day
+	var monster: MonsterData = MonsterData.new()
+	var hero_types: Array[int] = [0, 1]
+	var random_hero_type: int = hero_types.pick_random()
+	var day: int = game_manager.current_day
 
 	if random_hero_type == 0:
-		# PvP 战士对手
 		monster.monster_name = "PvP 战士"
 		monster.max_hp = 200 + day * 15
-		# 战士物品：剑 + 盾
 		monster.monster_items = [
-				{"name": "战士之剑", "damage": 15 + day + enemy_atk_bonus, "cooldown": 3.0, "current_cooldown": 3.0},
-				{"name": "铁盾反击", "damage": 5 + day + enemy_atk_bonus, "cooldown": 2.5, "current_cooldown": 2.5}
+			{"name": "战士之剑", "damage": 15 + day + enemy_atk_bonus, "cooldown": 3.0, "current_cooldown": 3.0},
+			{"name": "铁盾反击", "damage": 5 + day + enemy_atk_bonus, "cooldown": 2.5, "current_cooldown": 2.5}
 		]
 	else:
-		# PvP 法师对手
 		monster.monster_name = "PvP 法师"
 		monster.max_hp = 160 + day * 15
-		# 法师物品：法杖（高伤慢CD）
 		monster.monster_items = [
-				{"name": "奥术法杖", "damage": 22 + day * 2 + enemy_atk_bonus, "cooldown": 4.5, "current_cooldown": 4.5}
+			{"name": "奥术法杖", "damage": 22 + day * 2 + enemy_atk_bonus, "cooldown": 4.5, "current_cooldown": 4.5}
 		]
 
 	monster.gold_reward_min = 0
 	monster.gold_reward_max = 0
 	monster.current_hp = monster.max_hp
-
-	# PvP 对手使用激进型 AI
 	monster.ai = MonsterAIClass.create_aggressive()
 
 	if is_pvp:
 		_log("⚔️ 对手: %s (HP: %.0f, 物品数: %d)" % [
-			monster.monster_name, monster.max_hp, monster.monster_items.size()])
+			monster.monster_name,
+			monster.max_hp,
+			monster.monster_items.size()
+		])
 
 	return monster
 
 ## ============ UI 管理 ============
 
-## 显示战斗面板
 func _show_battle_panel() -> void:
+	if is_pvp:
+		battle_panel.visible = false
+		if pvp_root == null:
+			_create_pvp_layout()
+		if pvp_root != null:
+			pvp_root.visible = true
+		if pvp_result_label != null:
+			pvp_result_label.visible = false
+		if pvp_continue_button != null:
+			pvp_continue_button.visible = false
+		if pvp_battle_log != null:
+			pvp_battle_log.clear()
+		_reset_pvp_shield_ui()
+		_sync_auto_battle_check_state()
+		_update_pvp_player_hand()
+		_update_pvp_opponent_hand()
+		return
+
 	battle_panel.visible = true
 	result_label.visible = false
 	continue_button.visible = false
 	battle_log_label.clear()
 	_reset_shield_ui()
+	_sync_auto_battle_check_state()
 
-## 隐藏战斗面板
 func _hide_battle_panel() -> void:
-	battle_panel.visible = false
+	if is_pvp:
+		if pvp_root != null:
+			pvp_root.visible = false
+		_destroy_pvp_layout()
+	else:
+		battle_panel.visible = false
+
 	is_battle_active = false
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
-	# 战斗结束由 battle_system.end_battle() 处理
+
+## ============ PvP 布局 ============
+
+func _create_pvp_layout() -> void:
+	if pvp_root != null:
+		return
+
+	pvp_root = Control.new()
+	pvp_root.name = "PvPRoot"
+	pvp_root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	pvp_root.mouse_filter = Control.MOUSE_FILTER_STOP
+	add_child(pvp_root)
+
+	_create_pvp_opponent_bar()
+	_create_pvp_battle_center()
+	_create_pvp_player_bar()
+	_sync_auto_battle_check_state()
+	_update_pvp_player_hand()
+	_update_pvp_opponent_hand()
+
+func _destroy_pvp_layout() -> void:
+	if pvp_root != null and is_instance_valid(pvp_root):
+		pvp_root.queue_free()
+
+	pvp_root = null
+	pvp_opponent_bar = null
+	pvp_player_bar = null
+	pvp_battle_center = null
+	pvp_opponent_name_label = null
+	pvp_opponent_hp_bar = null
+	pvp_opponent_hp_label = null
+	pvp_opponent_shield_bar = null
+	pvp_opponent_shield_label = null
+	pvp_opponent_meta_label = null
+	pvp_opponent_skill_labels.clear()
+	pvp_opponent_hand_container = null
+	pvp_player_name_label = null
+	pvp_player_hp_bar = null
+	pvp_player_hp_label = null
+	pvp_player_shield_bar = null
+	pvp_player_shield_label = null
+	pvp_player_meta_label = null
+	pvp_player_skill_labels.clear()
+	pvp_player_hand_container = null
+	pvp_auto_battle_check = null
+	pvp_end_turn_button = null
+	pvp_battle_log = null
+	pvp_result_label = null
+	pvp_continue_button = null
+	pvp_player_card_panels.clear()
+
+func _create_pvp_opponent_bar() -> void:
+	pvp_opponent_bar = PanelContainer.new()
+	pvp_opponent_bar.name = "OpponentBar"
+	pvp_opponent_bar.anchor_left = 0.02
+	pvp_opponent_bar.anchor_top = 0.02
+	pvp_opponent_bar.anchor_right = 0.98
+	pvp_opponent_bar.anchor_bottom = PVP_PANEL_TOP_BOTTOM
+	pvp_opponent_bar.offset_left = 0.0
+	pvp_opponent_bar.offset_top = 0.0
+	pvp_opponent_bar.offset_right = 0.0
+	pvp_opponent_bar.offset_bottom = 0.0
+	pvp_opponent_bar.add_theme_stylebox_override("panel", _create_panel_style(Color(0.12, 0.13, 0.20, 0.96), Color(0.25, 0.28, 0.40, 1.0)))
+	pvp_root.add_child(pvp_opponent_bar)
+
+	var root_hbox: HBoxContainer = HBoxContainer.new()
+	root_hbox.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	root_hbox.theme_override_constants.separation = 18
+	pvp_opponent_bar.add_child(root_hbox)
+
+	var info_box: VBoxContainer = VBoxContainer.new()
+	info_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	info_box.theme_override_constants.separation = 8
+	root_hbox.add_child(info_box)
+
+	pvp_opponent_name_label = Label.new()
+	pvp_opponent_name_label.add_theme_font_size_override("font_size", 22)
+	info_box.add_child(pvp_opponent_name_label)
+
+	var hp_stack: Control = _create_pvp_hp_stack()
+	info_box.add_child(hp_stack)
+	pvp_opponent_hp_bar = hp_stack.get_node("HPBar") as ProgressBar
+	pvp_opponent_hp_label = hp_stack.get_node("HPBar/HPText") as Label
+	pvp_opponent_shield_bar = hp_stack.get_node("ShieldBar") as ProgressBar
+	pvp_opponent_shield_label = hp_stack.get_node("ShieldLabel") as Label
+
+	pvp_opponent_meta_label = Label.new()
+	pvp_opponent_meta_label.add_theme_color_override("font_color", Color(0.85, 0.82, 0.62, 1.0))
+	info_box.add_child(pvp_opponent_meta_label)
+
+	var skills_box: HBoxContainer = HBoxContainer.new()
+	skills_box.theme_override_constants.separation = 8
+	info_box.add_child(skills_box)
+	pvp_opponent_skill_labels.clear()
+	for skill_index in range(3):
+		var skill_label: Label = _create_skill_slot_label("❓")
+		skill_label.visible = true
+		skills_box.add_child(skill_label)
+		pvp_opponent_skill_labels.append(skill_label)
+
+	pvp_opponent_hand_container = HBoxContainer.new()
+	pvp_opponent_hand_container.alignment = BoxContainer.ALIGNMENT_END
+	pvp_opponent_hand_container.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	pvp_opponent_hand_container.theme_override_constants.separation = PVP_HAND_SPACING
+	root_hbox.add_child(pvp_opponent_hand_container)
+
+func _create_pvp_battle_center() -> void:
+	pvp_battle_center = PanelContainer.new()
+	pvp_battle_center.name = "BattleCenter"
+	pvp_battle_center.anchor_left = 0.10
+	pvp_battle_center.anchor_top = PVP_PANEL_TOP_BOTTOM + 0.02
+	pvp_battle_center.anchor_right = 0.90
+	pvp_battle_center.anchor_bottom = PVP_PLAYER_TOP - 0.02
+	pvp_battle_center.offset_left = 0.0
+	pvp_battle_center.offset_top = 0.0
+	pvp_battle_center.offset_right = 0.0
+	pvp_battle_center.offset_bottom = 0.0
+	pvp_battle_center.add_theme_stylebox_override("panel", _create_panel_style(Color(0.08, 0.09, 0.14, 0.94), Color(0.24, 0.28, 0.38, 1.0)))
+	pvp_root.add_child(pvp_battle_center)
+
+	var center_vbox: VBoxContainer = VBoxContainer.new()
+	center_vbox.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	center_vbox.offset_left = 16.0
+	center_vbox.offset_top = 12.0
+	center_vbox.offset_right = -16.0
+	center_vbox.offset_bottom = -12.0
+	center_vbox.theme_override_constants.separation = 10
+	pvp_battle_center.add_child(center_vbox)
+
+	var vs_label: Label = Label.new()
+	vs_label.text = "VS"
+	vs_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vs_label.add_theme_font_size_override("font_size", 28)
+	center_vbox.add_child(vs_label)
+
+	pvp_battle_log = RichTextLabel.new()
+	pvp_battle_log.bbcode_enabled = true
+	pvp_battle_log.scroll_following = true
+	pvp_battle_log.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	center_vbox.add_child(pvp_battle_log)
+
+	pvp_result_label = Label.new()
+	pvp_result_label.visible = false
+	pvp_result_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	pvp_result_label.add_theme_font_size_override("font_size", 22)
+	center_vbox.add_child(pvp_result_label)
+
+	pvp_continue_button = Button.new()
+	pvp_continue_button.text = "继续"
+	pvp_continue_button.visible = false
+	pvp_continue_button.pressed.connect(_on_continue_pressed)
+	center_vbox.add_child(pvp_continue_button)
+
+func _create_pvp_player_bar() -> void:
+	pvp_player_bar = PanelContainer.new()
+	pvp_player_bar.name = "PlayerBar"
+	pvp_player_bar.anchor_left = 0.02
+	pvp_player_bar.anchor_top = PVP_PLAYER_TOP
+	pvp_player_bar.anchor_right = 0.98
+	pvp_player_bar.anchor_bottom = 0.98
+	pvp_player_bar.offset_left = 0.0
+	pvp_player_bar.offset_top = 0.0
+	pvp_player_bar.offset_right = 0.0
+	pvp_player_bar.offset_bottom = 0.0
+	pvp_player_bar.add_theme_stylebox_override("panel", _create_panel_style(Color(0.11, 0.14, 0.10, 0.96), Color(0.25, 0.36, 0.24, 1.0)))
+	pvp_root.add_child(pvp_player_bar)
+
+	var root_vbox: VBoxContainer = VBoxContainer.new()
+	root_vbox.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	root_vbox.offset_left = 12.0
+	root_vbox.offset_top = 10.0
+	root_vbox.offset_right = -12.0
+	root_vbox.offset_bottom = -10.0
+	root_vbox.theme_override_constants.separation = 8
+	pvp_player_bar.add_child(root_vbox)
+
+	var info_row: HBoxContainer = HBoxContainer.new()
+	info_row.theme_override_constants.separation = 18
+	root_vbox.add_child(info_row)
+
+	var info_box: VBoxContainer = VBoxContainer.new()
+	info_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	info_box.theme_override_constants.separation = 6
+	info_row.add_child(info_box)
+
+	pvp_player_name_label = Label.new()
+	pvp_player_name_label.add_theme_font_size_override("font_size", 22)
+	info_box.add_child(pvp_player_name_label)
+
+	var hp_stack: Control = _create_pvp_hp_stack()
+	info_box.add_child(hp_stack)
+	pvp_player_hp_bar = hp_stack.get_node("HPBar") as ProgressBar
+	pvp_player_hp_label = hp_stack.get_node("HPBar/HPText") as Label
+	pvp_player_shield_bar = hp_stack.get_node("ShieldBar") as ProgressBar
+	pvp_player_shield_label = hp_stack.get_node("ShieldLabel") as Label
+
+	pvp_player_meta_label = Label.new()
+	pvp_player_meta_label.add_theme_color_override("font_color", Color(0.92, 0.84, 0.55, 1.0))
+	info_box.add_child(pvp_player_meta_label)
+
+	var skills_box: HBoxContainer = HBoxContainer.new()
+	skills_box.theme_override_constants.separation = 8
+	info_box.add_child(skills_box)
+	pvp_player_skill_labels.clear()
+	for skill_index in range(3):
+		var skill_label: Label = _create_skill_slot_label("Empty")
+		skills_box.add_child(skill_label)
+		pvp_player_skill_labels.append(skill_label)
+
+	pvp_player_hand_container = HBoxContainer.new()
+	pvp_player_hand_container.alignment = BoxContainer.ALIGNMENT_BEGIN
+	pvp_player_hand_container.theme_override_constants.separation = PVP_HAND_SPACING
+	root_vbox.add_child(pvp_player_hand_container)
+
+	var action_bar: HBoxContainer = HBoxContainer.new()
+	action_bar.theme_override_constants.separation = 12
+	root_vbox.add_child(action_bar)
+
+	pvp_auto_battle_check = CheckButton.new()
+	pvp_auto_battle_check.text = "自动战斗"
+	pvp_auto_battle_check.toggled.connect(_on_auto_battle_toggled)
+	action_bar.add_child(pvp_auto_battle_check)
+
+	pvp_end_turn_button = Button.new()
+	pvp_end_turn_button.text = "End Turn"
+	pvp_end_turn_button.disabled = true
+	action_bar.add_child(pvp_end_turn_button)
+
+func _update_pvp_player_hand() -> void:
+	if pvp_player_hand_container == null:
+		return
+
+	for child in pvp_player_hand_container.get_children():
+		child.queue_free()
+	pvp_player_card_panels.clear()
+
+	if inventory == null:
+		return
+
+	for item in inventory.items:
+		var item_data: ItemData = item as ItemData
+		if item_data == null:
+			continue
+
+		var card_panel: Panel = Panel.new()
+		card_panel.custom_minimum_size = PVP_CARD_SIZE
+		card_panel.mouse_filter = Control.MOUSE_FILTER_PASS
+		card_panel.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		card_panel.add_theme_stylebox_override("panel", _create_player_card_style(item_data))
+		card_panel.set_meta("item_data", item_data)
+		pvp_player_hand_container.add_child(card_panel)
+		pvp_player_card_panels.append(card_panel)
+
+		var content_vbox: VBoxContainer = VBoxContainer.new()
+		content_vbox.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		content_vbox.offset_left = 8.0
+		content_vbox.offset_top = 8.0
+		content_vbox.offset_right = -8.0
+		content_vbox.offset_bottom = -8.0
+		content_vbox.theme_override_constants.separation = 6
+		card_panel.add_child(content_vbox)
+
+		var name_label: Label = Label.new()
+		name_label.text = item_data.item_name
+		name_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		name_label.add_theme_font_size_override("font_size", 12)
+		name_label.add_theme_color_override("font_color", Color.WHITE)
+		content_vbox.add_child(name_label)
+
+		var stat_label: Label = Label.new()
+		stat_label.text = _get_item_stat_text(item_data)
+		stat_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		stat_label.add_theme_font_size_override("font_size", 11)
+		stat_label.add_theme_color_override("font_color", Color(0.95, 0.83, 0.42, 1.0))
+		content_vbox.add_child(stat_label)
+
+		var cooldown_label: Label = Label.new()
+		cooldown_label.name = "CooldownLabel"
+		cooldown_label.text = _get_item_cooldown_text(item_data)
+		cooldown_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		cooldown_label.add_theme_font_size_override("font_size", 11)
+		cooldown_label.add_theme_color_override("font_color", Color(0.86, 0.90, 1.0, 1.0))
+		content_vbox.add_child(cooldown_label)
+
+		if item_data.cooldown > 0.0:
+			var cooldown_overlay: ColorRect = _create_card_cooldown_overlay(item_data)
+			cooldown_overlay.name = "CooldownOverlay"
+			card_panel.add_child(cooldown_overlay)
+
+func _update_pvp_opponent_hand() -> void:
+	if pvp_opponent_hand_container == null:
+		return
+
+	for child in pvp_opponent_hand_container.get_children():
+		child.queue_free()
+
+	if current_monster == null:
+		return
+
+	for item_index in range(current_monster.monster_items.size()):
+		var card_panel: Panel = Panel.new()
+		card_panel.custom_minimum_size = PVP_CARD_SIZE
+		card_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		card_panel.add_theme_stylebox_override("panel", _create_card_back_style())
+		pvp_opponent_hand_container.add_child(card_panel)
+
+		var center_label: Label = Label.new()
+		center_label.text = "✦"
+		center_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		center_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		center_label.add_theme_font_size_override("font_size", 28)
+		center_label.add_theme_color_override("font_color", Color(0.2, 0.2, 0.33, 1.0))
+		center_label.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		card_panel.add_child(center_label)
+
+func _update_pvp_battle_ui() -> void:
+	if pvp_root == null:
+		return
+
+	var hero: HeroData = game_manager.selected_hero
+	var max_hp: int = game_manager.get_max_health()
+	var current_shield: float = 0.0
+	if hero != null:
+		current_shield = hero.current_shield
+
+	if pvp_player_name_label != null:
+		pvp_player_name_label.text = hero.hero_name if hero != null else "玩家"
+	if pvp_player_hp_bar != null:
+		pvp_player_hp_bar.max_value = maxf(float(max_hp), 1.0)
+		pvp_player_hp_bar.value = game_manager.player_health
+	if pvp_player_hp_label != null:
+		pvp_player_hp_label.text = "%d/%d" % [game_manager.player_health, max_hp]
+	_update_pvp_shield_ui(pvp_player_shield_bar, pvp_player_shield_label, max_hp, current_shield)
+
+	if pvp_player_meta_label != null:
+		var crit_text: String = "暴击 %.0f%%" % (hero.crit_chance * 100.0) if hero != null else "暴击 0%"
+		var item_count: int = inventory.items.size() if inventory != null else 0
+		pvp_player_meta_label.text = "%s  |  🎒 %d items" % [crit_text, item_count]
+
+	_update_skill_labels(pvp_player_skill_labels, _get_player_skill_names(), false)
+
+	if current_monster != null:
+		if pvp_opponent_name_label != null:
+			pvp_opponent_name_label.text = current_monster.monster_name
+		if pvp_opponent_hp_bar != null:
+			pvp_opponent_hp_bar.max_value = maxf(float(current_monster.max_hp), 1.0)
+			pvp_opponent_hp_bar.value = current_monster.current_hp
+		if pvp_opponent_hp_label != null:
+			pvp_opponent_hp_label.text = "%d/%d" % [current_monster.current_hp, current_monster.max_hp]
+		_update_pvp_shield_ui(pvp_opponent_shield_bar, pvp_opponent_shield_label, current_monster.max_hp, 0.0)
+		if pvp_opponent_meta_label != null:
+			var monster_damage: int = _get_monster_total_damage()
+			pvp_opponent_meta_label.text = "ATK %d  |  🎒 %d items" % [
+				monster_damage,
+				current_monster.monster_items.size()
+			]
+
+	_update_skill_labels(pvp_opponent_skill_labels, [], true)
+	_update_pvp_player_hand_labels()
+
+func _update_pvp_cooldown_overlays() -> void:
+	for card_panel in pvp_player_card_panels:
+		if not is_instance_valid(card_panel):
+			continue
+
+		var item_data: ItemData = card_panel.get_meta("item_data", null) as ItemData
+		if item_data == null:
+			continue
+
+		var cooldown_label: Label = card_panel.get_node_or_null("VBoxContainer/CooldownLabel") as Label
+		if cooldown_label != null:
+			cooldown_label.text = _get_item_cooldown_text(item_data)
+
+		var cooldown_overlay: ColorRect = card_panel.get_node_or_null("CooldownOverlay") as ColorRect
+		if cooldown_overlay != null:
+			_update_card_cooldown_overlay(cooldown_overlay, item_data)
 
 ## ============ 战斗循环 ============
 
-## 战斗循环（每帧更新）
 func _process(delta: float) -> void:
 	if not is_battle_active:
 		return
 
 	battle_system.reduce_cooldowns(delta)
 
-	# 自动战斗关闭时不自动进行
+	if is_pvp:
+		_update_pvp_cooldown_overlays()
+
 	if not auto_battle:
 		return
 
-	# 更新战斗计时器
 	battle_timer += delta
 	elapsed_since_last_tick += delta
 
-	# 每 0.5 秒执行一个 tick
 	if battle_timer >= BATTLE_TICK:
 		var elapsed_time: float = elapsed_since_last_tick
 		battle_timer -= BATTLE_TICK
 		elapsed_since_last_tick = maxf(elapsed_since_last_tick - BATTLE_TICK, 0.0)
 		_execute_battle_tick(elapsed_time)
 
-## 执行一个战斗 tick（纯物品触发）
 func _execute_battle_tick(elapsed_time: float = BATTLE_TICK) -> void:
-	# 委托给战斗系统处理
-	var battle_ended: bool = battle_system.execute_battle_tick(elapsed_time)
-
-	# 更新 UI
+	var battle_ended_now: bool = battle_system.execute_battle_tick(elapsed_time)
 	_update_battle_ui()
 
-	# 检查战斗结果
-	if battle_ended:
-		var result = battle_system.get_battle_result()
+	if battle_ended_now:
+		var result: Dictionary = battle_system.get_battle_result()
 		if result["won"]:
 			_on_battle_win()
 		else:
 			_on_battle_lose()
 
-## 更新战斗 UI
 func _update_battle_ui() -> void:
-	# 玩家信息
+	if is_pvp:
+		_update_pvp_battle_ui()
+		return
+
 	var max_hp: int = game_manager.get_max_health()
 	var current_shield: float = 0.0
 	if game_manager.selected_hero != null:
 		current_shield = game_manager.selected_hero.current_shield
+
 	player_name_label.text = game_manager.selected_hero.hero_name if game_manager.selected_hero else "玩家"
 	player_hp_bar.max_value = max_hp
 	player_hp_bar.value = game_manager.player_health
 	player_hp_label.text = "%d/%d" % [game_manager.player_health, max_hp]
 	_update_shield_ui(max_hp, current_shield)
-	# ATK 标签改为显示暴击率（保持节点引用不变，避免修改 .tscn）
+
 	if game_manager.selected_hero:
-		player_atk_label.text = "暴击: %.0f%%" % (game_manager.selected_hero.crit_chance * 100)
+		player_atk_label.text = "暴击: %.0f%%" % (game_manager.selected_hero.crit_chance * 100.0)
 	else:
 		player_atk_label.text = ""
 
-	# 敌人信息
 	if current_monster:
 		enemy_name_label.text = current_monster.monster_name
 		enemy_hp_bar.max_value = current_monster.max_hp
 		enemy_hp_bar.value = current_monster.current_hp
 		enemy_hp_label.text = "%d/%d" % [current_monster.current_hp, current_monster.max_hp]
-		# 敌人 ATK 标签改为显示怪物物品数
-		var item_count = current_monster.monster_items.size()
-		enemy_atk_label.text = "物品: %d" % item_count
+		enemy_atk_label.text = "物品: %d" % current_monster.monster_items.size()
+
+## ============ 护盾 UI ============
 
 func _create_shield_ui() -> void:
 	if player_area == null or player_shield_bar != null:
@@ -362,23 +767,8 @@ func _create_shield_ui() -> void:
 	player_shield_bar.show_percentage = false
 	player_shield_bar.min_value = 0.0
 	player_shield_bar.visible = false
-
-	var background_style: StyleBoxFlat = StyleBoxFlat.new()
-	background_style.bg_color = Color(0.0, 0.0, 0.0, 0.0)
-	background_style.border_width_left = 0
-	background_style.border_width_top = 0
-	background_style.border_width_right = 0
-	background_style.border_width_bottom = 0
-	player_shield_bar.add_theme_stylebox_override("background", background_style)
-
-	var fill_style: StyleBoxFlat = StyleBoxFlat.new()
-	fill_style.bg_color = Color(0.3, 0.6, 1.0, 0.7)
-	fill_style.corner_radius_top_left = 6
-	fill_style.corner_radius_top_right = 6
-	fill_style.corner_radius_bottom_right = 6
-	fill_style.corner_radius_bottom_left = 6
-	player_shield_bar.add_theme_stylebox_override("fill", fill_style)
-
+	player_shield_bar.add_theme_stylebox_override("background", _create_transparent_progress_style())
+	player_shield_bar.add_theme_stylebox_override("fill", _create_shield_fill_style())
 	player_area.add_child(player_shield_bar)
 
 	player_shield_label = Label.new()
@@ -418,6 +808,7 @@ func _sync_shield_ui_layout() -> void:
 func _reset_shield_ui() -> void:
 	if player_shield_bar == null or player_shield_label == null:
 		return
+
 	_sync_shield_ui_layout()
 	player_shield_bar.max_value = 1.0
 	player_shield_bar.value = 0.0
@@ -428,6 +819,7 @@ func _reset_shield_ui() -> void:
 func _update_shield_ui(max_hp: int, current_shield: float) -> void:
 	if player_shield_bar == null or player_shield_label == null:
 		return
+
 	_sync_shield_ui_layout()
 	var shield_value: float = clampf(current_shield, 0.0, float(max_hp))
 	var has_shield: bool = shield_value > 0.0
@@ -437,21 +829,41 @@ func _update_shield_ui(max_hp: int, current_shield: float) -> void:
 	player_shield_label.text = "🛡️ %d" % int(round(shield_value))
 	player_shield_label.visible = has_shield
 
-## 记录战斗日志
+func _reset_pvp_shield_ui() -> void:
+	_update_pvp_shield_ui(pvp_player_shield_bar, pvp_player_shield_label, 1, 0.0)
+	_update_pvp_shield_ui(pvp_opponent_shield_bar, pvp_opponent_shield_label, 1, 0.0)
+
+func _update_pvp_shield_ui(bar: ProgressBar, label: Label, max_hp: int, current_shield: float) -> void:
+	if bar == null or label == null:
+		return
+
+	var shield_value: float = clampf(current_shield, 0.0, float(max_hp))
+	var has_shield: bool = shield_value > 0.0
+	bar.max_value = maxf(float(max_hp), 1.0)
+	bar.value = shield_value
+	bar.visible = has_shield
+	label.text = "🛡️ %d" % int(round(shield_value))
+	label.visible = has_shield
+
+## ============ 日志 ============
+
 func _log(message: String) -> void:
-	battle_log_label.append_text(message + "\n")
-	battle_log_label.scroll_to_line(battle_log_label.get_line_count() - 1)
+	if is_pvp and pvp_battle_log != null:
+		pvp_battle_log.append_text(message + "\n")
+		pvp_battle_log.scroll_to_line(pvp_battle_log.get_line_count() - 1)
+	else:
+		battle_log_label.append_text(message + "\n")
+		battle_log_label.scroll_to_line(battle_log_label.get_line_count() - 1)
+
 	battle_log.emit(message)
 	print(message)
 
 ## ============ 战斗结果 ============
 
-## 战斗胜利
 func _on_battle_win() -> void:
 	is_battle_active = false
 
-	# 计算金币奖励
-	var gold_reward = 0
+	var gold_reward: int = 0
 	if is_pvp:
 		game_manager.on_pvp_win()
 	elif current_monster:
@@ -459,51 +871,343 @@ func _on_battle_win() -> void:
 		game_manager.add_gold(gold_reward)
 		game_manager.on_battle_win()
 
-	# 显示胜利
-	result_label.text = "🎉 胜利! 获得 %d 金币!" % gold_reward if not is_pvp else "🎉 胜利!"
-	result_label.visible = true
-	_log("🎉 战斗胜利! 获得 %d 金币!" % gold_reward)
-
-	# 缓存战斗结果
 	_last_battle_won = true
 	_last_gold_reward = gold_reward
 
-	# 关闭战斗系统
+	if is_pvp:
+		if pvp_result_label != null:
+			pvp_result_label.text = "🎉 胜利! PvP 胜场 %d / 10" % game_manager.pvp_wins
+			pvp_result_label.visible = true
+		if pvp_continue_button != null:
+			pvp_continue_button.visible = true
+	else:
+		result_label.text = "🎉 胜利! 获得 %d 金币!" % gold_reward
+		result_label.visible = true
+		continue_button.visible = true
+
+	_log("🎉 战斗胜利! 获得 %d 金币!" % gold_reward)
 	battle_system.end_battle()
 
-	# 显示继续按钮，等待玩家点击
-	continue_button.visible = true
-
-## 战斗失败
 func _on_battle_lose() -> void:
 	is_battle_active = false
 
-	# PvP 失败扣除 Prestige
 	if is_pvp:
 		game_manager.on_pvp_lose()
 	else:
 		game_manager.on_battle_lose()
 
-	# 显示失败
-	result_label.text = "💀 失败! Prestige 已扣除" if is_pvp else "💀 战斗失败!"
-	result_label.visible = true
-	_log("💀 战斗失败!")
-
-	# 缓存战斗结果
 	_last_battle_won = false
 	_last_gold_reward = 0
 
-	# 关闭战斗系统
+	if is_pvp:
+		if pvp_result_label != null:
+			pvp_result_label.text = "💀 失败! Prestige: %d" % game_manager.prestige
+			pvp_result_label.visible = true
+		if pvp_continue_button != null:
+			pvp_continue_button.visible = true
+	else:
+		result_label.text = "💀 战斗失败!"
+		result_label.visible = true
+		continue_button.visible = true
+
+	_log("💀 战斗失败!")
 	battle_system.end_battle()
 
-	# 显示继续按钮，等待玩家点击
-	continue_button.visible = true
-
-## 继续按钮回调 - 隐藏战斗面板并发出信号
 func _on_continue_pressed() -> void:
 	_hide_battle_panel()
 	battle_ended.emit(_last_battle_won, _last_gold_reward)
 
-## 获取战斗系统实例（供外部调用）
 func get_battle_system() -> Node:
 	return battle_system
+
+## ============ PvP 辅助 ============
+
+func _sync_auto_battle_check_state() -> void:
+	if auto_battle_check != null:
+		auto_battle_check.button_pressed = auto_battle
+	if pvp_auto_battle_check != null:
+		pvp_auto_battle_check.button_pressed = auto_battle
+
+func _create_panel_style(background_color: Color, border_color: Color) -> StyleBoxFlat:
+	var style: StyleBoxFlat = StyleBoxFlat.new()
+	style.bg_color = background_color
+	style.border_color = border_color
+	style.border_width_left = 2
+	style.border_width_top = 2
+	style.border_width_right = 2
+	style.border_width_bottom = 2
+	style.corner_radius_top_left = 8
+	style.corner_radius_top_right = 8
+	style.corner_radius_bottom_right = 8
+	style.corner_radius_bottom_left = 8
+	style.content_margin_left = 10.0
+	style.content_margin_top = 10.0
+	style.content_margin_right = 10.0
+	style.content_margin_bottom = 10.0
+	return style
+
+func _create_card_back_style() -> StyleBoxFlat:
+	var style: StyleBoxFlat = StyleBoxFlat.new()
+	style.bg_color = Color(0.102, 0.102, 0.18, 1.0)
+	style.border_color = Color(0.2, 0.2, 0.33, 1.0)
+	style.border_width_left = 2
+	style.border_width_top = 2
+	style.border_width_right = 2
+	style.border_width_bottom = 2
+	style.corner_radius_top_left = 6
+	style.corner_radius_top_right = 6
+	style.corner_radius_bottom_right = 6
+	style.corner_radius_bottom_left = 6
+	return style
+
+func _create_player_card_style(item_data: ItemData) -> StyleBoxFlat:
+	var colors: Dictionary = _get_card_colors_by_rarity(item_data.rarity)
+	var style: StyleBoxFlat = StyleBoxFlat.new()
+	style.bg_color = colors["background"]
+	style.border_color = colors["border"]
+	style.border_width_left = 2
+	style.border_width_top = 2
+	style.border_width_right = 2
+	style.border_width_bottom = 2
+	style.corner_radius_top_left = 6
+	style.corner_radius_top_right = 6
+	style.corner_radius_bottom_right = 6
+	style.corner_radius_bottom_left = 6
+	return style
+
+func _get_card_colors_by_rarity(rarity: int) -> Dictionary:
+	match rarity:
+		2:
+			return {
+				"background": Color(0.16, 0.28, 0.16, 1.0),
+				"border": Color(0.34, 0.75, 0.34, 1.0)
+			}
+		3:
+			return {
+				"background": Color(0.15, 0.20, 0.35, 1.0),
+				"border": Color(0.33, 0.55, 0.92, 1.0)
+			}
+		4:
+			return {
+				"background": Color(0.25, 0.14, 0.32, 1.0),
+				"border": Color(0.73, 0.43, 0.95, 1.0)
+			}
+		_:
+			return {
+				"background": Color(0.26, 0.26, 0.28, 1.0),
+				"border": Color(0.88, 0.88, 0.90, 1.0)
+			}
+
+func _create_skill_slot_label(initial_text: String) -> Label:
+	var skill_label: Label = Label.new()
+	skill_label.text = initial_text
+	skill_label.custom_minimum_size = Vector2(92.0, 24.0)
+	skill_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	skill_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	skill_label.add_theme_font_size_override("font_size", 11)
+	skill_label.add_theme_color_override("font_color", Color(0.92, 0.94, 0.98, 1.0))
+	skill_label.add_theme_stylebox_override("normal", _create_panel_style(Color(0.18, 0.20, 0.28, 1.0), Color(0.30, 0.34, 0.48, 1.0)))
+	return skill_label
+
+func _create_pvp_hp_stack() -> Control:
+	var hp_stack: Control = Control.new()
+	hp_stack.custom_minimum_size = Vector2(300.0, 34.0)
+
+	var hp_bar: ProgressBar = ProgressBar.new()
+	hp_bar.name = "HPBar"
+	hp_bar.custom_minimum_size = Vector2(300.0, 20.0)
+	hp_bar.show_percentage = false
+	hp_bar.anchor_left = 0.0
+	hp_bar.anchor_top = 0.0
+	hp_bar.anchor_right = 0.0
+	hp_bar.anchor_bottom = 0.0
+	hp_bar.offset_left = 0.0
+	hp_bar.offset_top = 10.0
+	hp_bar.offset_right = 300.0
+	hp_bar.offset_bottom = 30.0
+	hp_stack.add_child(hp_bar)
+
+	var hp_text: Label = Label.new()
+	hp_text.name = "HPText"
+	hp_text.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	hp_text.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	hp_text.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	hp_bar.add_child(hp_text)
+
+	var shield_bar: ProgressBar = ProgressBar.new()
+	shield_bar.name = "ShieldBar"
+	shield_bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	shield_bar.show_percentage = false
+	shield_bar.min_value = 0.0
+	shield_bar.visible = false
+	shield_bar.anchor_left = 0.0
+	shield_bar.anchor_top = 0.0
+	shield_bar.anchor_right = 0.0
+	shield_bar.anchor_bottom = 0.0
+	shield_bar.offset_left = 0.0
+	shield_bar.offset_top = 0.0
+	shield_bar.offset_right = 300.0
+	shield_bar.offset_bottom = 8.0
+	shield_bar.add_theme_stylebox_override("background", _create_transparent_progress_style())
+	shield_bar.add_theme_stylebox_override("fill", _create_shield_fill_style())
+	hp_stack.add_child(shield_bar)
+
+	var shield_label: Label = Label.new()
+	shield_label.name = "ShieldLabel"
+	shield_label.visible = false
+	shield_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	shield_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	shield_label.anchor_left = 0.0
+	shield_label.anchor_top = 0.0
+	shield_label.anchor_right = 0.0
+	shield_label.anchor_bottom = 0.0
+	shield_label.offset_left = 0.0
+	shield_label.offset_top = -20.0
+	shield_label.offset_right = 300.0
+	shield_label.offset_bottom = 0.0
+	shield_label.add_theme_color_override("font_color", Color(0.75, 0.88, 1.0, 1.0))
+	hp_stack.add_child(shield_label)
+
+	return hp_stack
+
+func _create_transparent_progress_style() -> StyleBoxFlat:
+	var style: StyleBoxFlat = StyleBoxFlat.new()
+	style.bg_color = Color(0.0, 0.0, 0.0, 0.0)
+	style.border_width_left = 0
+	style.border_width_top = 0
+	style.border_width_right = 0
+	style.border_width_bottom = 0
+	return style
+
+func _create_shield_fill_style() -> StyleBoxFlat:
+	var style: StyleBoxFlat = StyleBoxFlat.new()
+	style.bg_color = Color(0.3, 0.6, 1.0, 0.7)
+	style.corner_radius_top_left = 6
+	style.corner_radius_top_right = 6
+	style.corner_radius_bottom_right = 6
+	style.corner_radius_bottom_left = 6
+	return style
+
+func _create_card_cooldown_overlay(item_data: ItemData) -> ColorRect:
+	var overlay: ColorRect = ColorRect.new()
+	overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	overlay.color = Color(0.0, 0.0, 0.0, 0.5)
+
+	var timer_label: Label = Label.new()
+	timer_label.name = "CooldownTimerLabel"
+	timer_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	timer_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	timer_label.add_theme_font_size_override("font_size", 15)
+	timer_label.add_theme_color_override("font_color", Color.WHITE)
+	timer_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	timer_label.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
+	overlay.add_child(timer_label)
+
+	_update_card_cooldown_overlay(overlay, item_data)
+	return overlay
+
+func _update_card_cooldown_overlay(overlay: ColorRect, item_data: ItemData) -> void:
+	if overlay == null or item_data == null:
+		return
+
+	var timer_label: Label = overlay.get_node_or_null("CooldownTimerLabel") as Label
+	if item_data.current_cooldown <= 0.0 or item_data.cooldown <= 0.0:
+		overlay.visible = false
+		if timer_label != null:
+			timer_label.text = ""
+		return
+
+	var ratio: float = clampf(item_data.current_cooldown / item_data.cooldown, 0.0, 1.0)
+	overlay.anchor_left = 0.0
+	overlay.anchor_top = 1.0 - ratio
+	overlay.anchor_right = 1.0
+	overlay.anchor_bottom = 1.0
+	overlay.offset_left = 0.0
+	overlay.offset_top = 0.0
+	overlay.offset_right = 0.0
+	overlay.offset_bottom = 0.0
+	overlay.visible = true
+
+	if timer_label != null:
+		timer_label.text = "%.1f" % item_data.current_cooldown
+
+func _update_pvp_player_hand_labels() -> void:
+	for card_panel in pvp_player_card_panels:
+		if not is_instance_valid(card_panel):
+			continue
+
+		var item_data: ItemData = card_panel.get_meta("item_data", null) as ItemData
+		if item_data == null:
+			continue
+
+		var cooldown_label: Label = card_panel.get_node_or_null("VBoxContainer/CooldownLabel") as Label
+		if cooldown_label != null:
+			cooldown_label.text = _get_item_cooldown_text(item_data)
+
+func _get_item_stat_text(item_data: ItemData) -> String:
+	if item_data == null:
+		return ""
+
+	if item_data.damage > 0:
+		return "🗡️ ATK +%d" % item_data.get_rarity_adjusted_damage()
+	if item_data.heal > 0:
+		return "💚 Heal +%d" % item_data.get_rarity_adjusted_heal()
+	if item_data.shield > 0:
+		return "🛡️ Shield +%d" % item_data.get_rarity_adjusted_shield()
+	return "✨ %s" % item_data.get_type_name()
+
+func _get_item_cooldown_text(item_data: ItemData) -> String:
+	if item_data == null:
+		return ""
+	if item_data.current_cooldown > 0.0:
+		return "CD: %.1fs" % item_data.current_cooldown
+	return "Ready" if item_data.cooldown > 0.0 else "Passive"
+
+func _get_monster_total_damage() -> int:
+	if current_monster == null:
+		return 0
+
+	var total_damage: int = 0
+	for monster_item in current_monster.monster_items:
+		total_damage += int(monster_item.get("damage", 0))
+	return total_damage
+
+func _get_player_skill_names() -> Array[String]:
+	var names: Array[String] = []
+
+	if battle_system != null and "skill_manager" in battle_system:
+		var skill_manager: Variant = battle_system.skill_manager
+		if skill_manager != null and skill_manager.has_method("get_equipped_skills"):
+			var equipped_skills: Array = skill_manager.get_equipped_skills()
+			for skill_entry in equipped_skills:
+				var skill_data: SkillData = skill_entry as SkillData
+				if skill_data != null and not skill_data.skill_name.is_empty():
+					names.append(skill_data.skill_name)
+
+	if names.is_empty() and game_manager.selected_hero != null:
+		for hero_skill in game_manager.selected_hero.skills:
+			var skill_data: SkillData = hero_skill as SkillData
+			if skill_data != null and not skill_data.skill_name.is_empty():
+				names.append(skill_data.skill_name)
+
+	if names.is_empty() and game_manager.selected_hero != null and game_manager.selected_hero.has_passive_skill():
+		names.append(game_manager.selected_hero.passive_skill_name)
+
+	return names
+
+func _update_skill_labels(skill_labels: Array[Label], skill_names: Array[String], hidden: bool) -> void:
+	for index in range(skill_labels.size()):
+		var skill_label: Label = skill_labels[index]
+		if skill_label == null:
+			continue
+
+		if hidden:
+			skill_label.text = "❓"
+			skill_label.visible = true
+			continue
+
+		if index < skill_names.size():
+			skill_label.text = skill_names[index]
+		else:
+			skill_label.text = "Empty"
+
