@@ -291,6 +291,8 @@ func _process(delta: float) -> void:
 	if not is_battle_active:
 		return
 
+	battle_system.reduce_cooldowns(delta)
+
 	# 自动战斗关闭时不自动进行
 	if not auto_battle:
 		return

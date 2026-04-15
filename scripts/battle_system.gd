@@ -92,8 +92,6 @@ func execute_battle_tick(elapsed_time: float = BATTLE_TICK) -> bool:
 	var tick_time: float = maxf(elapsed_time, 0.0)
 	if _check_battle_end():
 		return true
-	_update_player_item_cooldowns(tick_time)
-	_update_monster_item_cooldowns(tick_time)
 	_trigger_player_items()
 	if _check_battle_end():
 		return true
@@ -108,12 +106,19 @@ func _get_passive_combat_stats() -> Dictionary:
 	stats["cd_reduction"] = clampf(float(stats.get("cd_reduction", 0.0)) + float(skill_modifiers.get("cooldown_reduction", 0.0)), 0.0, 0.8)
 	return stats
 
-func _update_player_item_cooldowns(elapsed_time: float) -> void:
-	if inventory == null:
+func reduce_cooldowns(delta: float) -> void:
+	var cooldown_delta: float = maxf(delta, 0.0)
+	if cooldown_delta <= 0.0:
 		return
-	for item in inventory.items:
-		if item != null and item.current_cooldown > 0:
-			item.current_cooldown = maxf(item.current_cooldown - elapsed_time, 0.0)
+	if inventory != null:
+		for item in inventory.items:
+			if item != null and item.current_cooldown > 0:
+				item.current_cooldown = maxf(item.current_cooldown - cooldown_delta, 0.0)
+	if current_monster == null or not current_monster.is_alive():
+		return
+	for item in current_monster.monster_items:
+		if item.get("current_cooldown", 0.0) > 0:
+			item["current_cooldown"] = maxf(float(item["current_cooldown"]) - cooldown_delta, 0.0)
 
 func _trigger_player_items() -> void:
 	if inventory == null or current_monster == null:
@@ -160,14 +165,6 @@ func _trigger_player_items() -> void:
 		if item.has_special_effect():
 			_apply_item_special_effects(item, is_crit, burn_bonus, poison_bonus)
 		item.current_cooldown = maxf(item.cooldown * (1.0 - cd_reduction), 0.1)
-
-func _update_monster_item_cooldowns(elapsed_time: float) -> void:
-	if current_monster == null:
-		return
-	for item in current_monster.monster_items:
-		var current_cooldown: float = float(item.get("current_cooldown", 0.0))
-		if current_cooldown > 0:
-			item["current_cooldown"] = maxf(current_cooldown - elapsed_time, 0.0)
 
 func _trigger_monster_items() -> void:
 	if current_monster == null or not current_monster.is_alive():
