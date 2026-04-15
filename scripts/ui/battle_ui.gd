@@ -1068,7 +1068,7 @@ func _hide_pvp_tooltip() -> void:
 
 func _on_pvp_card_hovered(card_panel: Panel) -> void:
 	if pvp_hover_card != null and is_instance_valid(pvp_hover_card) and pvp_hover_card != card_panel:
-		_on_pvp_card_unhovered()
+		_on_pvp_card_unhovered(pvp_hover_card)
 
 	pvp_hover_card = card_panel
 	var item_data: ItemData = card_panel.get_meta("item_data", null) as ItemData
