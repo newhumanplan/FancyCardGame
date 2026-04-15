@@ -48,11 +48,11 @@ var _passed: int = 0
 
 
 func _ready() -> void:
-	print("== tests/test_event_manager.gd ==")
-	randomize()
-	_run_tests()
-	_print_summary()
-	get_tree().quit()
+	if not Engine.is_editor_hint():
+		print("== tests/test_event_manager.gd ==")
+		randomize()
+		_run_tests()
+		_print_summary()
 
 
 func _run_tests() -> void:

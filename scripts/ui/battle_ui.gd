@@ -336,7 +336,12 @@ func _create_pvp_layout() -> void:
 
 	pvp_root = Control.new()
 	pvp_root.name = "PvPRoot"
-	pvp_root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	pvp_root.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
+	pvp_root.set_anchor_and_offset_preset(Control.PRESET_CENTER)
+	pvp_root.offset_left = -960.0
+	pvp_root.offset_top = -540.0
+	pvp_root.offset_right = 960.0
+	pvp_root.offset_bottom = 540.0
 	pvp_root.mouse_filter = Control.MOUSE_FILTER_STOP
 	add_child(pvp_root)
 	_apply_pvp_content_scale()
@@ -567,6 +572,11 @@ func _update_pvp_player_hand() -> void:
 	if pvp_player_hand_container == null:
 		return
 
+	# Clear stale interaction state before rebuilding card nodes.
+	pvp_hover_card = null
+	pvp_selected_card = null
+	_hide_pvp_tooltip()
+
 	for child in pvp_player_hand_container.get_children():
 		child.queue_free()
 	pvp_player_card_panels.clear()
@@ -586,7 +596,7 @@ func _update_pvp_player_hand() -> void:
 		card_panel.add_theme_stylebox_override("panel", _create_player_card_style(item_data))
 		card_panel.set_meta("item_data", item_data)
 		card_panel.mouse_entered.connect(_on_pvp_card_hovered.bind(card_panel))
-		card_panel.mouse_exited.connect(_on_pvp_card_unhovered)
+		card_panel.mouse_exited.connect(_on_pvp_card_unhovered.bind(card_panel))
 		card_panel.gui_input.connect(_on_pvp_card_input.bind(card_panel, item_data))
 		pvp_player_hand_container.add_child(card_panel)
 		pvp_player_card_panels.append(card_panel)
@@ -733,7 +743,7 @@ func _apply_pvp_content_scale() -> void:
 		return
 
 	_pvp_content_scale = _calculate_pvp_scale()
-	pvp_root.pivot_offset = viewport_size * 0.5
+	pvp_root.pivot_offset = PVP_BASE_VIEWPORT_SIZE * 0.5
 	pvp_root.scale = Vector2.ONE * _pvp_content_scale
 
 func _get_pvp_scale() -> float:
@@ -1066,7 +1076,10 @@ func _on_pvp_card_hovered(card_panel: Panel) -> void:
 		card_panel.add_theme_stylebox_override("panel", _create_player_card_style(item_data, true))
 		_show_pvp_tooltip(card_panel, item_data)
 
-func _on_pvp_card_unhovered() -> void:
+func _on_pvp_card_unhovered(card_panel: Panel = null) -> void:
+	if card_panel == null or pvp_hover_card != card_panel:
+		return
+
 	if pvp_hover_card != null and is_instance_valid(pvp_hover_card):
 		var item_data: ItemData = pvp_hover_card.get_meta("item_data", null) as ItemData
 		var is_selected: bool = pvp_hover_card == pvp_selected_card
