@@ -14,27 +14,52 @@ signal skill_added(skill: SkillData)
 signal skill_removed(skill: SkillData)
 
 static func _is_valid_skill(skill: SkillData) -> bool:
-	return skill != null and not skill.skill_id.is_empty()
+	return skill != null and not skill.id.is_empty()
+
+func _build_effect_totals() -> Dictionary:
+	return {
+		"crit_bonus": 0.0,
+		"shield_bonus": 0.0,
+		"burn_bonus": 0.0,
+		"poison_bonus": 0.0,
+		"freeze_bonus": 0.0,
+		"haste_bonus": 0.0,
+		"charge_bonus": 0.0,
+		"max_health_bonus": 0.0,
+		"cooldown_reduction": 0.0,
+	}
 
 ## 装备技能
-func equip_skill(skill: SkillData) -> void:
+func equip(skill: SkillData) -> bool:
 	if not _is_valid_skill(skill):
-		return
-	if not _skill_dict.has(skill.skill_id):
+		return false
+	if not _skill_dict.has(skill.id):
 		equipped_skills.append(skill)
-		_skill_dict[skill.skill_id] = skill
+		_skill_dict[skill.id] = skill
 		skill.unlocked = true
 		skill_added.emit(skill)
-		print("装备技能: %s (%s)" % [skill.skill_name, skill.get_quality_name()])
+		print("装备技能: %s (%s)" % [skill.name, skill.get_quality_name()])
+		return true
+	return false
+
+func equip_skill(skill: SkillData) -> void:
+	equip(skill)
 
 ## 卸下技能
-func unequip_skill(skill_id: String) -> void:
+func unequip(skill_id: String) -> bool:
 	if _skill_dict.has(skill_id):
 		var skill = _skill_dict[skill_id]
 		equipped_skills.erase(skill)
 		_skill_dict.erase(skill_id)
+		if skill != null:
+			skill.unlocked = false
 		skill_removed.emit(skill)
-		print("卸下技能: %s" % skill.skill_name)
+		print("卸下技能: %s" % skill.name)
+		return true
+	return false
+
+func unequip_skill(skill_id: String) -> void:
+	unequip(skill_id)
 
 ## 获取指定类型技能的总效果值
 func get_total_effect(effect_type: SkillData.EffectType) -> float:
@@ -43,6 +68,40 @@ func get_total_effect(effect_type: SkillData.EffectType) -> float:
 		if skill.effect_type == effect_type:
 			total += skill.get_effect_value()
 	return total
+
+func get_effect_totals() -> Dictionary:
+	var totals := _build_effect_totals()
+	totals["crit_bonus"] = get_total_effect(SkillData.EffectType.CRIT)
+	totals["shield_bonus"] = get_total_effect(SkillData.EffectType.SHIELD)
+	totals["burn_bonus"] = get_total_effect(SkillData.EffectType.BURN)
+	totals["poison_bonus"] = get_total_effect(SkillData.EffectType.POISON)
+	totals["freeze_bonus"] = get_total_effect(SkillData.EffectType.FREEZE)
+	totals["haste_bonus"] = get_total_effect(SkillData.EffectType.HASTE)
+	totals["charge_bonus"] = get_total_effect(SkillData.EffectType.CHARGE)
+	totals["max_health_bonus"] = get_total_effect(SkillData.EffectType.HEALTH)
+	totals["cooldown_reduction"] = clampf(get_total_effect(SkillData.EffectType.COOLDOWN) / 100.0, 0.0, 0.8)
+	return totals
+
+func apply_passive_skills(hero: HeroData) -> Dictionary:
+	var totals := get_effect_totals()
+	if hero == null:
+		return totals
+	hero.reset_skill_effects()
+	hero.skill_crit_bonus = float(totals["crit_bonus"])
+	hero.skill_shield_bonus = float(totals["shield_bonus"])
+	hero.skill_burn_bonus = float(totals["burn_bonus"])
+	hero.skill_poison_bonus = float(totals["poison_bonus"])
+	hero.skill_freeze_bonus = float(totals["freeze_bonus"])
+	hero.skill_haste_bonus = float(totals["haste_bonus"])
+	hero.skill_charge_bonus = float(totals["charge_bonus"])
+	hero.skill_health_bonus = float(totals["max_health_bonus"])
+	hero.skill_cooldown_reduction = float(totals["cooldown_reduction"])
+	if hero.skill_health_bonus > 0.0:
+		hero.max_hp += int(round(hero.skill_health_bonus))
+		hero.current_hp = min(hero.current_hp, hero.max_hp)
+	if hero.skill_crit_bonus > 0.0:
+		hero.crit_chance = clampf(hero.crit_chance + hero.skill_crit_bonus / 100.0, 0.0, 1.0)
+	return totals
 
 ## 获取所有已装备技能
 func get_equipped_skills() -> Array[SkillData]:

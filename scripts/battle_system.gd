@@ -35,12 +35,10 @@ func _refresh_skill_modifiers() -> void:
 	skill_modifiers = {}
 	if game_manager == null or game_manager.selected_hero == null or skill_manager == null:
 		return
-	var skills = skill_manager.get_equipped_skills()
 	if _skill_target_hero != game_manager.selected_hero:
-		skill_modifiers = SkillEffectsClass.apply_passive_skills(skills, game_manager.selected_hero)
+		game_manager.selected_hero.refresh_skill_base_stats()
 		_skill_target_hero = game_manager.selected_hero
-		return
-	skill_modifiers = SkillEffectsClass.calculate_passive_modifiers(skills)
+	skill_modifiers = skill_manager.apply_passive_skills(game_manager.selected_hero)
 
 func start_battle(monster: MonsterData, inv: LinearInventory) -> void:
 	is_battle_active = true
@@ -131,8 +129,8 @@ func _trigger_player_items() -> void:
 	var passive_stats: Dictionary = _get_passive_combat_stats()
 	var lifesteal_rate: float = float(passive_stats.get("lifesteal", 0.0))
 	var cd_reduction: float = float(passive_stats.get("cd_reduction", 0.0))
-	var burn_bonus: float = float(skill_modifiers.get("burn_bonus", 0.0))
-	var poison_bonus: float = float(skill_modifiers.get("poison_bonus", 0.0))
+	var burn_bonus: float = 0.0 if hero == null else hero.skill_burn_bonus
+	var poison_bonus: float = 0.0 if hero == null else hero.skill_poison_bonus
 	for item in inventory.items:
 		if item == null or item.current_cooldown > 0:
 			continue

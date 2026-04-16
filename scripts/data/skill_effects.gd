@@ -16,7 +16,7 @@ static func _create_modifiers() -> Dictionary:
 		"charge_bonus": 0.0,
 	}
 
-static func calculate_passive_modifiers(skills: Array[SkillData]) -> Dictionary:
+static func calculate_passive_modifiers(skills: Array) -> Dictionary:
 	var modifiers: Dictionary = _create_modifiers()
 	for skill in skills:
 		if skill == null:
@@ -47,7 +47,7 @@ static func calculate_passive_modifiers(skills: Array[SkillData]) -> Dictionary:
 
 ## 将技能效果应用到英雄属性
 ## 返回修改后的属性字典
-static func apply_passive_skills(skills: Array[SkillData], hero: HeroData) -> Dictionary:
+static func apply_passive_skills(skills: Array, hero: HeroData) -> Dictionary:
 	var modifiers: Dictionary = calculate_passive_modifiers(skills)
 
 	if hero != null and modifiers["crit_bonus"] > 0:
@@ -59,7 +59,7 @@ static func apply_passive_skills(skills: Array[SkillData], hero: HeroData) -> Di
 	return modifiers
 
 ## 获取技能效果摘要文本
-static func get_effects_summary(skills: Array[SkillData]) -> String:
+static func get_effects_summary(skills: Array) -> String:
 	var summary_lines: PackedStringArray = []
 	for skill in skills:
 		if skill == null:

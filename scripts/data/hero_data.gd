@@ -24,6 +24,21 @@ var current_hp: int = 100
 ## 当前护盾值（运行时）
 var current_shield: float = 0.0
 
+## ============ 技能系统运行时状态 ============
+
+var skill_crit_bonus: float = 0.0
+var skill_shield_bonus: float = 0.0
+var skill_burn_bonus: float = 0.0
+var skill_poison_bonus: float = 0.0
+var skill_freeze_bonus: float = 0.0
+var skill_haste_bonus: float = 0.0
+var skill_charge_bonus: float = 0.0
+var skill_health_bonus: float = 0.0
+var skill_cooldown_reduction: float = 0.0
+
+var _skill_base_max_hp: int = -1
+var _skill_base_crit_chance: float = -1.0
+
 ## ============ 被动技能（旧版，保留兼容） ============
 
 ## 被动技能名称
@@ -65,6 +80,7 @@ var _combat_lifesteal: float = 0.0       ## 生命偷取百分比
 func _init():
 	current_hp = max_hp
 	current_shield = 0.0
+	_capture_skill_base_stats()
 
 ## ============ 运行时方法 ============
 
@@ -119,6 +135,31 @@ func get_shield_ratio() -> float:
 	if max_hp <= 0:
 		return 0.0
 	return clampf(current_shield / float(max_hp), 0.0, 1.0)
+
+func _capture_skill_base_stats() -> void:
+	if _skill_base_max_hp < 0:
+		_skill_base_max_hp = max_hp
+	if _skill_base_crit_chance < 0.0:
+		_skill_base_crit_chance = crit_chance
+
+func refresh_skill_base_stats() -> void:
+	_skill_base_max_hp = max_hp
+	_skill_base_crit_chance = crit_chance
+
+func reset_skill_effects() -> void:
+	_capture_skill_base_stats()
+	max_hp = _skill_base_max_hp
+	crit_chance = _skill_base_crit_chance
+	current_hp = mini(current_hp, max_hp)
+	skill_crit_bonus = 0.0
+	skill_shield_bonus = 0.0
+	skill_burn_bonus = 0.0
+	skill_poison_bonus = 0.0
+	skill_freeze_bonus = 0.0
+	skill_haste_bonus = 0.0
+	skill_charge_bonus = 0.0
+	skill_health_bonus = 0.0
+	skill_cooldown_reduction = 0.0
 
 ## ============ 工具方法 ============
 
