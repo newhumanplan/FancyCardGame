@@ -583,14 +583,14 @@ func _create_pvp_battle_center() -> void:
 	pvp_result_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	pvp_result_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	pvp_result_label.add_theme_font_size_override("font_size", _scaled_int(22.0, 16, 28))
-	_set_percent_rect(pvp_result_label, 0.72, 0.90, 0.96, 0.95)
+	_set_percent_rect(pvp_result_label, 0.68, 0.88, 0.96, 0.93)
 	pvp_root.add_child(pvp_result_label)
 
 	pvp_continue_button = Button.new()
 	pvp_continue_button.text = "继续"
 	pvp_continue_button.visible = false
 	pvp_continue_button.pressed.connect(_on_continue_pressed)
-	_set_percent_rect(pvp_continue_button, 0.84, 0.95, 0.94, 0.99)
+	_set_percent_rect(pvp_continue_button, 0.78, 0.935, 0.94, 0.98)
 	pvp_root.add_child(pvp_continue_button)
 
 func _create_pvp_player_bar() -> void:
@@ -619,7 +619,7 @@ func _create_pvp_player_bar() -> void:
 	pvp_root.add_child(hero_avatar)
 
 	var hp_stack: Control = _create_pvp_hp_stack()
-	_set_percent_rect(hp_stack, 0.30, 0.51, 0.55, 0.56)
+	_set_percent_rect(hp_stack, 0.29, 0.515, 0.58, 0.57)
 	pvp_root.add_child(hp_stack)
 	pvp_player_hp_bar = hp_stack.get_node("HPBar") as ProgressBar
 	pvp_player_hp_label = hp_stack.get_node("HPText") as Label
@@ -636,19 +636,19 @@ func _create_pvp_player_bar() -> void:
 	pvp_player_meta_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	pvp_player_meta_label.add_theme_color_override("font_color", Color(0.92, 0.84, 0.55, 1.0))
 	pvp_player_meta_label.add_theme_font_size_override("font_size", _scaled_int(16.0, 11, 20))
-	_set_percent_rect(pvp_player_meta_label, 0.70, 0.84, 0.82, 0.90)
+	_set_percent_rect(pvp_player_meta_label, 0.66, 0.80, 0.78, 0.85)
 	pvp_root.add_child(pvp_player_meta_label)
 
 	pvp_gold_label = Label.new()
 	pvp_gold_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	pvp_gold_label.add_theme_color_override("font_color", Color(0.96, 0.82, 0.28, 1.0))
 	pvp_gold_label.add_theme_font_size_override("font_size", _scaled_int(20.0, 13, 24))
-	_set_percent_rect(pvp_gold_label, 0.82, 0.84, 0.94, 0.90)
+	_set_percent_rect(pvp_gold_label, 0.80, 0.80, 0.94, 0.85)
 	pvp_root.add_child(pvp_gold_label)
 
 	var chest_box: PanelContainer = PanelContainer.new()
 	chest_box.name = "ChestBox"
-	_set_percent_rect(chest_box, 0.03, 0.82, 0.08, 0.92)
+	_set_percent_rect(chest_box, 0.03, 0.84, 0.09, 0.94)
 	chest_box.add_theme_stylebox_override("panel", _create_panel_style(Color(0.32, 0.20, 0.08, 0.98), Color(0.78, 0.56, 0.22, 1.0)))
 	pvp_root.add_child(chest_box)
 
@@ -1683,6 +1683,7 @@ func _create_pvp_hp_stack() -> Control:
 	hp_text.add_theme_color_override("font_color", Color.WHITE)
 	hp_text.add_theme_color_override("font_outline_color", Color(0.0, 0.0, 0.0, 0.6))
 	hp_text.add_theme_constant_override("outline_size", 2)
+	hp_text.z_index = 3
 	hp_stack.add_child(hp_text)
 
 	var hp_bar: ProgressBar = ProgressBar.new()
@@ -1692,13 +1693,14 @@ func _create_pvp_hp_stack() -> Control:
 	hp_bar.min_value = 0.0
 	hp_bar.max_value = 100.0
 	hp_bar.value = 100.0
-	_set_percent_rect(hp_bar, 0.18, 0.24, 1.0, 0.84)
+	_set_percent_rect(hp_bar, 0.32, 0.28, 1.0, 0.84)
 	var fill_style: StyleBoxFlat = StyleBoxFlat.new()
 	fill_style.bg_color = Color(0.2, 0.75, 0.2, 1.0)
 	hp_bar.add_theme_stylebox_override("fill", fill_style)
 	var bg_style: StyleBoxFlat = StyleBoxFlat.new()
 	bg_style.bg_color = Color(0.15, 0.15, 0.15, 1.0)
 	hp_bar.add_theme_stylebox_override("background", bg_style)
+	hp_bar.z_index = 1
 	hp_stack.add_child(hp_bar)
 
 	var shield_bar: ProgressBar = ProgressBar.new()
@@ -1707,9 +1709,10 @@ func _create_pvp_hp_stack() -> Control:
 	shield_bar.show_percentage = false
 	shield_bar.min_value = 0.0
 	shield_bar.visible = false
-	_set_percent_rect(shield_bar, 0.18, 0.05, 1.0, 0.22)
+	_set_percent_rect(shield_bar, 0.32, 0.10, 1.0, 0.24)
 	shield_bar.add_theme_stylebox_override("background", _create_transparent_progress_style())
 	shield_bar.add_theme_stylebox_override("fill", _create_shield_fill_style())
+	shield_bar.z_index = 2
 	hp_stack.add_child(shield_bar)
 
 	var shield_label: Label = Label.new()
@@ -1717,9 +1720,10 @@ func _create_pvp_hp_stack() -> Control:
 	shield_label.visible = false
 	shield_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	shield_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	_set_percent_rect(shield_label, 0.72, 0.0, 1.0, 0.22)
+	_set_percent_rect(shield_label, 0.70, 0.0, 1.0, 0.24)
 	shield_label.add_theme_font_size_override("font_size", _scaled_int(10.0, 8, 12))
 	shield_label.add_theme_color_override("font_color", PVP_SHIELD_COLOR)
+	shield_label.z_index = 4
 	hp_stack.add_child(shield_label)
 
 	return hp_stack
