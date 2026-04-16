@@ -29,9 +29,11 @@ const PVP_CLOCK_ICON: String = "res://assets/art/ui/pvp/pvp_clock_icon.png"
 const PVP_AVATAR_FRAME: String = "res://assets/art/ui/pvp/pvp_avatar_frame.png"
 const PVP_HERO_AVATAR: String = "res://assets/art/ui/pvp/pvp_hero_avatar.png"
 const PVP_HAND_SLOT_COUNT: int = 10
+const PVP_OPPONENT_SLOT_COUNT: int = 3
 const PVP_RIVER_COLOR: Color = Color(0.15, 0.35, 0.55, 0.8)
 const PVP_SHOP_BORDER_COLOR: Color = Color8(74, 158, 255, 255)
 const PVP_HAND_BORDER_COLOR: Color = Color8(42, 42, 62, 255)
+const PVP_SHIELD_COLOR: Color = Color8(79, 195, 247, 255)
 
 ## GameManager 引用
 var game_manager: Node
@@ -248,7 +250,7 @@ func _generate_random_monster() -> MonsterData:
 			monster.gold_reward_min = 5 + day
 			monster.gold_reward_max = 10 + day * 2
 			monster.monster_items = [
-				{"name": "酸液喷射", "damage": 5 + day, "cooldown": 3.0, "current_cooldown": 3.0}
+				_create_monster_item("酸液喷射", ItemData.Type.WEAPON, 3 + day, 5 + day, 3.0)
 			]
 		MonsterData.MonsterTier.TIER_2:
 			monster.monster_name = "哥布林"
@@ -256,7 +258,7 @@ func _generate_random_monster() -> MonsterData:
 			monster.gold_reward_min = 10 + day * 2
 			monster.gold_reward_max = 20 + day * 3
 			monster.monster_items = [
-				{"name": "石斧", "damage": 8 + day * 2, "cooldown": 3.5, "current_cooldown": 3.5}
+				_create_monster_item("石斧", ItemData.Type.WEAPON, 6 + day, 8 + day * 2, 3.5)
 			]
 		MonsterData.MonsterTier.TIER_3:
 			monster.monster_name = "食人魔"
@@ -264,8 +266,8 @@ func _generate_random_monster() -> MonsterData:
 			monster.gold_reward_min = 20 + day * 3
 			monster.gold_reward_max = 40 + day * 5
 			monster.monster_items = [
-				{"name": "重锤", "damage": 12 + day * 2, "cooldown": 4.0, "current_cooldown": 4.0},
-				{"name": "碎骨", "damage": 6 + day, "cooldown": 3.0, "current_cooldown": 3.0}
+				_create_monster_item("重锤", ItemData.Type.WEAPON, 10 + day, 12 + day * 2, 4.0),
+				_create_monster_item("碎骨", ItemData.Type.WEAPON, 8 + day, 6 + day, 3.0)
 			]
 
 	monster.tier = tier
@@ -283,14 +285,14 @@ func _create_pvp_enemy(enemy_atk_bonus: int = 0) -> MonsterData:
 		monster.monster_name = "PvP 战士"
 		monster.max_hp = 200 + day * 15
 		monster.monster_items = [
-			{"name": "战士之剑", "damage": 15 + day + enemy_atk_bonus, "cooldown": 3.0, "current_cooldown": 3.0},
-			{"name": "铁盾反击", "damage": 5 + day + enemy_atk_bonus, "cooldown": 2.5, "current_cooldown": 2.5}
+			_create_monster_item("战士之剑", ItemData.Type.WEAPON, 12 + day, 15 + day + enemy_atk_bonus, 3.0),
+			_create_monster_item("铁盾反击", ItemData.Type.SHIELD, 10 + day, 5 + day + enemy_atk_bonus, 2.5)
 		]
 	else:
 		monster.monster_name = "PvP 法师"
 		monster.max_hp = 160 + day * 15
 		monster.monster_items = [
-			{"name": "奥术法杖", "damage": 22 + day * 2 + enemy_atk_bonus, "cooldown": 4.5, "current_cooldown": 4.5}
+			_create_monster_item("奥术法杖", ItemData.Type.UTILITY, 14 + day, 22 + day * 2 + enemy_atk_bonus, 4.5)
 		]
 
 	monster.gold_reward_min = 0
@@ -306,6 +308,18 @@ func _create_pvp_enemy(enemy_atk_bonus: int = 0) -> MonsterData:
 		])
 
 	return monster
+
+func _create_monster_item(name: String, item_type: int, buy_price: int, damage: int, cooldown: float, shield: int = 0, heal: int = 0) -> Dictionary:
+	return {
+		"name": name,
+		"type": item_type,
+		"buy_price": max(buy_price, 0),
+		"damage": max(damage, 0),
+		"shield": max(shield, 0),
+		"heal": max(heal, 0),
+		"cooldown": maxf(cooldown, 0.0),
+		"current_cooldown": maxf(cooldown, 0.0)
+	}
 
 ## ============ UI 管理 ============
 
@@ -348,7 +362,6 @@ func _create_pvp_layout() -> void:
 	pvp_root = Control.new()
 	pvp_root.name = "PvPRoot"
 	pvp_root.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
-	pvp_root.set_anchor_and_offset_preset(Control.PRESET_CENTER)
 	pvp_root.offset_left = -960.0
 	pvp_root.offset_top = -540.0
 	pvp_root.offset_right = 960.0
@@ -434,7 +447,7 @@ func _create_pvp_opponent_bar() -> void:
 
 	var root_hbox: HBoxContainer = HBoxContainer.new()
 	root_hbox.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	root_hbox.theme_override_constants.separation = 18
+	root_hbox.add_theme_constant_override("separation", 18)
 	pvp_opponent_bar.add_child(root_hbox)
 
 	# 头像框（64x64，在info_box左边）
@@ -449,7 +462,7 @@ func _create_pvp_opponent_bar() -> void:
 
 	var info_box: VBoxContainer = VBoxContainer.new()
 	info_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	info_box.theme_override_constants.separation = 8
+	info_box.add_theme_constant_override("separation", 8)
 	root_hbox.add_child(info_box)
 
 	pvp_opponent_name_label = Label.new()
@@ -468,11 +481,11 @@ func _create_pvp_opponent_bar() -> void:
 	info_box.add_child(pvp_opponent_meta_label)
 
 	var skills_box: HBoxContainer = HBoxContainer.new()
-	skills_box.theme_override_constants.separation = 8
+	skills_box.add_theme_constant_override("separation", 8)
 	info_box.add_child(skills_box)
 	pvp_opponent_skill_labels.clear()
 	for skill_index in range(3):
-		var skill_label: Label = _create_skill_slot_label("❓")
+		var skill_label: Label = _create_skill_slot_label("Empty")
 		skill_label.visible = true
 		skills_box.add_child(skill_label)
 		pvp_opponent_skill_labels.append(skill_label)
@@ -480,7 +493,7 @@ func _create_pvp_opponent_bar() -> void:
 	pvp_opponent_hand_container = HBoxContainer.new()
 	pvp_opponent_hand_container.alignment = BoxContainer.ALIGNMENT_END
 	pvp_opponent_hand_container.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	pvp_opponent_hand_container.theme_override_constants.separation = PVP_HAND_SPACING
+	pvp_opponent_hand_container.add_theme_constant_override("separation", PVP_HAND_SPACING)
 	root_hbox.add_child(pvp_opponent_hand_container)
 
 func _create_pvp_battle_center() -> void:
@@ -511,7 +524,7 @@ func _create_pvp_battle_center() -> void:
 	pvp_shop_container = HBoxContainer.new()
 	pvp_shop_container.name = "ShopContainer"
 	pvp_shop_container.alignment = BoxContainer.ALIGNMENT_CENTER
-	pvp_shop_container.theme_override_constants.separation = PVP_HAND_SPACING
+	pvp_shop_container.add_theme_constant_override("separation", PVP_HAND_SPACING)
 	shop_row.add_child(pvp_shop_container)
 
 	for shop_index in range(PVP_SHOP_CARD_COUNT):
@@ -565,7 +578,7 @@ func _create_pvp_battle_center() -> void:
 	pvp_player_hand_container = HBoxContainer.new()
 	pvp_player_hand_container.name = "PlayerHandContainer"
 	pvp_player_hand_container.alignment = BoxContainer.ALIGNMENT_CENTER
-	pvp_player_hand_container.theme_override_constants.separation = PVP_HAND_SPACING
+	pvp_player_hand_container.add_theme_constant_override("separation", PVP_HAND_SPACING)
 	hand_row.add_child(pvp_player_hand_container)
 
 	var log_panel: PanelContainer = PanelContainer.new()
@@ -587,7 +600,7 @@ func _create_pvp_battle_center() -> void:
 	log_vbox.offset_top = 12.0
 	log_vbox.offset_right = -12.0
 	log_vbox.offset_bottom = -12.0
-	log_vbox.theme_override_constants.separation = 10
+	log_vbox.add_theme_constant_override("separation", 10)
 	log_panel.add_child(log_vbox)
 
 	pvp_battle_log = RichTextLabel.new()
@@ -629,11 +642,11 @@ func _create_pvp_player_bar() -> void:
 	root_vbox.offset_top = 10.0
 	root_vbox.offset_right = -12.0
 	root_vbox.offset_bottom = -10.0
-	root_vbox.theme_override_constants.separation = 8
+	root_vbox.add_theme_constant_override("separation", 8)
 	pvp_player_bar.add_child(root_vbox)
 
 	var info_row: HBoxContainer = HBoxContainer.new()
-	info_row.theme_override_constants.separation = 18
+	info_row.add_theme_constant_override("separation", 18)
 	root_vbox.add_child(info_row)
 
 	# 头像框（64x64）
@@ -648,7 +661,7 @@ func _create_pvp_player_bar() -> void:
 
 	var info_box: VBoxContainer = VBoxContainer.new()
 	info_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	info_box.theme_override_constants.separation = 6
+	info_box.add_theme_constant_override("separation", 6)
 	info_row.add_child(info_box)
 
 	var hero_avatar: TextureRect = TextureRect.new()
@@ -676,7 +689,7 @@ func _create_pvp_player_bar() -> void:
 	info_box.add_child(pvp_player_meta_label)
 
 	var skills_box: HBoxContainer = HBoxContainer.new()
-	skills_box.theme_override_constants.separation = 8
+	skills_box.add_theme_constant_override("separation", 8)
 	info_box.add_child(skills_box)
 	pvp_player_skill_labels.clear()
 	for skill_index in range(3):
@@ -685,7 +698,7 @@ func _create_pvp_player_bar() -> void:
 		pvp_player_skill_labels.append(skill_label)
 
 	var action_bar: HBoxContainer = HBoxContainer.new()
-	action_bar.theme_override_constants.separation = 12
+	action_bar.add_theme_constant_override("separation", 12)
 	root_vbox.add_child(action_bar)
 
 	pvp_auto_battle_check = CheckButton.new()
@@ -747,7 +760,7 @@ func _update_pvp_player_hand() -> void:
 		content_vbox.offset_top = 66.0
 		content_vbox.offset_right = -6.0
 		content_vbox.offset_bottom = -6.0
-		content_vbox.theme_override_constants.separation = 1
+		content_vbox.add_theme_constant_override("separation", 1)
 		card_panel.add_child(content_vbox)
 
 		var name_label: Label = Label.new()
@@ -795,31 +808,36 @@ func _update_pvp_opponent_hand() -> void:
 		child.queue_free()
 
 	if current_monster == null:
+		_add_empty_opponent_slots(PVP_OPPONENT_SLOT_COUNT)
 		return
 
 	if current_monster.monster_items.is_empty():
+		_add_empty_opponent_slots(PVP_OPPONENT_SLOT_COUNT)
 		return
 
+	var card_count: int = 0
 	for item_index in range(current_monster.monster_items.size()):
 		var monster_item: Dictionary = current_monster.monster_items[item_index]
 		var item_name: String = str(monster_item.get("name", "物品"))
-		var item_type: int = int(monster_item.get("type", 0))
+		var item_type: int = _get_monster_item_type(monster_item)
 		var item_buy_price: int = int(monster_item.get("buy_price", 0))
 		var item_damage: int = int(monster_item.get("damage", 0))
+		var item_shield: int = int(monster_item.get("shield", 0))
+		var item_heal: int = int(monster_item.get("heal", 0))
 		var item_cooldown: float = float(monster_item.get("cooldown", 0.0))
 
 		var card_panel: Panel = Panel.new()
 		card_panel.custom_minimum_size = PVP_CARD_SIZE
 		card_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		card_panel.add_theme_stylebox_override("panel", _create_opponent_card_style())
+		card_panel.add_theme_stylebox_override("panel", _create_card_front_style(item_type, true))
 		pvp_opponent_hand_container.add_child(card_panel)
+		card_count += 1
 
 		var illustration: ColorRect = _create_illustration_block(item_type)
 		card_panel.add_child(illustration)
 
-		if item_buy_price > 0:
-			var price_badge: Panel = _create_price_badge(item_buy_price)
-			card_panel.add_child(price_badge)
+		var price_badge: Panel = _create_price_badge(item_buy_price)
+		card_panel.add_child(price_badge)
 
 		var content_vbox: VBoxContainer = VBoxContainer.new()
 		content_vbox.name = "ContentVBox"
@@ -828,7 +846,7 @@ func _update_pvp_opponent_hand() -> void:
 		content_vbox.offset_top = 66.0
 		content_vbox.offset_right = -8.0
 		content_vbox.offset_bottom = -8.0
-		content_vbox.theme_override_constants.separation = 4
+		content_vbox.add_theme_constant_override("separation", 4)
 		card_panel.add_child(content_vbox)
 
 		var name_label: Label = Label.new()
@@ -840,7 +858,7 @@ func _update_pvp_opponent_hand() -> void:
 		content_vbox.add_child(name_label)
 
 		var damage_label: Label = Label.new()
-		damage_label.text = "ATK %d" % item_damage
+		damage_label.text = _get_monster_item_stat_text(item_damage, item_shield, item_heal, item_type)
 		damage_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		damage_label.add_theme_font_size_override("font_size", 10)
 		damage_label.add_theme_color_override("font_color", Color(0.94, 0.82, 0.64, 1.0))
@@ -852,6 +870,8 @@ func _update_pvp_opponent_hand() -> void:
 		cooldown_label.add_theme_font_size_override("font_size", 10)
 		cooldown_label.add_theme_color_override("font_color", Color(0.82, 0.90, 1.0, 1.0))
 		content_vbox.add_child(cooldown_label)
+
+	_add_empty_opponent_slots(maxi(PVP_OPPONENT_SLOT_COUNT - card_count, 0))
 
 func _update_pvp_battle_ui() -> void:
 	if pvp_root == null:
@@ -905,8 +925,11 @@ func _update_pvp_battle_ui() -> void:
 				current_monster.monster_items.size()
 			]
 
-	_update_skill_labels(pvp_opponent_skill_labels, _get_monster_skill_names(), false)
+	_update_pvp_opponent_skills()
 	_update_pvp_player_hand_labels()
+
+func _update_pvp_opponent_skills() -> void:
+	_update_skill_labels(pvp_opponent_skill_labels, _get_monster_skill_names(), false)
 
 func _update_pvp_cooldown_overlays() -> void:
 	for card_panel in pvp_player_card_panels:
@@ -1045,7 +1068,7 @@ func _create_shield_ui() -> void:
 	player_shield_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	player_shield_label.visible = false
 	player_shield_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	player_shield_label.add_theme_color_override("font_color", Color(0.75, 0.88, 1.0, 1.0))
+	player_shield_label.add_theme_color_override("font_color", PVP_SHIELD_COLOR)
 	player_area.add_child(player_shield_label)
 
 	_sync_shield_ui_layout()
@@ -1123,12 +1146,13 @@ func _update_hp_bar_color(hp_bar: ProgressBar) -> void:
 	if fill_style == null:
 		return
 
-	if ratio > 0.6:
-		fill_style.bg_color = Color(0.2, 0.75, 0.2, 1.0)
-	elif ratio > 0.3:
-		fill_style.bg_color = Color(0.85, 0.75, 0.2, 1.0)
+	var low_color: Color = Color(0.82, 0.22, 0.22, 1.0)
+	var mid_color: Color = Color(0.90, 0.78, 0.22, 1.0)
+	var high_color: Color = Color(0.20, 0.78, 0.28, 1.0)
+	if ratio >= 0.5:
+		fill_style.bg_color = mid_color.lerp(high_color, (ratio - 0.5) / 0.5)
 	else:
-		fill_style.bg_color = Color(0.8, 0.2, 0.2, 1.0)
+		fill_style.bg_color = low_color.lerp(mid_color, ratio / 0.5)
 
 ## ============ 日志 ============
 
@@ -1235,7 +1259,7 @@ func _create_pvp_tooltip() -> void:
 	style.set_corner_radius_all(8)
 	style.set_content_margin_all(8)
 	pvp_tooltip_panel.add_theme_stylebox_override("panel", style)
-	pvp_tooltip_panel.set_anchor_and_offset_preset(Control.PRESET_TOP_LEFT)
+	pvp_tooltip_panel.set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT)
 
 	pvp_tooltip_label = RichTextLabel.new()
 	pvp_tooltip_label.bbcode_enabled = true
@@ -1355,10 +1379,11 @@ func _create_card_back_style() -> StyleBoxFlat:
 	style.corner_radius_bottom_left = 6
 	return style
 
-func _create_opponent_card_style() -> StyleBoxFlat:
+func _create_card_front_style(item_type: int, opponent: bool = false) -> StyleBoxFlat:
 	var style: StyleBoxFlat = StyleBoxFlat.new()
-	style.bg_color = Color(0.20, 0.18, 0.14, 0.98)
-	style.border_color = Color(0.76, 0.62, 0.34, 1.0)
+	var accent: Color = _get_illustration_color(item_type)
+	style.bg_color = Color(0.20, 0.18, 0.14, 0.98) if opponent else Color(0.16, 0.16, 0.22, 0.98)
+	style.border_color = accent.lerp(Color.WHITE, 0.22)
 	style.set_border_width_all(2)
 	style.set_corner_radius_all(6)
 	return style
@@ -1470,6 +1495,37 @@ func _add_empty_player_slots(empty_count: int) -> void:
 		empty_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		empty_panel.add_theme_stylebox_override("panel", _create_empty_hand_slot_style())
 		pvp_player_hand_container.add_child(empty_panel)
+
+func _add_empty_opponent_slots(empty_count: int) -> void:
+	if pvp_opponent_hand_container == null or empty_count <= 0:
+		return
+
+	for slot_index in range(empty_count):
+		var empty_panel: Panel = Panel.new()
+		empty_panel.custom_minimum_size = PVP_CARD_SIZE
+		empty_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		empty_panel.add_theme_stylebox_override("panel", _create_empty_hand_slot_style())
+		pvp_opponent_hand_container.add_child(empty_panel)
+
+func _get_monster_item_type(monster_item: Dictionary) -> int:
+	if monster_item.has("type"):
+		return int(monster_item.get("type", ItemData.Type.WEAPON))
+	if int(monster_item.get("shield", 0)) > 0:
+		return ItemData.Type.SHIELD
+	if int(monster_item.get("heal", 0)) > 0:
+		return ItemData.Type.HEAL
+	if int(monster_item.get("damage", 0)) > 0:
+		return ItemData.Type.WEAPON
+	return ItemData.Type.UTILITY
+
+func _get_monster_item_stat_text(damage: int, shield: int, heal: int, item_type: int) -> String:
+	if damage > 0:
+		return "ATK %d" % damage
+	if shield > 0:
+		return "Shield %d" % shield
+	if heal > 0:
+		return "Heal %d" % heal
+	return ItemData.Type.keys()[item_type]
 
 func _get_card_colors_by_rarity(rarity: int) -> Dictionary:
 	match rarity:
@@ -1583,7 +1639,7 @@ func _create_pvp_hp_stack() -> Control:
 	shield_label.offset_right = 300.0
 	shield_label.offset_bottom = 26.0
 	shield_label.add_theme_font_size_override("font_size", 9)
-	shield_label.add_theme_color_override("font_color", Color(0.3, 0.6, 1.0, 1.0))
+	shield_label.add_theme_color_override("font_color", PVP_SHIELD_COLOR)
 	hp_stack.add_child(shield_label)
 
 	return hp_stack
@@ -1620,7 +1676,7 @@ func _create_transparent_progress_style() -> StyleBoxFlat:
 
 func _create_shield_fill_style() -> StyleBoxFlat:
 	var style: StyleBoxFlat = StyleBoxFlat.new()
-	style.bg_color = Color(0.3, 0.6, 1.0, 0.7)
+	style.bg_color = Color(PVP_SHIELD_COLOR.r, PVP_SHIELD_COLOR.g, PVP_SHIELD_COLOR.b, 0.85)
 	style.corner_radius_top_left = 6
 	style.corner_radius_top_right = 6
 	style.corner_radius_bottom_right = 6
