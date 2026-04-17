@@ -28,13 +28,21 @@ const PVP_COMBAT_HAND_TOP: float = 0.31
 const PVP_COMBAT_HAND_BOTTOM: float = 0.42
 const PVP_ITEM_BAR_LEFT: float = 0.20
 const PVP_ITEM_BAR_RIGHT: float = 0.80
-const PVP_ITEM_BAR_TOP: float = 0.77
-const PVP_ITEM_BAR_BOTTOM: float = 0.89
+const PVP_ITEM_BAR_TOP: float = 0.73
+const PVP_ITEM_BAR_BOTTOM: float = 0.85
 const PVP_ITEM_SLOT_WIDTH: float = 0.045
 const PVP_ITEM_SLOT_HEIGHT: float = 0.09
 const PVP_TOP_CARD_WIDTH: float = 0.05
 const PVP_TOP_CARD_HEIGHT: float = 0.11
 const PVP_SHOP_CARD_COUNT: int = 5
+const PVP_LEFT_PANEL_INSET_LEFT: float = 0.13
+const PVP_LEFT_PANEL_INSET_RIGHT: float = 0.93
+const PVP_LEFT_PANEL_WINS_TOP: float = 0.06
+const PVP_LEFT_PANEL_WINS_BOTTOM: float = 0.18
+const PVP_LEFT_PANEL_CLOCK_TOP: float = 0.24
+const PVP_LEFT_PANEL_CLOCK_BOTTOM: float = 0.35
+const PVP_CHEST_TOP: float = 0.88
+const PVP_CHEST_BOTTOM: float = 0.98
 const PVP_CLOCK_ICON: String = "res://assets/art/ui/pvp/pvp_clock_icon.png"
 const PVP_AVATAR_FRAME: String = "res://assets/art/ui/pvp/pvp_avatar_frame.png"
 const PVP_HERO_AVATAR: String = "res://assets/art/ui/pvp/pvp_hero_avatar.png"
@@ -456,13 +464,21 @@ func _create_pvp_left_panel() -> void:
 	pvp_left_panel = Control.new()
 	pvp_left_panel.name = "LeftPanel"
 	_set_percent_rect(pvp_left_panel, 0.0, 0.0, PVP_LEFT_PANEL_RIGHT, 1.0)
+	pvp_left_panel.z_index = 5
 	pvp_root.add_child(pvp_left_panel)
 
 	var wins_box: PanelContainer = PanelContainer.new()
 	wins_box.name = "WinsBox"
-	_set_percent_rect(wins_box, 0.02, 0.06, 0.14, 0.18)
+	_set_percent_rect(
+		wins_box,
+		PVP_LEFT_PANEL_INSET_LEFT,
+		PVP_LEFT_PANEL_WINS_TOP,
+		PVP_LEFT_PANEL_INSET_RIGHT,
+		PVP_LEFT_PANEL_WINS_BOTTOM
+	)
 	wins_box.add_theme_stylebox_override("panel", _create_panel_style(Color(0.23, 0.20, 0.14, 0.96), Color(0.84, 0.72, 0.40, 1.0)))
-	pvp_root.add_child(wins_box)
+	wins_box.z_index = 6
+	pvp_left_panel.add_child(wins_box)
 
 	var wins_center: CenterContainer = CenterContainer.new()
 	wins_center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -477,9 +493,16 @@ func _create_pvp_left_panel() -> void:
 
 	var clock_box: PanelContainer = PanelContainer.new()
 	clock_box.name = "ClockBox"
-	_set_percent_rect(clock_box, 0.02, 0.24, 0.14, 0.35)
+	_set_percent_rect(
+		clock_box,
+		PVP_LEFT_PANEL_INSET_LEFT,
+		PVP_LEFT_PANEL_CLOCK_TOP,
+		PVP_LEFT_PANEL_INSET_RIGHT,
+		PVP_LEFT_PANEL_CLOCK_BOTTOM
+	)
 	clock_box.add_theme_stylebox_override("panel", _create_panel_style(Color(0.14, 0.16, 0.20, 0.96), Color(0.55, 0.60, 0.72, 1.0)))
-	pvp_root.add_child(clock_box)
+	clock_box.z_index = 6
+	pvp_left_panel.add_child(clock_box)
 
 	var clock_vbox: VBoxContainer = VBoxContainer.new()
 	clock_vbox.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -648,7 +671,7 @@ func _create_pvp_player_bar() -> void:
 
 	var chest_box: PanelContainer = PanelContainer.new()
 	chest_box.name = "ChestBox"
-	_set_percent_rect(chest_box, 0.03, 0.84, 0.09, 0.94)
+	_set_percent_rect(chest_box, 0.03, PVP_CHEST_TOP, 0.09, PVP_CHEST_BOTTOM)
 	chest_box.add_theme_stylebox_override("panel", _create_panel_style(Color(0.32, 0.20, 0.08, 0.98), Color(0.78, 0.56, 0.22, 1.0)))
 	pvp_root.add_child(chest_box)
 
@@ -741,10 +764,11 @@ func _update_pvp_player_hand() -> void:
 		content_vbox.name = "ContentVBox"
 		content_vbox.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 		content_vbox.offset_left = 6.0
-		content_vbox.offset_top = 66.0
+		content_vbox.offset_top = 64.0
 		content_vbox.offset_right = -6.0
 		content_vbox.offset_bottom = -6.0
-		content_vbox.add_theme_constant_override("separation", 1)
+		content_vbox.alignment = BoxContainer.ALIGNMENT_CENTER
+		content_vbox.add_theme_constant_override("separation", 2)
 		card_panel.add_child(content_vbox)
 
 		var name_label: Label = Label.new()
@@ -752,6 +776,7 @@ func _update_pvp_player_hand() -> void:
 		name_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		name_label.clip_text = true
 		name_label.max_lines_visible = 1
+		name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		name_label.add_theme_font_size_override("font_size", 11)
 		name_label.add_theme_color_override("font_color", Color.WHITE)
 		name_label.add_theme_color_override("font_outline_color", Color(0.0, 0.0, 0.0, 0.55))
@@ -763,6 +788,7 @@ func _update_pvp_player_hand() -> void:
 		stat_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		stat_label.clip_text = true
 		stat_label.max_lines_visible = 1
+		stat_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		stat_label.add_theme_font_size_override("font_size", 10)
 		stat_label.add_theme_color_override("font_color", Color(0.85, 0.85, 0.9, 1.0))
 		content_vbox.add_child(stat_label)
@@ -773,6 +799,7 @@ func _update_pvp_player_hand() -> void:
 		cooldown_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		cooldown_label.clip_text = true
 		cooldown_label.max_lines_visible = 1
+		cooldown_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		cooldown_label.add_theme_font_size_override("font_size", 10)
 		cooldown_label.add_theme_color_override("font_color", Color(0.86, 0.90, 1.0, 1.0))
 		content_vbox.add_child(cooldown_label)
@@ -940,10 +967,11 @@ func _create_static_item_card(item_data: ItemData, opponent: bool) -> Panel:
 	content_vbox.name = "ContentVBox"
 	content_vbox.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	content_vbox.offset_left = 6.0
-	content_vbox.offset_top = 66.0
+	content_vbox.offset_top = 64.0
 	content_vbox.offset_right = -6.0
 	content_vbox.offset_bottom = -6.0
-	content_vbox.add_theme_constant_override("separation", 1)
+	content_vbox.alignment = BoxContainer.ALIGNMENT_CENTER
+	content_vbox.add_theme_constant_override("separation", 2)
 	card_panel.add_child(content_vbox)
 
 	var name_label: Label = Label.new()
@@ -951,6 +979,7 @@ func _create_static_item_card(item_data: ItemData, opponent: bool) -> Panel:
 	name_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	name_label.clip_text = true
 	name_label.max_lines_visible = 1
+	name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	name_label.add_theme_font_size_override("font_size", 11)
 	name_label.add_theme_color_override("font_color", Color.WHITE)
 	content_vbox.add_child(name_label)
@@ -960,6 +989,7 @@ func _create_static_item_card(item_data: ItemData, opponent: bool) -> Panel:
 	stat_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	stat_label.clip_text = true
 	stat_label.max_lines_visible = 1
+	stat_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	stat_label.add_theme_font_size_override("font_size", 10)
 	stat_label.add_theme_color_override("font_color", Color(0.85, 0.85, 0.9, 1.0))
 	content_vbox.add_child(stat_label)
@@ -1778,7 +1808,7 @@ func _create_card_cooldown_overlay(item_data: ItemData) -> ColorRect:
 	timer_label.add_theme_font_size_override("font_size", 15)
 	timer_label.add_theme_color_override("font_color", Color.WHITE)
 	timer_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	timer_label.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
+	timer_label.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	overlay.add_child(timer_label)
 
 	_update_card_cooldown_overlay(overlay, item_data)
