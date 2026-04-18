@@ -713,11 +713,15 @@ func _advance_test_state() -> void:
 func _create_item_bar_layer() -> void:
 	item_bar_layer = Control.new()
 	item_bar_layer.name = "ItemBarLayer"
-	item_bar_layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	item_bar_layer.offset_left = -960.0
-	item_bar_layer.offset_top = 486.0
-	item_bar_layer.offset_right = 960.0
-	item_bar_layer.offset_bottom = 864.0
+	# 使用 anchors 定位，确保不受视口大小影响
+	item_bar_layer.anchor_top = 0.45
+	item_bar_layer.anchor_bottom = 0.80
+	item_bar_layer.anchor_left = 0.0
+	item_bar_layer.anchor_right = 1.0
+	item_bar_layer.offset_left = 0.0
+	item_bar_layer.offset_top = 0.0
+	item_bar_layer.offset_right = 0.0
+	item_bar_layer.offset_bottom = 0.0
 	item_bar_layer.z_index = 10
 	item_bar_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	item_bar_layer.visible = false
@@ -725,17 +729,20 @@ func _create_item_bar_layer() -> void:
 
 	var bg: ColorRect = ColorRect.new()
 	bg.name = "ItemBarBackground"
-	bg.color = Color(0.1, 0.1, 0.15, 0.8)
+	bg.color = Color(0.1, 0.1, 0.15, 0.9)
 	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	item_bar_layer.add_child(bg)
 
 	var slots_container: HBoxContainer = HBoxContainer.new()
 	slots_container.name = "SlotsContainer"
-	slots_container.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	slots_container.offset_left = -540.0
-	slots_container.offset_top = 10.0
-	slots_container.offset_right = 540.0
-	slots_container.offset_bottom = -10.0
+	slots_container.anchor_top = 0.0
+	slots_container.anchor_bottom = 1.0
+	slots_container.anchor_left = 0.05
+	slots_container.anchor_right = 0.95
+	slots_container.offset_left = 0.0
+	slots_container.offset_top = 0.0
+	slots_container.offset_right = 0.0
+	slots_container.offset_bottom = 0.0
 	slots_container.alignment = BoxContainer.ALIGNMENT_CENTER
 	slots_container.custom_minimum_size = Vector2(0.0, 100.0)
 	item_bar_layer.add_child(slots_container)
@@ -758,23 +765,38 @@ func _create_item_bar_layer() -> void:
 func _create_hero_bar_layer() -> void:
 	hero_bar_layer = Control.new()
 	hero_bar_layer.name = "HeroBarLayer"
-	hero_bar_layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	hero_bar_layer.offset_left = -960.0
-	hero_bar_layer.offset_top = 864.0
-	hero_bar_layer.offset_right = 960.0
-	hero_bar_layer.offset_bottom = 1080.0
+	# 使用 anchors 定位，Y:80%-100%，不受视口大小影响
+	hero_bar_layer.anchor_top = 0.80
+	hero_bar_layer.anchor_bottom = 1.0
+	hero_bar_layer.anchor_left = 0.0
+	hero_bar_layer.anchor_right = 1.0
+	hero_bar_layer.offset_left = 0.0
+	hero_bar_layer.offset_top = 0.0
+	hero_bar_layer.offset_right = 0.0
+	hero_bar_layer.offset_bottom = 0.0
 	hero_bar_layer.z_index = 10
 	hero_bar_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	hero_bar_layer.visible = false
 	add_child(hero_bar_layer)
 
+	# 底部实色背景，确保可见
+	var bg: ColorRect = ColorRect.new()
+	bg.name = "HeroBarBackground"
+	bg.color = Color(0.08, 0.08, 0.12, 0.95)
+	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	hero_bar_layer.add_child(bg)
+
+	# HP条（左上角，Y:0-30%）
 	var hp_bar: ProgressBar = ProgressBar.new()
 	hp_bar.name = "HPBar"
-	hp_bar.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	hp_bar.offset_left = -920.0
-	hp_bar.offset_top = 20.0
-	hp_bar.offset_right = -260.0
-	hp_bar.offset_bottom = 100.0
+	hp_bar.anchor_top = 0.0
+	hp_bar.anchor_bottom = 0.5
+	hp_bar.anchor_left = 0.0
+	hp_bar.anchor_right = 0.3
+	hp_bar.offset_left = 0.0
+	hp_bar.offset_top = 0.0
+	hp_bar.offset_right = 0.0
+	hp_bar.offset_bottom = 0.0
 	hp_bar.max_value = 100.0
 	hp_bar.value = 100.0
 	hero_bar_layer.add_child(hp_bar)
@@ -793,38 +815,33 @@ func _create_hero_bar_layer() -> void:
 	hp_bar.add_child(hp_label)
 	hero_bar_hp_label = hp_label
 
+	# 金币Label（右上角）
 	var gold_label: Label = Label.new()
 	gold_label.name = "GoldLabel"
-	gold_label.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	gold_label.offset_left = -150.0
-	gold_label.offset_top = 40.0
-	gold_label.offset_right = 150.0
-	gold_label.offset_bottom = 100.0
+	gold_label.anchor_top = 0.0
+	gold_label.anchor_bottom = 0.5
+	gold_label.anchor_left = 0.7
+	gold_label.anchor_right = 1.0
+	gold_label.offset_left = 0.0
+	gold_label.offset_top = 0.0
+	gold_label.offset_right = 0.0
+	gold_label.offset_bottom = 0.0
 	gold_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	gold_label.text = "💰 %d" % GameManager.gold
 	hero_bar_layer.add_child(gold_label)
 	hero_bar_gold_label = gold_label
 
-	var chest_button: Control = Control.new()
-	chest_button.name = "ChestButton"
-	chest_button.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	chest_button.offset_left = 760.0
-	chest_button.offset_top = 30.0
-	chest_button.offset_right = 860.0
-	chest_button.offset_bottom = 110.0
-	chest_button.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	hero_bar_layer.add_child(chest_button)
-	hero_bar_chest_button = chest_button
-
-	# ===== P1: HeroBar 头像 + 被动技能图标 =====
-	# 角色头像 TextureRect（X:34%, Y:82%, 宽5%≈96px, 高10%≈108px）
+	# 角色头像（中央偏左）
 	var avatar: TextureRect = TextureRect.new()
 	avatar.name = "HeroAvatar"
-	avatar.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	avatar.offset_left = 652
-	avatar.offset_top = 20
-	avatar.offset_right = 748
-	avatar.offset_bottom = 128
+	avatar.anchor_top = 0.0
+	avatar.anchor_bottom = 1.0
+	avatar.anchor_left = 0.32
+	avatar.anchor_right = 0.42
+	avatar.offset_left = 0.0
+	avatar.offset_top = 0.0
+	avatar.offset_right = 0.0
+	avatar.offset_bottom = 0.0
 	avatar.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	avatar.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	var avatar_path = "res://assets/art/ui/pvp/pvp_hero_avatar.png"
@@ -838,20 +855,23 @@ func _create_hero_bar_layer() -> void:
 			avatar.texture = avatar_tex
 	hero_bar_layer.add_child(avatar)
 
-	# 3个被动技能图标（X:55%/59%/63%, Y:83%, 宽3%≈58px, 高6%≈65px）
-	var passive_positions = [1056, 1132, 1208]
+	# 3个被动技能图标（右侧）
+	var passive_anchors = [0.55, 0.60, 0.65]
 	for idx in range(3):
 		var passive_icon: TextureRect = TextureRect.new()
 		passive_icon.name = "Passive_%d" % idx
-		passive_icon.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-		passive_icon.offset_left = passive_positions[idx]
-		passive_icon.offset_top = 20
-		passive_icon.offset_right = passive_positions[idx] + 58
-		passive_icon.offset_bottom = 85
+		passive_icon.anchor_top = 0.0
+		passive_icon.anchor_bottom = 0.7
+		passive_icon.anchor_left = passive_anchors[idx]
+		passive_icon.anchor_right = passive_anchors[idx] + 0.04
+		passive_icon.offset_left = 0.0
+		passive_icon.offset_top = 0.0
+		passive_icon.offset_right = 0.0
+		passive_icon.offset_bottom = 0.0
 		passive_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		passive_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		var placeholder = StyleBoxFlat.new()
-		placeholder.bg_color = Color(0.3, 0.3, 0.4, 0.8)
+		placeholder.bg_color = Color(0.3, 0.3, 0.5, 0.9)
 		placeholder.set_corner_radius_all(4)
 		passive_icon.add_theme_stylebox_override("panel", placeholder)
 		hero_bar_layer.add_child(passive_icon)
