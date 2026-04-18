@@ -395,6 +395,11 @@ func _start_battle() -> void:
 
 	_hide_event_panel()
 	battle_ui.visible = true
+	# 确保底部常驻层在进入战斗时可见
+	if item_bar_layer:
+		item_bar_layer.visible = true
+	if hero_bar_layer:
+		hero_bar_layer.visible = true
 	battle_ui.start_battle(null, false, 0)
 
 	if not battle_ui.battle_ended.is_connected(_on_battle_ended):
@@ -409,6 +414,11 @@ func _start_pvp_battle() -> void:
 
 	_hide_event_panel()
 	battle_ui.visible = true
+	# 确保底部常驻层在进入战斗时可见
+	if item_bar_layer:
+		item_bar_layer.visible = true
+	if hero_bar_layer:
+		hero_bar_layer.visible = true
 
 	var enemy_bonus = randi() % 5 + 1
 	battle_ui.start_battle(null, true, enemy_bonus)
@@ -688,7 +698,7 @@ func _advance_test_state() -> void:
 func _create_item_bar_layer() -> void:
 	item_bar_layer = Control.new()
 	item_bar_layer.name = "ItemBarLayer"
-	item_bar_layer.set_anchors_and_offsets_preset(Control.PRESET_CENTER_WIDE)
+	item_bar_layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	item_bar_layer.offset_left = -960.0
 	item_bar_layer.offset_top = 486.0
 	item_bar_layer.offset_right = 960.0
@@ -706,7 +716,7 @@ func _create_item_bar_layer() -> void:
 
 	var slots_container: HBoxContainer = HBoxContainer.new()
 	slots_container.name = "SlotsContainer"
-	slots_container.set_anchors_and_offsets_preset(Control.PRESET_CENTER_WIDE)
+	slots_container.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	slots_container.offset_left = -540.0
 	slots_container.offset_top = 10.0
 	slots_container.offset_right = 540.0
@@ -733,7 +743,7 @@ func _create_item_bar_layer() -> void:
 func _create_hero_bar_layer() -> void:
 	hero_bar_layer = Control.new()
 	hero_bar_layer.name = "HeroBarLayer"
-	hero_bar_layer.set_anchors_and_offsets_preset(Control.PRESET_CENTER_WIDE)
+	hero_bar_layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	hero_bar_layer.offset_left = -960.0
 	hero_bar_layer.offset_top = 864.0
 	hero_bar_layer.offset_right = 960.0
@@ -745,7 +755,7 @@ func _create_hero_bar_layer() -> void:
 
 	var hp_bar: ProgressBar = ProgressBar.new()
 	hp_bar.name = "HPBar"
-	hp_bar.set_anchors_and_offsets_preset(Control.PRESET_CENTER_WIDE)
+	hp_bar.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	hp_bar.offset_left = -920.0
 	hp_bar.offset_top = 20.0
 	hp_bar.offset_right = -260.0
@@ -770,7 +780,7 @@ func _create_hero_bar_layer() -> void:
 
 	var gold_label: Label = Label.new()
 	gold_label.name = "GoldLabel"
-	gold_label.set_anchors_and_offsets_preset(Control.PRESET_CENTER_WIDE)
+	gold_label.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	gold_label.offset_left = -150.0
 	gold_label.offset_top = 40.0
 	gold_label.offset_right = 150.0
@@ -782,7 +792,7 @@ func _create_hero_bar_layer() -> void:
 
 	var chest_button: Control = Control.new()
 	chest_button.name = "ChestButton"
-	chest_button.set_anchors_and_offsets_preset(Control.PRESET_CENTER_WIDE)
+	chest_button.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	chest_button.offset_left = 760.0
 	chest_button.offset_top = 30.0
 	chest_button.offset_right = 860.0
