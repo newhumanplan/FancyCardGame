@@ -9,12 +9,13 @@ const EventManagerClass = preload("res://scripts/data/event_manager.gd")
 const PassiveSkillDataClass = preload("res://scripts/data/passive_skill.gd")
 const EndingManagerClass = preload("res://scripts/data/ending_manager.gd")
 
-## 底部常驻层引用（Y: 50%~100%），三场景共享
-var bottom_resident_layer: Control = null
-var bottom_hp_bar: ProgressBar = null
-var bottom_hp_label: Label = null
-var bottom_gold_label: Label = null
-var bottom_chest_icon: Control = null
+## 底部常驻层引用（三层布局共享）
+var item_bar_layer: Control = null
+var hero_bar_layer: Control = null
+var hero_bar_hp_bar: ProgressBar = null
+var hero_bar_hp_label: Label = null
+var hero_bar_gold_label: Label = null
+var hero_bar_chest_button: Control = null
 
 ## 事件管理器
 var event_manager = EventManagerClass.new()
@@ -90,7 +91,8 @@ func _ready() -> void:
 	_show_hero_selection()
 	_hide_game_buttons()
 	_update_ui()
-	_create_bottom_resident_layer()
+	_create_item_bar_layer()
+	_create_hero_bar_layer()
 	print("大巴扎游戏初始化完成")
 
 ## ============ 信号连接 ============
@@ -228,8 +230,10 @@ func _on_game_started() -> void:
 
 ## 显示事件选择面板
 func _show_event_panel() -> void:
-	if bottom_resident_layer:
-		bottom_resident_layer.visible = true
+	if item_bar_layer:
+		item_bar_layer.visible = true
+	if hero_bar_layer:
+		hero_bar_layer.visible = true
 	event_panel.visible = true
 
 ## 隐藏事件选择面板
@@ -316,8 +320,10 @@ func _open_shop_ui() -> void:
 	if inventory_ui and inventory_ui.has_method("get_inventory"):
 		var inventory = inventory_ui.get_inventory()
 		_write_debug("inventory: " + str(inventory))
-		if bottom_resident_layer:
-			bottom_resident_layer.visible = true
+		if item_bar_layer:
+			item_bar_layer.visible = true
+		if hero_bar_layer:
+			hero_bar_layer.visible = true
 		shop_ui.visible = true
 		shop_ui.show_shop(inventory)
 		if not shop_ui.shop_closed.is_connected(_on_shop_closed):
@@ -510,8 +516,8 @@ func _get_item_count() -> int:
 
 func _on_gold_changed(amount: int) -> void:
 	gold_label.text = "金币: %d" % GameManager.gold
-	if bottom_gold_label != null:
-		bottom_gold_label.text = "金币: %d" % GameManager.gold
+	if hero_bar_gold_label != null:
+		hero_bar_gold_label.text = "💰 %d" % GameManager.gold
 
 func _on_day_changed(day: int) -> void:
 	day_label.text = "Day %d" % day
@@ -523,11 +529,11 @@ func _on_hour_changed(hour: int, phase_name: String) -> void:
 func _on_health_changed(amount: int) -> void:
 	var max_hp = GameManager.get_max_health()
 	hp_label.text = "HP: %d/%d" % [amount, max_hp]
-	if bottom_hp_bar != null:
-		bottom_hp_bar.max_value = max_hp
-		bottom_hp_bar.value = amount
-	if bottom_hp_label != null:
-		bottom_hp_label.text = "%d/%d" % [amount, max_hp]
+	if hero_bar_hp_bar != null:
+		hero_bar_hp_bar.max_value = max_hp
+		hero_bar_hp_bar.value = amount
+	if hero_bar_hp_label != null:
+		hero_bar_hp_label.text = "%d/%d" % [amount, max_hp]
 
 func _on_prestige_changed(value: int) -> void:
 	prestige_label.text = "Prestige: %d/%d" % [value, GameManager.max_prestige]
@@ -677,92 +683,113 @@ func _advance_test_state() -> void:
 			if has_node("InventoryUI"):
 				$InventoryUI.visible = true
 
-## ============ 底部常驻层 ============
+## ============ ItemBar 层（Y: 45%~80%）============
 
-func _create_bottom_resident_layer() -> void:
-	bottom_resident_layer = Control.new()
-	bottom_resident_layer.name = "BottomResidentLayer"
-	bottom_resident_layer.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
-	bottom_resident_layer.offset_left = -960.0
-	bottom_resident_layer.offset_top = 540.0
-	bottom_resident_layer.offset_right = 960.0
-	bottom_resident_layer.offset_bottom = 1080.0
-	bottom_resident_layer.z_index = 10
-	bottom_resident_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	bottom_resident_layer.visible = false
-	add_child(bottom_resident_layer)
+func _create_item_bar_layer() -> void:
+	item_bar_layer = Control.new()
+	item_bar_layer.name = "ItemBarLayer"
+	item_bar_layer.set_anchors_and_offsets_preset(Control.PRESET_CENTER_WIDE)
+	item_bar_layer.offset_left = -960.0
+	item_bar_layer.offset_top = 486.0
+	item_bar_layer.offset_right = 960.0
+	item_bar_layer.offset_bottom = 864.0
+	item_bar_layer.z_index = 10
+	item_bar_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	item_bar_layer.visible = false
+	add_child(item_bar_layer)
 
-	_create_bottom_hp_bar()
-	_create_bottom_gold()
+	var bg: ColorRect = ColorRect.new()
+	bg.name = "ItemBarBackground"
+	bg.color = Color(0.1, 0.1, 0.15, 0.8)
+	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	item_bar_layer.add_child(bg)
+
+	var slots_container: HBoxContainer = HBoxContainer.new()
+	slots_container.name = "SlotsContainer"
+	slots_container.set_anchors_and_offsets_preset(Control.PRESET_CENTER_WIDE)
+	slots_container.offset_left = -540.0
+	slots_container.offset_top = 10.0
+	slots_container.offset_right = 540.0
+	slots_container.offset_bottom = -10.0
+	slots_container.alignment = BoxContainer.ALIGNMENT_CENTER
+	slots_container.custom_minimum_size = Vector2(0.0, 100.0)
+	item_bar_layer.add_child(slots_container)
+
+	for i in range(10):
+		var slot: Panel = Panel.new()
+		slot.name = "Slot_%d" % i
+		slot.custom_minimum_size = Vector2(90.0, 100.0)
+		slot.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		var style: StyleBoxFlat = StyleBoxFlat.new()
+		style.bg_color = Color(0.2, 0.2, 0.3, 0.9)
+		style.set_border_width_all(1)
+		style.border_color = Color(0.4, 0.4, 0.5, 0.5)
+		style.set_corner_radius_all(4)
+		slot.add_theme_stylebox_override("panel", style)
+		slots_container.add_child(slot)
+
+## ============ HeroBar 层（Y: 80%~100%）============
+
+func _create_hero_bar_layer() -> void:
+	hero_bar_layer = Control.new()
+	hero_bar_layer.name = "HeroBarLayer"
+	hero_bar_layer.set_anchors_and_offsets_preset(Control.PRESET_CENTER_WIDE)
+	hero_bar_layer.offset_left = -960.0
+	hero_bar_layer.offset_top = 864.0
+	hero_bar_layer.offset_right = 960.0
+	hero_bar_layer.offset_bottom = 1080.0
+	hero_bar_layer.z_index = 10
+	hero_bar_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	hero_bar_layer.visible = false
+	add_child(hero_bar_layer)
+
+	var hp_bar: ProgressBar = ProgressBar.new()
+	hp_bar.name = "HPBar"
+	hp_bar.set_anchors_and_offsets_preset(Control.PRESET_CENTER_WIDE)
+	hp_bar.offset_left = -920.0
+	hp_bar.offset_top = 20.0
+	hp_bar.offset_right = -260.0
+	hp_bar.offset_bottom = 100.0
+	hp_bar.max_value = 100.0
+	hp_bar.value = 100.0
+	hero_bar_layer.add_child(hp_bar)
+	hero_bar_hp_bar = hp_bar
+
+	var hp_label: Label = Label.new()
+	hp_label.name = "HPLabel"
+	hp_label.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	hp_label.offset_left = 0.0
+	hp_label.offset_top = 0.0
+	hp_label.offset_right = 0.0
+	hp_label.offset_bottom = 0.0
+	hp_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	hp_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	hp_label.text = "%d/%d" % [GameManager.player_health, GameManager.get_max_health()]
+	hp_bar.add_child(hp_label)
+	hero_bar_hp_label = hp_label
+
+	var gold_label: Label = Label.new()
+	gold_label.name = "GoldLabel"
+	gold_label.set_anchors_and_offsets_preset(Control.PRESET_CENTER_WIDE)
+	gold_label.offset_left = -150.0
+	gold_label.offset_top = 40.0
+	gold_label.offset_right = 150.0
+	gold_label.offset_bottom = 100.0
+	gold_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	gold_label.text = "💰 %d" % GameManager.gold
+	hero_bar_layer.add_child(gold_label)
+	hero_bar_gold_label = gold_label
+
+	var chest_button: Control = Control.new()
+	chest_button.name = "ChestButton"
+	chest_button.set_anchors_and_offsets_preset(Control.PRESET_CENTER_WIDE)
+	chest_button.offset_left = 760.0
+	chest_button.offset_top = 30.0
+	chest_button.offset_right = 860.0
+	chest_button.offset_bottom = 110.0
+	chest_button.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	hero_bar_layer.add_child(chest_button)
+	hero_bar_chest_button = chest_button
+
 	_on_health_changed(GameManager.player_health)
 	_on_gold_changed(GameManager.gold)
-
-func _create_bottom_hp_bar() -> void:
-	var container: Control = Control.new()
-	container.name = "BottomHPContainer"
-	container.set_anchors_and_offsets_preset(Control.PRESET_CENTER_WIDE)
-	container.offset_left = -480.0
-	container.offset_top = 0.0
-	container.offset_right = 480.0
-	container.offset_bottom = 50.0
-	container.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	bottom_resident_layer.add_child(container)
-
-	var bar: ProgressBar = ProgressBar.new()
-	bar.name = "HPBar"
-	bar.set_anchors_and_offsets_preset(Control.PRESET_CENTER_WIDE)
-	bar.offset_left = -240.0
-	bar.offset_top = 0.0
-	bar.offset_right = 240.0
-	bar.offset_bottom = 30.0
-	bar.max_value = 100.0
-	bar.value = 100.0
-	bar.custom_minimum_size = Vector2(480.0, 30.0)
-	container.add_child(bar)
-	bottom_hp_bar = bar
-
-	var label: Label = Label.new()
-	label.name = "HPText"
-	label.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
-	label.offset_left = -50.0
-	label.offset_top = 0.0
-	label.offset_right = 50.0
-	label.offset_bottom = 30.0
-	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	label.text = "100/100"
-	bar.add_child(label)
-	bottom_hp_label = label
-
-func _create_bottom_gold() -> void:
-	var gold_container: Control = Control.new()
-	gold_container.name = "BottomGoldContainer"
-	gold_container.set_anchors_and_offsets_preset(Control.PRESET_CENTER_WIDE)
-	gold_container.offset_left = 500.0
-	gold_container.offset_top = 0.0
-	gold_container.offset_right = 900.0
-	gold_container.offset_bottom = 50.0
-	gold_container.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	bottom_resident_layer.add_child(gold_container)
-
-	var label: Label = Label.new()
-	label.name = "GoldLabel"
-	label.set_anchors_and_offsets_preset(Control.PRESET_CENTER_WIDE)
-	label.offset_left = 0.0
-	label.offset_top = 0.0
-	label.offset_right = 400.0
-	label.offset_bottom = 50.0
-	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	label.text = "金币: %d" % GameManager.gold
-	gold_container.add_child(label)
-	bottom_gold_label = label
-
-	var chest: Control = Control.new()
-	chest.name = "ChestIcon"
-	chest.set_anchors_and_offsets_preset(Control.PRESET_CENTER_WIDE)
-	chest.offset_left = 410.0
-	chest.offset_top = 5.0
-	chest.offset_right = 470.0
-	chest.offset_bottom = 55.0
-	chest.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	gold_container.add_child(chest)
-	bottom_chest_icon = chest
