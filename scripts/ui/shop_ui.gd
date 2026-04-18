@@ -15,9 +15,8 @@ const LinearInventoryClass = preload("res://scripts/data/linear_inventory.gd")
 @onready var panel: PanelContainer = $Panel
 @onready var title_label: Label = $Panel/VBox/TitleLabel
 @onready var shop_items_container: HBoxContainer = $Panel/VBox/ShopItemsContainer
-@onready var close_button: Button = $Panel/VBox/ButtonsBar/CloseButton
-@onready var buttons_bar: HBoxContainer = $Panel/VBox/ButtonsBar
-@onready var gold_label: Label = $Panel/VBox/GoldLabel
+@onready var close_button: Button = $Panel/VBox/BottomBar/CloseBtn
+@onready var refresh_button: Button = $Panel/VBox/BottomBar/RefreshBtn
 
 ## 商店物品列表
 var shop_items: Array[ItemData] = []
@@ -46,6 +45,8 @@ const RARITY_NAMES: Array[String] = ["普通", "稀有", "史诗", "传说"]
 func _ready() -> void:
 	# 连接关闭按钮
 	close_button.pressed.connect(_on_close_pressed)
+	# 连接刷新按钮
+	refresh_button.pressed.connect(_on_refresh_pressed.bind(refresh_button))
 
 	# 初始隐藏
 	visible = false
@@ -64,7 +65,6 @@ func show_shop(inventory_ref: LinearInventory) -> void:
 	print("  shop_items generated: " + str(shop_items.size()))
 
 	# 更新 UI
-	_update_gold_label()
 	_refresh_shop_items()
 
 	# 显示
@@ -213,25 +213,15 @@ func _refresh_shop_items() -> void:
 	bottom_spacer.custom_minimum_size = Vector2(0, 8)
 	shop_items_container.add_child(bottom_spacer)
 
-	# 刷新按钮（放在 ButtonsBar）
-	# 清除旧刷新按钮
-	for child in buttons_bar.get_children():
-		if child.name == "RefreshBtn":
-			child.queue_free()
-	var refresh_btn = Button.new()
-	refresh_btn.name = "RefreshBtn"
-	refresh_btn.text = "🔄 刷新 (%d金币)" % REFRESH_COST if free_refresh_used else "🔄 免费刷新"
-	refresh_btn.custom_minimum_size = Vector2(140, 40)
-	refresh_btn.pressed.connect(_on_refresh_pressed.bind(refresh_btn))
-	buttons_bar.add_child(refresh_btn)
+	# 刷新按钮已直接在 tscn 中，无需动态创建
 
 ## 创建物品显示面板（返回带背景的Panel卡片）
 func _create_item_display(item: ItemData, idx: int) -> Control:
-	# 外层Panel作为卡片背景
+	# 外层Panel作为卡片背景（固定尺寸）
 	var card_panel = Panel.new()
-	card_panel.custom_minimum_size = Vector2(160, 200)
-	card_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	card_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	card_panel.custom_minimum_size = Vector2(180, 220)
+	card_panel.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	card_panel.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	
 	# 卡片样式
 	var card_style = StyleBoxFlat.new()
@@ -241,10 +231,11 @@ func _create_item_display(item: ItemData, idx: int) -> Control:
 	card_style.set_corner_radius_all(6)
 	card_panel.add_theme_stylebox_override("panel", card_style)
 	
-	# 内层VBox排列内容
+	# 内层VBox排列内容（固定尺寸，不受父容器拉伸影响）
 	var container = VBoxContainer.new()
-	container.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	container.name = "ItemVBox"
 	container.add_theme_constant_override("separation", 4)
+	container.custom_minimum_size = Vector2(140, 180)
 	card_panel.add_child(container)
 
 	# 尝试加载物品图片
@@ -383,10 +374,6 @@ func _get_shop_item_texture_path(item: ItemData) -> String:
 
 	return ""
 
-## 更新金币显示
-func _update_gold_label() -> void:
-	gold_label.text = "当前金币: %d" % GameManager.gold
-
 ## 购买按钮点击
 func _on_buy_pressed(item: ItemData, button: Button) -> void:
 	# 检查金币
@@ -410,7 +397,6 @@ func _on_buy_pressed(item: ItemData, button: Button) -> void:
 		_add_item_to_inventory(item)
 
 		# 刷新显示
-		_update_gold_label()
 		_refresh_shop_items()
 
 		# 发送信号
@@ -476,7 +462,6 @@ func _on_refresh_pressed(refresh_btn: Button) -> void:
 			li += 1
 	locked_indices = new_locked
 
-	_update_gold_label()
 	_refresh_shop_items()
 	print("商店已刷新！锁定了 %d 个物品" % locked_indices.size())
 

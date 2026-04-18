@@ -24,7 +24,7 @@ grow_horizontal = 2
 
 [node name="VBox" type="VBoxContainer" parent="Panel"]
 layout_mode = 2
-theme_override_constants/separation = 12
+theme_override_constants/separation = 8
 
 [node name="TitleLabel" type="Label" parent="Panel/VBox"]
 layout_mode = 2
@@ -33,18 +33,24 @@ horizontal_alignment = 1
 
 [node name="ShopItemsContainer" type="HBoxContainer" parent="Panel/VBox"]
 layout_mode = 2
-size_flags_vertical = 3
+size_flags_horizontal = 1
+size_flags_vertical = 0
 alignment = 1
 
-[node name="GoldLabel" type="Label" parent="Panel/VBox"]
-layout_mode = 2
-text = "当前金币: 0"
-
-[node name="ButtonsBar" type="HBoxContainer" parent="Panel/VBox"]
+[node name="BottomBar" type="HBoxContainer" parent="Panel/VBox"]
 layout_mode = 2
 alignment = 1
 
-[node name="CloseButton" type="Button" parent="Panel/VBox/ButtonsBar"]
+[node name="RefreshBtn" type="Button" parent="Panel/VBox/BottomBar"]
+layout_mode = 2
+size_flags_horizontal = 4
+text = "🔄 刷新"
+
+[node name="Spacer" type="Control" parent="Panel/VBox/BottomBar"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="CloseBtn" type="Button" parent="Panel/VBox/BottomBar"]
 layout_mode = 2
 size_flags_horizontal = 4
 text = "关闭商店"
