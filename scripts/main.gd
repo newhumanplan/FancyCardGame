@@ -699,9 +699,9 @@ func _advance_test_state() -> void:
 		1:
 			_on_warrior_selected()
 		2:
-			if has_node("EventPanel/EventVBox/EventOptions/Option1"):
-				var btn = $EventPanel/EventVBox/EventOptions/Option1
-				btn.pressed.emit()
+			# 第一次必定触发商店（确定性测试）
+			print("[TEST] Forcing shop event for deterministic testing...")
+			_execute_shop_event()
 		3:
 			_auto_advance_hour()
 		4:
