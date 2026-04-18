@@ -225,6 +225,11 @@ func _on_game_started() -> void:
 	_update_ui()
 	print("游戏开始! Day %d, Hour %d - %s" % [GameManager.current_day, GameManager.current_hour, GameManager.get_current_phase_name()])
 	$VBox.visible = true  # 显示游戏主UI
+	# 确保 HeroBar 和 ItemBar 始终可见
+	if item_bar_layer:
+		item_bar_layer.visible = true
+	if hero_bar_layer:
+		hero_bar_layer.visible = true
 
 ## ============ 事件选择系统 ============
 

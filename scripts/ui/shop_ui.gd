@@ -206,7 +206,6 @@ func _refresh_shop_items() -> void:
 			spacer.custom_minimum_size = Vector2(16, 0)
 			shop_items_container.add_child(spacer)
 		var item_display = _create_item_display(shop_items[i], i)
-		item_display.custom_minimum_size = Vector2(160, 200)
 		shop_items_container.add_child(item_display)
 
 	# 底部间距
@@ -226,10 +225,27 @@ func _refresh_shop_items() -> void:
 	refresh_btn.pressed.connect(_on_refresh_pressed.bind(refresh_btn))
 	buttons_bar.add_child(refresh_btn)
 
-## 创建物品显示面板
+## 创建物品显示面板（返回带背景的Panel卡片）
 func _create_item_display(item: ItemData, idx: int) -> Control:
-	var container = HBoxContainer.new()
-	container.custom_minimum_size = Vector2(0, 120)
+	# 外层Panel作为卡片背景
+	var card_panel = Panel.new()
+	card_panel.custom_minimum_size = Vector2(160, 200)
+	card_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	card_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	
+	# 卡片样式
+	var card_style = StyleBoxFlat.new()
+	card_style.bg_color = Color(0.15, 0.15, 0.25, 0.95)
+	card_style.set_border_width_all(1)
+	card_style.border_color = Color(0.4, 0.4, 0.6, 0.8)
+	card_style.set_corner_radius_all(6)
+	card_panel.add_theme_stylebox_override("panel", card_style)
+	
+	# 内层VBox排列内容
+	var container = VBoxContainer.new()
+	container.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	container.add_theme_constant_override("separation", 4)
+	card_panel.add_child(container)
 
 	# 尝试加载物品图片
 	var texture_path = _get_shop_item_texture_path(item)
@@ -316,7 +332,7 @@ func _create_item_display(item: ItemData, idx: int) -> Control:
 
 	container.add_child(buy_vbox)
 
-	return container
+	return card_panel
 
 ## 获取稀有度颜色（4 级系统）
 func _get_rarity_color(rarity: int) -> Color:
