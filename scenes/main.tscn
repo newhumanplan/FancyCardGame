@@ -74,46 +74,6 @@ text = "[采购]"
 layout_mode = 2
 text = "未选择英雄"
 
-[node name="StatsPanel" type="VBoxContainer" parent="."]
-layout_mode = 1
-offset_left = 15.0
-offset_top = 135.0
-offset_right = 300.0
-offset_bottom = 300.0
-
-[node name="HPBarLabel" type="Label" parent="StatsPanel"]
-layout_mode = 2
-text = "HP: 100/100"
-
-[node name="ATKLabel" type="Label" parent="StatsPanel"]
-layout_mode = 2
-text = "ATK: 10"
-
-[node name="DEFLabel" type="Label" parent="StatsPanel"]
-layout_mode = 2
-text = "DEF: 5"
-
-[node name="GoldLabel" type="Label" parent="StatsPanel"]
-layout_mode = 2
-text = "金币: 100"
-
-[node name="PrestigeContainer" type="VBoxContainer" parent="."]
-layout_mode = 1
-offset_left = 15.0
-offset_top = 315.0
-offset_right = 300.0
-offset_bottom = 375.0
-
-[node name="PrestigeLabel" type="Label" parent="PrestigeContainer"]
-layout_mode = 2
-text = "Prestige: 10/100"
-
-[node name="PrestigeBar" type="ProgressBar" parent="PrestigeContainer"]
-layout_mode = 2
-max_value = 1.0
-value = 0.1
-show_percentage = false
-
 [node name="HeroSelectPanel" type="PanelContainer" parent="."]
 visible = false
 layout_mode = 1

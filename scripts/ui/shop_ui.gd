@@ -14,8 +14,9 @@ const LinearInventoryClass = preload("res://scripts/data/linear_inventory.gd")
 ## UI 节点
 @onready var panel: PanelContainer = $Panel
 @onready var title_label: Label = $Panel/VBox/TitleLabel
-@onready var shop_items_container: VBoxContainer = $Panel/VBox/ShopItemsContainer
-@onready var close_button: Button = $Panel/VBox/CloseButton
+@onready var shop_items_container: HBoxContainer = $Panel/VBox/ShopItemsContainer
+@onready var close_button: Button = $Panel/VBox/ButtonsBar/CloseButton
+@onready var buttons_bar: HBoxContainer = $Panel/VBox/ButtonsBar
 @onready var gold_label: Label = $Panel/VBox/GoldLabel
 
 ## 商店物品列表
@@ -193,23 +194,37 @@ func _refresh_shop_items() -> void:
 	for child in shop_items_container.get_children():
 		child.queue_free()
 
-	# 创建每个物品的显示
-	for i in range(shop_items.size()):
+	# 顶部间距
+	var top_spacer = Control.new()
+	top_spacer.custom_minimum_size = Vector2(0, 8)
+	shop_items_container.add_child(top_spacer)
+
+	# 创建每个物品的显示（水平排列，最多5张）
+	for i in range(min(shop_items.size(), 5)):
+		if i > 0:
+			var spacer = Control.new()
+			spacer.custom_minimum_size = Vector2(16, 0)
+			shop_items_container.add_child(spacer)
 		var item_display = _create_item_display(shop_items[i], i)
+		item_display.custom_minimum_size = Vector2(160, 200)
 		shop_items_container.add_child(item_display)
 
-	# 底部按钮栏（刷新）
-	var btn_bar = HBoxContainer.new()
-	btn_bar.alignment = BoxContainer.ALIGNMENT_CENTER
-	btn_bar.add_theme_constant_override("separation", 20)
+	# 底部间距
+	var bottom_spacer = Control.new()
+	bottom_spacer.custom_minimum_size = Vector2(0, 8)
+	shop_items_container.add_child(bottom_spacer)
 
+	# 刷新按钮（放在 ButtonsBar）
+	# 清除旧刷新按钮
+	for child in buttons_bar.get_children():
+		if child.name == "RefreshBtn":
+			child.queue_free()
 	var refresh_btn = Button.new()
+	refresh_btn.name = "RefreshBtn"
 	refresh_btn.text = "🔄 刷新 (%d金币)" % REFRESH_COST if free_refresh_used else "🔄 免费刷新"
 	refresh_btn.custom_minimum_size = Vector2(140, 40)
 	refresh_btn.pressed.connect(_on_refresh_pressed.bind(refresh_btn))
-	btn_bar.add_child(refresh_btn)
-
-	shop_items_container.add_child(btn_bar)
+	buttons_bar.add_child(refresh_btn)
 
 ## 创建物品显示面板
 func _create_item_display(item: ItemData, idx: int) -> Control:

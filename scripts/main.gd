@@ -32,12 +32,12 @@ var _current_event_options: Array[Dictionary] = []
 @onready var hero_label: Label = $TopBar/HeroLabel
 
 ## 属性面板
-@onready var hp_label: Label = $StatsPanel/HPBarLabel
-@onready var atk_label: Label = $StatsPanel/ATKLabel
-@onready var def_label: Label = $StatsPanel/DEFLabel
-@onready var gold_label: Label = $StatsPanel/GoldLabel
-@onready var prestige_label: Label = $PrestigeContainer/PrestigeLabel
-@onready var prestige_bar: ProgressBar = $PrestigeContainer/PrestigeBar
+@onready var hp_label: Label = get_node_or_null("StatsPanel/HPBarLabel")
+@onready var atk_label: Label = get_node_or_null("StatsPanel/ATKLabel")
+@onready var def_label: Label = get_node_or_null("StatsPanel/DEFLabel")
+@onready var gold_label: Label = get_node_or_null("StatsPanel/GoldLabel")
+@onready var prestige_label: Label = get_node_or_null("PrestigeContainer/PrestigeLabel")
+@onready var prestige_bar: ProgressBar = get_node_or_null("PrestigeContainer/PrestigeBar")
 
 ## 英雄选择面板
 @onready var hero_select_panel: PanelContainer = $HeroSelectPanel
@@ -485,7 +485,8 @@ func _update_button_visibility() -> void:
 
 func _update_ui() -> void:
 	# 金币
-	gold_label.text = "金币: %d" % GameManager.gold
+	if gold_label != null:
+		gold_label.text = "金币: %d" % GameManager.gold
 
 	# Day/Hour
 	day_label.text = "Day %d" % GameManager.current_day
@@ -499,19 +500,24 @@ func _update_ui() -> void:
 
 	# 属性
 	var max_hp = GameManager.get_max_health()
-	hp_label.text = "HP: %d/%d" % [GameManager.player_health, max_hp]
+	if hp_label != null:
+		hp_label.text = "HP: %d/%d" % [GameManager.player_health, max_hp]
 	# ATK 标签改为显示暴击率（保持节点引用不变）
-	if GameManager.selected_hero:
-		atk_label.text = "暴击: %.0f%%" % (GameManager.selected_hero.crit_chance * 100)
-	else:
-		atk_label.text = "暴击: 5%"
+	if atk_label != null:
+		if GameManager.selected_hero:
+			atk_label.text = "暴击: %.0f%%" % (GameManager.selected_hero.crit_chance * 100)
+		else:
+			atk_label.text = "暴击: 5%"
 	# DEF 标签改为显示物品数
-	def_label.text = "物品: %d" % _get_item_count()
+	if def_label != null:
+		def_label.text = "物品: %d" % _get_item_count()
 
 	# Prestige
-	prestige_label.text = "Prestige: %d/%d" % [GameManager.prestige, GameManager.max_prestige]
-	prestige_bar.max_value = GameManager.max_prestige
-	prestige_bar.value = GameManager.prestige
+	if prestige_label != null:
+		prestige_label.text = "Prestige: %d/%d" % [GameManager.prestige, GameManager.max_prestige]
+	if prestige_bar != null:
+		prestige_bar.max_value = GameManager.max_prestige
+		prestige_bar.value = GameManager.prestige
 
 	# 回合
 	round_label.text = "回合: %d / 5" % [GameManager.current_hour + 1]
@@ -525,7 +531,8 @@ func _get_item_count() -> int:
 ## ============ 信号回调 ============
 
 func _on_gold_changed(amount: int) -> void:
-	gold_label.text = "金币: %d" % GameManager.gold
+	if gold_label != null:
+		gold_label.text = "金币: %d" % GameManager.gold
 	if hero_bar_gold_label != null:
 		hero_bar_gold_label.text = "💰 %d" % GameManager.gold
 
@@ -538,7 +545,8 @@ func _on_hour_changed(hour: int, phase_name: String) -> void:
 
 func _on_health_changed(amount: int) -> void:
 	var max_hp = GameManager.get_max_health()
-	hp_label.text = "HP: %d/%d" % [amount, max_hp]
+	if hp_label != null:
+		hp_label.text = "HP: %d/%d" % [amount, max_hp]
 	if hero_bar_hp_bar != null:
 		hero_bar_hp_bar.max_value = max_hp
 		hero_bar_hp_bar.value = amount
@@ -546,8 +554,10 @@ func _on_health_changed(amount: int) -> void:
 		hero_bar_hp_label.text = "%d/%d" % [amount, max_hp]
 
 func _on_prestige_changed(value: int) -> void:
-	prestige_label.text = "Prestige: %d/%d" % [value, GameManager.max_prestige]
-	prestige_bar.value = value
+	if prestige_label != null:
+		prestige_label.text = "Prestige: %d/%d" % [value, GameManager.max_prestige]
+	if prestige_bar != null:
+		prestige_bar.value = value
 
 ## 游戏结束回调
 func _on_game_over(won: bool) -> void:
@@ -800,6 +810,46 @@ func _create_hero_bar_layer() -> void:
 	chest_button.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	hero_bar_layer.add_child(chest_button)
 	hero_bar_chest_button = chest_button
+
+	# ===== P1: HeroBar 头像 + 被动技能图标 =====
+	# 角色头像 TextureRect（X:34%, Y:82%, 宽5%≈96px, 高10%≈108px）
+	var avatar: TextureRect = TextureRect.new()
+	avatar.name = "HeroAvatar"
+	avatar.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	avatar.offset_left = 652
+	avatar.offset_top = 20
+	avatar.offset_right = 748
+	avatar.offset_bottom = 128
+	avatar.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	avatar.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	var avatar_path = "res://assets/art/ui/pvp/pvp_hero_avatar.png"
+	if ResourceLoader.exists(avatar_path):
+		avatar.texture = load(avatar_path)
+	else:
+		var avatar_tex = AtlasTexture.new()
+		if ResourceLoader.exists("res://assets/art/ui/pvp/pvp_avatar_frame.png"):
+			avatar_tex.atlas = load("res://assets/art/ui/pvp/pvp_avatar_frame.png")
+			avatar_tex.region = Rect2(0, 0, 64, 64)
+			avatar.texture = avatar_tex
+	hero_bar_layer.add_child(avatar)
+
+	# 3个被动技能图标（X:55%/59%/63%, Y:83%, 宽3%≈58px, 高6%≈65px）
+	var passive_positions = [1056, 1132, 1208]
+	for idx in range(3):
+		var passive_icon: TextureRect = TextureRect.new()
+		passive_icon.name = "Passive_%d" % idx
+		passive_icon.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		passive_icon.offset_left = passive_positions[idx]
+		passive_icon.offset_top = 20
+		passive_icon.offset_right = passive_positions[idx] + 58
+		passive_icon.offset_bottom = 85
+		passive_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		passive_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		var placeholder = StyleBoxFlat.new()
+		placeholder.bg_color = Color(0.3, 0.3, 0.4, 0.8)
+		placeholder.set_corner_radius_all(4)
+		passive_icon.add_theme_stylebox_override("panel", placeholder)
+		hero_bar_layer.add_child(passive_icon)
 
 	_on_health_changed(GameManager.player_health)
 	_on_gold_changed(GameManager.gold)
