@@ -863,12 +863,12 @@ func _update_pvp_opponent_hand() -> void:
 
 	if current_monster == null:
 		_add_empty_opponent_slots(PVP_OPPONENT_SLOT_COUNT)
-		_layout_card_row(pvp_shop_container, PVP_TOP_CARD_WIDTH, PVP_TOP_CARD_HEIGHT, PVP_SHOP_ROW_RIGHT - PVP_SHOP_ROW_LEFT, PVP_SHOP_ROW_BOTTOM - PVP_SHOP_ROW_TOP)
+		_layout_card_row(pvp_shop_container, PVP_TOP_CARD_WIDTH, PVP_TOP_CARD_HEIGHT, PVP_SHOP_ROW_RIGHT - PVP_SHOP_ROW_LEFT, PVP_SHOP_ROW_BOTTOM - PVP_SHOP_ROW_TOP, true)
 		return
 
 	if current_monster.monster_items.is_empty():
 		_add_empty_opponent_slots(PVP_OPPONENT_SLOT_COUNT)
-		_layout_card_row(pvp_shop_container, PVP_TOP_CARD_WIDTH, PVP_TOP_CARD_HEIGHT, PVP_SHOP_ROW_RIGHT - PVP_SHOP_ROW_LEFT, PVP_SHOP_ROW_BOTTOM - PVP_SHOP_ROW_TOP)
+		_layout_card_row(pvp_shop_container, PVP_TOP_CARD_WIDTH, PVP_TOP_CARD_HEIGHT, PVP_SHOP_ROW_RIGHT - PVP_SHOP_ROW_LEFT, PVP_SHOP_ROW_BOTTOM - PVP_SHOP_ROW_TOP, true)
 		return
 
 	var card_count: int = 0
@@ -929,7 +929,7 @@ func _update_pvp_opponent_hand() -> void:
 		content_vbox.add_child(cooldown_label)
 
 	_add_empty_opponent_slots(maxi(PVP_OPPONENT_SLOT_COUNT - card_count, 0))
-	_layout_card_row(pvp_shop_container, PVP_TOP_CARD_WIDTH, PVP_TOP_CARD_HEIGHT, PVP_SHOP_ROW_RIGHT - PVP_SHOP_ROW_LEFT, PVP_SHOP_ROW_BOTTOM - PVP_SHOP_ROW_TOP)
+	_layout_card_row(pvp_shop_container, PVP_TOP_CARD_WIDTH, PVP_TOP_CARD_HEIGHT, PVP_SHOP_ROW_RIGHT - PVP_SHOP_ROW_LEFT, PVP_SHOP_ROW_BOTTOM - PVP_SHOP_ROW_TOP, true)
 
 func _set_percent_rect(control: Control, left: float, top: float, right: float, bottom: float) -> void:
 	if control == null:
@@ -968,7 +968,7 @@ func _layout_skill_slots(skill_container: Control) -> void:
 		_set_percent_rect(skill_label, x_position, 0.08, x_position + slot_width_ratio, 0.08 + slot_height_ratio)
 		x_position += slot_width_ratio + gap_ratio
 
-func _layout_card_row(container: Control, slot_width: float, slot_height: float, region_width: float, region_height: float) -> void:
+func _layout_card_row(container: Control, slot_width: float, slot_height: float, region_width: float, region_height: float, mirrored: bool = false) -> void:
 	if container == null:
 		return
 
@@ -979,15 +979,26 @@ func _layout_card_row(container: Control, slot_width: float, slot_height: float,
 	var card_width_ratio: float = clampf(slot_width / region_width, 0.05, 0.9)
 	var card_height_ratio: float = clampf(slot_height / region_height, 0.3, 0.95)
 	var gap_ratio: float = maxf((1.0 - card_width_ratio * cards.size()) / float(cards.size() + 1), 0.005)
-	var x_position: float = gap_ratio
 	var y_position: float = clampf((1.0 - card_height_ratio) * 0.5, 0.0, 1.0 - card_height_ratio)
 
-	for child in cards:
-		var card: Control = child as Control
-		if card == null:
-			continue
-		_set_percent_rect(card, x_position, y_position, x_position + card_width_ratio, y_position + card_height_ratio)
-		x_position += card_width_ratio + gap_ratio
+	if mirrored:
+		# Mirrored: position from right to left
+		var x_position: float = 1.0 - gap_ratio - card_width_ratio
+		for child in cards:
+			var card: Control = child as Control
+			if card == null:
+				continue
+			_set_percent_rect(card, x_position, y_position, x_position + card_width_ratio, y_position + card_height_ratio)
+			x_position -= card_width_ratio + gap_ratio
+	else:
+		# Normal: position from left to right
+		var x_position: float = gap_ratio
+		for child in cards:
+			var card: Control = child as Control
+			if card == null:
+				continue
+			_set_percent_rect(card, x_position, y_position, x_position + card_width_ratio, y_position + card_height_ratio)
+			x_position += card_width_ratio + gap_ratio
 
 func _create_static_item_card(item_data: ItemData, opponent: bool) -> Panel:
 	var card_panel: Panel = Panel.new()
@@ -1571,7 +1582,7 @@ func _create_shop_card_style(active: bool) -> StyleBoxFlat:
 
 func _create_empty_hand_slot_style() -> StyleBoxFlat:
 	var style: StyleBoxFlat = StyleBoxFlat.new()
-	style.bg_color = Color(0.09, 0.09, 0.14, 0.25)
+	style.bg_color = Color(0.09, 0.09, 0.14, 0.85)
 	style.border_color = Color(
 		PVP_HAND_BORDER_COLOR.r,
 		PVP_HAND_BORDER_COLOR.g,
@@ -1754,7 +1765,7 @@ func _create_pvp_hp_stack() -> Control:
 	hp_text.add_theme_color_override("font_color", Color.WHITE)
 	hp_text.add_theme_color_override("font_outline_color", Color(0.0, 0.0, 0.0, 0.6))
 	hp_text.add_theme_constant_override("outline_size", 2)
-	hp_text.z_index = 3
+	hp_text.z_index = 10
 	hp_stack.add_child(hp_text)
 
 	var hp_bar: ProgressBar = ProgressBar.new()
