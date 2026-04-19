@@ -657,8 +657,11 @@ func _create_pvp_player_bar() -> void:
 	var hero_path := PVP_AVATAR_WARRIOR
 	if GameManager.selected_hero != null and GameManager.selected_hero.hero_type == 1:
 		hero_path = PVP_AVATAR_MAGE
-	if ResourceLoader.exists(hero_path):
-		hero_avatar.texture = load(hero_path)
+	# 直接从PNG文件加载（绕过Godot import系统）
+	if FileAccess.file_exists(ProjectSettings.globalize_path(hero_path)):
+		var img = Image.new()
+		img.load_from_file(ProjectSettings.globalize_path(hero_path))
+		hero_avatar.texture = ImageTexture.create_from_image(img)
 	hero_avatar.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	hero_avatar.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	hero_avatar.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -1844,12 +1847,20 @@ func _create_pvp_shop_card_placeholder() -> Panel:
 	return card
 
 func _add_texture_background(parent: Control, texture_path: String, node_name: String, z_index: int = -1) -> void:
-	if parent == null or texture_path.is_empty() or not ResourceLoader.exists(texture_path):
+	if parent == null or texture_path.is_empty():
 		return
+	# 直接从PNG文件加载（绕过Godot import系统）
+	var os_path = ProjectSettings.globalize_path(texture_path)
+	if not FileAccess.file_exists(os_path):
+		return
+
+	var img = Image.new()
+	img.load_from_file(os_path)
+	var tex = ImageTexture.create_from_image(img)
 
 	var bg_texture: TextureRect = TextureRect.new()
 	bg_texture.name = node_name
-	bg_texture.texture = load(texture_path)
+	bg_texture.texture = tex
 	bg_texture.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	bg_texture.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	bg_texture.mouse_filter = Control.MOUSE_FILTER_IGNORE

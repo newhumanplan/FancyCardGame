@@ -236,10 +236,14 @@ func _create_item_display(item: ItemData, idx: int) -> Control:
 	card_panel.add_theme_stylebox_override("panel", card_style)
 
 	# 使用 Bazaar 风格商品卡背景
-	if ResourceLoader.exists(SHOP_CARD_BG):
+	# 直接从PNG文件加载（绕过Godot import系统）
+	if FileAccess.file_exists(ProjectSettings.globalize_path(SHOP_CARD_BG)):
+		var img = Image.new()
+		img.load_from_file(ProjectSettings.globalize_path(SHOP_CARD_BG))
+		var tex = ImageTexture.create_from_image(img)
 		var card_bg: TextureRect = TextureRect.new()
 		card_bg.name = "CardBackground"
-		card_bg.texture = load(SHOP_CARD_BG)
+		card_bg.texture = tex
 		card_bg.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		card_bg.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		card_bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)

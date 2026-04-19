@@ -849,8 +849,11 @@ func _create_hero_bar_layer() -> void:
 		var ht = GameManager.selected_hero.hero_type
 		if ht == 1:  # MAGE
 			avatar_path = "res://assets/art/ui/ui_avatar_mage.png"
-	if ResourceLoader.exists(avatar_path):
-		avatar.texture = load(avatar_path)
+	if FileAccess.file_exists(ProjectSettings.globalize_path(avatar_path)):
+		var img = Image.new()
+		img.load_from_file(ProjectSettings.globalize_path(avatar_path))
+		var tex = ImageTexture.create_from_image(img)
+		avatar.texture = tex
 	else:
 		var avatar_tex = AtlasTexture.new()
 		if ResourceLoader.exists("res://assets/art/ui/pvp/pvp_avatar_frame.png"):
