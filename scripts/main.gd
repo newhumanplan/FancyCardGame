@@ -849,17 +849,13 @@ func _create_hero_bar_layer() -> void:
 		var ht = GameManager.selected_hero.hero_type
 		if ht == 1:  # MAGE
 			avatar_path = "res://assets/art/ui/ui_avatar_mage.png"
-	if FileAccess.file_exists(ProjectSettings.globalize_path(avatar_path)):
-		var img = Image.new()
-		img.load_from_file(ProjectSettings.globalize_path(avatar_path))
-		var tex = ImageTexture.create_from_image(img)
-		avatar.texture = tex
-	else:
-		var avatar_tex = AtlasTexture.new()
+	var avatar_tex = load(avatar_path)
+	if avatar_tex == null:
+		avatar_tex = AtlasTexture.new()
 		if ResourceLoader.exists("res://assets/art/ui/pvp/pvp_avatar_frame.png"):
 			avatar_tex.atlas = load("res://assets/art/ui/pvp/pvp_avatar_frame.png")
 			avatar_tex.region = Rect2(0, 0, 64, 64)
-			avatar.texture = avatar_tex
+	avatar.texture = avatar_tex
 	hero_bar_layer.add_child(avatar)
 
 	# 3个被动技能图标（右侧）
