@@ -11,6 +11,10 @@ const EconomyManagerClass = preload("res://scripts/data/economy_manager.gd")
 const ItemDataClass = preload("res://scripts/data/item_data.gd")
 const LinearInventoryClass = preload("res://scripts/data/linear_inventory.gd")
 
+## Bazaar风格 UI 资源
+const SHOP_CARD_BG: String = "res://assets/art/ui/ui_shop_card_bg.png"
+const EVENT_CARD_BG: String = "res://assets/art/ui/ui_event_card_bg.png"
+
 ## UI 节点
 @onready var panel: PanelContainer = $Panel
 @onready var title_label: Label = $Panel/VBox/TitleLabel

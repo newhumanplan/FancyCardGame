@@ -46,6 +46,15 @@ const PVP_CHEST_BOTTOM: float = 0.98
 const PVP_CLOCK_ICON: String = "res://assets/art/ui/pvp/pvp_clock_icon.png"
 const PVP_AVATAR_FRAME: String = "res://assets/art/ui/pvp/pvp_avatar_frame.png"
 const PVP_HERO_AVATAR: String = "res://assets/art/ui/pvp/pvp_hero_avatar.png"
+## Bazaar风格 UI 资源
+const PVP_AVATAR_WARRIOR: String = "res://assets/art/ui/ui_avatar_warrior.png"
+const PVP_AVATAR_MAGE: String = "res://assets/art/ui/ui_avatar_mage.png"
+const PVP_BG_GRADIENT: String = "res://assets/art/ui/ui_bg_gradient.png"
+const PVP_EVENT_CARD_BG: String = "res://assets/art/ui/ui_event_card_bg.png"
+const PVP_SHOP_CARD_BG: String = "res://assets/art/ui/ui_shop_card_bg.png"
+const PVP_ITEM_SLOT_EMPTY: String = "res://assets/art/ui/ui_item_slot_empty.png"
+const PVP_ITEM_CARD_BG: String = "res://assets/art/ui/ui_item_card_bg.png"
+const PVP_CHEST_ICON: String = "res://assets/art/ui/ui_chest_icon.png"
 const PVP_HAND_SLOT_COUNT: int = 10
 const PVP_OPPONENT_SLOT_COUNT: int = 5
 const PVP_RIVER_COLOR: Color = Color8(26, 92, 110, 235)
@@ -682,6 +691,16 @@ func _create_pvp_player_bar() -> void:
 	chest_label.add_theme_font_size_override("font_size", _scaled_int(18.0, 12, 22))
 	chest_label.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	chest_box.add_child(chest_label)
+
+	# 使用 Bazaar 风格宝箱图标
+	if ResourceLoader.exists(PVP_CHEST_ICON):
+		var chest_icon: TextureRect = TextureRect.new()
+		chest_icon.texture = load(PVP_CHEST_ICON)
+		chest_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		chest_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		chest_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		chest_icon.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		chest_box.add_child(chest_icon)
 
 	var left_skills: Control = Control.new()
 	left_skills.name = "LeftSkills"
@@ -1767,6 +1786,16 @@ func _create_pvp_shop_card_placeholder() -> Panel:
 	style.set_border_width_all(2)
 	style.set_corner_radius_all(6)
 	card.add_theme_stylebox_override("panel", style)
+
+	# 使用 Bazaar 风格卡牌背景
+	if ResourceLoader.exists(PVP_SHOP_CARD_BG):
+		var bg_texture: TextureRect = TextureRect.new()
+		bg_texture.texture = load(PVP_SHOP_CARD_BG)
+		bg_texture.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		bg_texture.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		bg_texture.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		bg_texture.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		card.add_child(bg_texture)
 
 	var center_label: Label = Label.new()
 	center_label.text = "Shop"
