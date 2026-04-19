@@ -234,6 +234,17 @@ func _create_item_display(item: ItemData, idx: int) -> Control:
 	card_style.border_color = Color(0.4, 0.4, 0.6, 0.8)
 	card_style.set_corner_radius_all(6)
 	card_panel.add_theme_stylebox_override("panel", card_style)
+
+	# 使用 Bazaar 风格商品卡背景
+	if ResourceLoader.exists(SHOP_CARD_BG):
+		var card_bg: TextureRect = TextureRect.new()
+		card_bg.name = "CardBackground"
+		card_bg.texture = load(SHOP_CARD_BG)
+		card_bg.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		card_bg.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		card_bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		card_bg.z_index = -1
+		card_panel.add_child(card_bg)
 	
 	# 内层VBox排列内容（固定尺寸，不受父容器拉伸影响）
 	var container = VBoxContainer.new()

@@ -844,7 +844,11 @@ func _create_hero_bar_layer() -> void:
 	avatar.offset_bottom = 0.0
 	avatar.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	avatar.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	var avatar_path = "res://assets/art/ui/pvp/pvp_hero_avatar.png"
+	var avatar_path = "res://assets/art/ui/ui_avatar_warrior.png"
+	if GameManager.selected_hero != null:
+		var ht = GameManager.selected_hero.hero_type
+		if ht == 1:  # MAGE
+			avatar_path = "res://assets/art/ui/ui_avatar_mage.png"
 	if ResourceLoader.exists(avatar_path):
 		avatar.texture = load(avatar_path)
 	else:

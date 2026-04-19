@@ -403,6 +403,17 @@ func _create_pvp_layout() -> void:
 	add_child(pvp_root)
 	_apply_pvp_content_scale()
 
+	# Bazaar 背景渐变
+	if ResourceLoader.exists(PVP_BG_GRADIENT):
+		var bg_tex: TextureRect = TextureRect.new()
+		bg_tex.name = "BattleBackground"
+		bg_tex.texture = load(PVP_BG_GRADIENT)
+		bg_tex.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		bg_tex.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		bg_tex.z_index = -10
+		bg_tex.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		pvp_root.add_child(bg_tex)
+
 	_create_pvp_left_panel()
 	_create_pvp_opponent_bar()
 	_create_pvp_battle_center()
@@ -643,7 +654,11 @@ func _create_pvp_player_bar() -> void:
 
 	var hero_avatar: TextureRect = TextureRect.new()
 	hero_avatar.name = "HeroAvatar"
-	hero_avatar.texture = load(PVP_HERO_AVATAR)
+	var hero_path := PVP_AVATAR_WARRIOR
+	if GameManager.selected_hero != null and GameManager.selected_hero.hero_type == 1:
+		hero_path = PVP_AVATAR_MAGE
+	if ResourceLoader.exists(hero_path):
+		hero_avatar.texture = load(hero_path)
 	hero_avatar.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	hero_avatar.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	hero_avatar.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -773,6 +788,8 @@ func _update_pvp_player_hand() -> void:
 		pvp_player_card_panels.append(card_panel)
 		card_count += 1
 
+		_add_texture_background(card_panel, PVP_ITEM_CARD_BG, "ItemCardBackground", -1)
+
 		var illustration: ColorRect = _create_illustration_block(item_data.type)
 		card_panel.add_child(illustration)
 
@@ -871,6 +888,8 @@ func _update_pvp_opponent_hand() -> void:
 		card_panel.add_theme_stylebox_override("panel", _create_card_front_style(item_type, true))
 		pvp_shop_container.add_child(card_panel)
 		card_count += 1
+
+		_add_texture_background(card_panel, PVP_EVENT_CARD_BG, "EventCardBackground", -1)
 
 		var illustration: ColorRect = _create_illustration_block(item_type)
 		card_panel.add_child(illustration)
@@ -975,6 +994,7 @@ func _create_static_item_card(item_data: ItemData, opponent: bool) -> Panel:
 	var card_panel: Panel = Panel.new()
 	card_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	card_panel.add_theme_stylebox_override("panel", _create_card_front_style(item_data.type, opponent))
+	_add_texture_background(card_panel, PVP_ITEM_CARD_BG, "ItemCardBackground", -1)
 
 	var illustration: ColorRect = _create_illustration_block(item_data.type)
 	card_panel.add_child(illustration)
@@ -1642,6 +1662,7 @@ func _add_empty_player_slots(empty_count: int) -> void:
 		var empty_panel: Panel = Panel.new()
 		empty_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		empty_panel.add_theme_stylebox_override("panel", _create_empty_hand_slot_style())
+		_add_texture_background(empty_panel, PVP_ITEM_SLOT_EMPTY, "EmptySlotBackground", -1)
 		pvp_player_hand_container.add_child(empty_panel)
 
 func _add_empty_top_hand_slots(empty_count: int) -> void:
@@ -1652,6 +1673,7 @@ func _add_empty_top_hand_slots(empty_count: int) -> void:
 		var empty_panel: Panel = Panel.new()
 		empty_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		empty_panel.add_theme_stylebox_override("panel", _create_empty_hand_slot_style())
+		_add_texture_background(empty_panel, PVP_ITEM_SLOT_EMPTY, "EmptySlotBackground", -1)
 		pvp_combat_hand_container.add_child(empty_panel)
 
 func _add_empty_opponent_slots(empty_count: int) -> void:
@@ -1662,6 +1684,7 @@ func _add_empty_opponent_slots(empty_count: int) -> void:
 		var empty_panel: Panel = Panel.new()
 		empty_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		empty_panel.add_theme_stylebox_override("panel", _create_empty_hand_slot_style())
+		_add_texture_background(empty_panel, PVP_ITEM_SLOT_EMPTY, "EmptySlotBackground", -1)
 		pvp_shop_container.add_child(empty_panel)
 
 func _get_monster_item_type(monster_item: Dictionary) -> int:
@@ -1790,12 +1813,25 @@ func _create_pvp_shop_card_placeholder() -> Panel:
 	# 使用 Bazaar 风格卡牌背景
 	if ResourceLoader.exists(PVP_SHOP_CARD_BG):
 		var bg_texture: TextureRect = TextureRect.new()
+		bg_texture.name = "ShopCardBackground"
 		bg_texture.texture = load(PVP_SHOP_CARD_BG)
 		bg_texture.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		bg_texture.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		bg_texture.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 		bg_texture.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		bg_texture.z_index = -2
 		card.add_child(bg_texture)
+
+	if ResourceLoader.exists(PVP_EVENT_CARD_BG):
+		var event_texture: TextureRect = TextureRect.new()
+		event_texture.name = "EventCardBackground"
+		event_texture.texture = load(PVP_EVENT_CARD_BG)
+		event_texture.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		event_texture.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		event_texture.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		event_texture.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		event_texture.z_index = -1
+		card.add_child(event_texture)
 
 	var center_label: Label = Label.new()
 	center_label.text = "Shop"
@@ -1806,6 +1842,20 @@ func _create_pvp_shop_card_placeholder() -> Panel:
 	center_label.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	card.add_child(center_label)
 	return card
+
+func _add_texture_background(parent: Control, texture_path: String, node_name: String, z_index: int = -1) -> void:
+	if parent == null or texture_path.is_empty() or not ResourceLoader.exists(texture_path):
+		return
+
+	var bg_texture: TextureRect = TextureRect.new()
+	bg_texture.name = node_name
+	bg_texture.texture = load(texture_path)
+	bg_texture.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	bg_texture.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	bg_texture.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	bg_texture.z_index = z_index
+	bg_texture.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	parent.add_child(bg_texture)
 
 func _create_transparent_progress_style() -> StyleBoxFlat:
 	var style: StyleBoxFlat = StyleBoxFlat.new()
