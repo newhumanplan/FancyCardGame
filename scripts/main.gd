@@ -91,7 +91,6 @@ func _ready() -> void:
 	_show_hero_selection()
 	_hide_game_buttons()
 	_update_ui()
-	_create_item_bar_layer()
 	_create_hero_bar_layer()
 	print("大巴扎游戏初始化完成")
 
@@ -707,58 +706,6 @@ func _advance_test_state() -> void:
 		4:
 			if has_node("InventoryUI"):
 				$InventoryUI.visible = true
-
-## ============ ItemBar 层（Y: 45%~80%）============
-
-func _create_item_bar_layer() -> void:
-	item_bar_layer = Control.new()
-	item_bar_layer.name = "ItemBarLayer"
-	# 使用 anchors 定位，确保不受视口大小影响
-	item_bar_layer.anchor_top = 0.45
-	item_bar_layer.anchor_bottom = 0.80
-	item_bar_layer.anchor_left = 0.0
-	item_bar_layer.anchor_right = 1.0
-	item_bar_layer.offset_left = 0.0
-	item_bar_layer.offset_top = 0.0
-	item_bar_layer.offset_right = 0.0
-	item_bar_layer.offset_bottom = 0.0
-	item_bar_layer.z_index = 10
-	item_bar_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	item_bar_layer.visible = false
-	add_child(item_bar_layer)
-
-	var bg: ColorRect = ColorRect.new()
-	bg.name = "ItemBarBackground"
-	bg.color = Color(0.1, 0.1, 0.15, 0.9)
-	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	item_bar_layer.add_child(bg)
-
-	var slots_container: HBoxContainer = HBoxContainer.new()
-	slots_container.name = "SlotsContainer"
-	slots_container.anchor_top = 0.0
-	slots_container.anchor_bottom = 1.0
-	slots_container.anchor_left = 0.05
-	slots_container.anchor_right = 0.95
-	slots_container.offset_left = 0.0
-	slots_container.offset_top = 0.0
-	slots_container.offset_right = 0.0
-	slots_container.offset_bottom = 0.0
-	slots_container.alignment = BoxContainer.ALIGNMENT_CENTER
-	slots_container.custom_minimum_size = Vector2(0.0, 100.0)
-	item_bar_layer.add_child(slots_container)
-
-	for i in range(10):
-		var slot: Panel = Panel.new()
-		slot.name = "Slot_%d" % i
-		slot.custom_minimum_size = Vector2(90.0, 100.0)
-		slot.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		var style: StyleBoxFlat = StyleBoxFlat.new()
-		style.bg_color = Color(0.2, 0.2, 0.3, 0.9)
-		style.set_border_width_all(1)
-		style.border_color = Color(0.4, 0.4, 0.5, 0.5)
-		style.set_corner_radius_all(4)
-		slot.add_theme_stylebox_override("panel", style)
-		slots_container.add_child(slot)
 
 ## ============ HeroBar 层（Y: 80%~100%）============
 
