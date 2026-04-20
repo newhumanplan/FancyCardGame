@@ -1,4 +1,3 @@
-class_name GameFlowService
 extends Node
 
 ## 游戏流程服务 - 从 main.gd 提取

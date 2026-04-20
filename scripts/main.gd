@@ -8,8 +8,7 @@ const HeroDataClass = preload("res://scripts/data/hero_data.gd")
 const EventManagerClass = preload("res://scripts/data/event_manager.gd")
 const PassiveSkillDataClass = preload("res://scripts/data/passive_skill.gd")
 const EndingManagerClass = preload("res://scripts/data/ending_manager.gd")
-const HeroFactoryClass = preload("res://scripts/data/hero_factory.gd")
-const GameFlowServiceClass = preload("res://scripts/services/game_flow_service.gd")
+const HeroFactory = preload("res://scripts/data/hero_factory.gd")
 
 ## 底部常驻层引用（三层布局共享）
 var item_bar_layer: Control = null
@@ -20,7 +19,6 @@ var hero_bar_gold_label: Label = null
 var hero_bar_chest_button: Control = null
 
 ## 服务实例（重构后）
-var game_flow_service: GameFlowServiceClass
 var event_manager = EventManagerClass.new()
 
 ## ============ UI 节点 ============
@@ -209,8 +207,8 @@ func _on_game_flow_options_generated(options: Array[Dictionary]) -> void:
 		event_option_3.visible = false
 
 func _generate_event_options() -> void:
-	# 委托给 GameFlowService
-	game_flow_service.generate_event_options()
+	# 委托给 GameFlow
+	GameFlowService.generate_event_options()
 
 ## 事件选项被选中
 func _on_event_option_1_selected() -> void:
@@ -223,9 +221,9 @@ func _on_event_option_3_selected() -> void:
 	_handle_event_selection_by_index(2)
 
 func _handle_event_selection_by_index(index: int) -> void:
-	# 通知 GameFlowService 记录选择
-	game_flow_service.handle_event_selection(index)
-	var event_type: String = game_flow_service.get_event_type_at(index)
+	# 通知 GameFlow 记录选择
+	GameFlowService.handle_event_selection(index)
+	var event_type: String = GameFlowService.get_event_type_at(index)
 	print("选择了事件类型: %s" % event_type)
 
 	match event_type:
@@ -299,9 +297,9 @@ func _execute_random_event() -> void:
 	var day = GameManager.current_day
 
 	# 如果有预选的随机事件ID，使用它；否则随机选择
-	var event_id: String = game_flow_service.get_selected_event_id()
+	var event_id: String = GameFlowService.get_selected_event_id()
 	if event_id == "":
-		var evt = game_flow_service.execute_random_event_fallback(day)
+		var evt = GameFlowService.execute_random_event_fallback(day)
 		if evt.is_empty():
 			_auto_advance_hour()
 			return
