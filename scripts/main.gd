@@ -20,7 +20,6 @@ var hero_bar_gold_label: Label = null
 var hero_bar_chest_button: Control = null
 
 ## 服务实例（重构后）
-var hero_factory: HeroFactoryClass
 var game_flow_service: GameFlowServiceClass
 var event_manager = EventManagerClass.new()
 
@@ -139,13 +138,13 @@ func _hide_hero_selection() -> void:
 	hero_select_panel.visible = false
 
 func _on_warrior_selected() -> void:
-	var warrior = hero_factory.create_hero(HeroDataClass.HeroType.WARRIOR)
+	var warrior = HeroFactoryService.create_hero(HeroDataClass.HeroType.WARRIOR)
 	GameManager.select_hero(warrior)
 	_apply_passive_skills(warrior)
 	_on_game_started()
 
 func _on_mage_selected() -> void:
-	var mage = hero_factory.create_hero(HeroDataClass.HeroType.MAGE)
+	var mage = HeroFactoryService.create_hero(HeroDataClass.HeroType.MAGE)
 	GameManager.select_hero(mage)
 	_apply_passive_skills(mage)
 	_on_game_started()

@@ -21,10 +21,6 @@ func _create_warrior() -> HeroData:
 	hero.hero_type = HeroDataClass.HeroType.WARRIOR
 	hero.max_hp = 120
 	hero.crit_chance = 0.05
-	hero.passive_skill_name = "铁壁"
-	hero.passive_skill_description = "增加生命值上限"
-	hero.passive_bonus_type = "health"
-	hero.passive_bonus_value = 20
 
 	var ps1 = PassiveSkillDataClass.new()
 	ps1.skill_name = "铁壁"
@@ -48,10 +44,6 @@ func _create_mage() -> HeroData:
 	hero.hero_type = HeroDataClass.HeroType.MAGE
 	hero.max_hp = 80
 	hero.crit_chance = 0.15
-	hero.passive_skill_name = "奥术智慧"
-	hero.passive_skill_description = "增加暴击率"
-	hero.passive_bonus_type = "crit"
-	hero.passive_bonus_value = 10
 
 	var ps1 = PassiveSkillDataClass.new()
 	ps1.skill_name = "奥术智慧"

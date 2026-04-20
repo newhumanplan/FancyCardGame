@@ -22,6 +22,7 @@ config/icon="res://icon.svg"
 [autoload]
 
 GameManager="*res://scripts/game_manager.gd"
+HeroFactoryService="*res://scripts/data/hero_factory.gd"
 RunState="*res://scripts/services/run_state.gd"
 HeroState="*res://scripts/services/hero_state.gd"
 EconomyService="*res://scripts/services/economy_service.gd"
