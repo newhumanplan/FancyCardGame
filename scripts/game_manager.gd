@@ -163,15 +163,6 @@ func select_hero(hero: HeroData) -> void:
 	print("已选择英雄: %s (%s)" % [hero.hero_name, hero.get_type_name()])
 
 ## 应用被动技能加成
-func apply_skill_bonus(skill_name: String, bonus_type: String, value: float) -> void:
-	match bonus_type:
-		"health":
-			player_health += int(value)
-			health_changed.emit(player_health)
-		"crit":
-			if selected_hero:
-				selected_hero.crit_chance += value / 100.0
-
 ## ============ 金币管理 ============
 
 ## 获取金币

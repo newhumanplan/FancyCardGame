@@ -39,21 +39,7 @@ var skill_cooldown_reduction: float = 0.0
 var _skill_base_max_hp: int = -1
 var _skill_base_crit_chance: float = -1.0
 
-## ============ 被动技能（旧版，保留兼容） ============
-
-## 被动技能名称
-@export var passive_skill_name: String = ""
-
-## 被动技能描述
-@export var passive_skill_description: String = ""
-
-## 被动技能加成类型 ("health", "crit", "shield_bonus", "cooldown_reduction")
-@export var passive_bonus_type: String = ""
-
-## 被动技能加成值
-@export var passive_bonus_value: float = 0.0
-
-## ============ 被动技能列表（新版） ============
+## ============ 被动技能（统一使用 PassiveSkillDataClass） ============
 
 const PassiveSkillType = preload("res://scripts/data/passive_skill.gd")
 
@@ -174,15 +160,3 @@ func get_type_name() -> String:
 func roll_crit() -> bool:
 	return randf() < clampf(crit_chance, 0.0, 1.0)
 
-## 是否有被动技能
-func has_passive_skill() -> bool:
-	return passive_skill_name != ""
-
-## 获取被动技能描述完整文本
-func get_passive_skill_full_description() -> String:
-	if not has_passive_skill():
-		return ""
-	return "%s: %s" % [
-		passive_skill_name,
-		passive_skill_description
-	]

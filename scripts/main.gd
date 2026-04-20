@@ -150,18 +150,8 @@ func _on_mage_selected() -> void:
 	_apply_passive_skills(mage)
 	_on_game_started()
 
-## 应用被动技能（兼容旧版+新版被动技能列表）
+## 应用被动技能（统一使用 PassiveSkillDataClass 新版）
 func _apply_passive_skills(hero: HeroData) -> void:
-	# 旧版被动技能兼容
-	if hero.has_passive_skill():
-		match hero.passive_bonus_type:
-			"health":
-				GameManager.apply_skill_bonus(hero.passive_skill_name, "health", hero.passive_bonus_value)
-			"crit":
-				GameManager.apply_skill_bonus(hero.passive_skill_name, "crit", hero.passive_bonus_value)
-		print("激活被动技能(旧版): %s" % hero.get_passive_skill_full_description())
-
-	# 新版被动技能列表
 	for ps in hero.passive_skills:
 		PassiveSkillDataClass.apply_to_hero(ps, hero)
 
