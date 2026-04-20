@@ -8,6 +8,8 @@ const HeroDataClass = preload("res://scripts/data/hero_data.gd")
 const EventManagerClass = preload("res://scripts/data/event_manager.gd")
 const PassiveSkillDataClass = preload("res://scripts/data/passive_skill.gd")
 const EndingManagerClass = preload("res://scripts/data/ending_manager.gd")
+const HeroFactoryClass = preload("res://scripts/data/hero_factory.gd")
+const GameFlowServiceClass = preload("res://scripts/services/game_flow_service.gd")
 
 ## 底部常驻层引用（三层布局共享）
 var item_bar_layer: Control = null
@@ -17,12 +19,10 @@ var hero_bar_hp_label: Label = null
 var hero_bar_gold_label: Label = null
 var hero_bar_chest_button: Control = null
 
-## 事件管理器
+## 服务实例（重构后）
+var hero_factory: HeroFactoryClass
+var game_flow_service: GameFlowServiceClass
 var event_manager = EventManagerClass.new()
-
-## 当前随机事件ID（用于随机事件选项）
-var _current_random_event_id: String = ""
-var _current_event_options: Array[Dictionary] = []
 
 ## ============ UI 节点 ============
 
@@ -139,63 +139,13 @@ func _hide_hero_selection() -> void:
 	hero_select_panel.visible = false
 
 func _on_warrior_selected() -> void:
-	var warrior = HeroDataClass.new()
-	warrior.hero_name = "战士"
-	warrior.hero_type = HeroDataClass.HeroType.WARRIOR
-	warrior.max_hp = 120
-	warrior.crit_chance = 0.05
-	# 战士被动技能: 铁壁
-	warrior.passive_skill_name = "铁壁"
-	warrior.passive_skill_description = "增加生命值上限"
-	warrior.passive_bonus_type = "health"
-	warrior.passive_bonus_value = 20
-
-	# 装备2个英雄专属被动技能
-	var ps1 = PassiveSkillDataClass.new()
-	ps1.skill_name = "铁壁"
-	ps1.description = "坚韧体质，生命值上限+20"
-	ps1.effect_type = PassiveSkillDataClass.EffectType.HEALTH_BONUS
-	ps1.effect_value = 20.0
-	warrior.passive_skills.append(ps1)
-
-	var ps2 = PassiveSkillDataClass.new()
-	ps2.skill_name = "战斗本能"
-	ps2.description = "丰富的战斗经验，暴击率+2%"
-	ps2.effect_type = PassiveSkillDataClass.EffectType.CRIT_BONUS
-	ps2.effect_value = 2.0
-	warrior.passive_skills.append(ps2)
-
+	var warrior = hero_factory.create_hero(HeroDataClass.HeroType.WARRIOR)
 	GameManager.select_hero(warrior)
 	_apply_passive_skills(warrior)
 	_on_game_started()
 
 func _on_mage_selected() -> void:
-	var mage = HeroDataClass.new()
-	mage.hero_name = "法师"
-	mage.hero_type = HeroDataClass.HeroType.MAGE
-	mage.max_hp = 80
-	mage.crit_chance = 0.15
-	# 法师被动技能: 奥术智慧
-	mage.passive_skill_name = "奥术智慧"
-	mage.passive_skill_description = "增加暴击率"
-	mage.passive_bonus_type = "crit"
-	mage.passive_bonus_value = 10
-
-	# 装备2个英雄专属被动技能
-	var ps1 = PassiveSkillDataClass.new()
-	ps1.skill_name = "奥术智慧"
-	ps1.description = "对魔法的深刻理解，暴击率+5%"
-	ps1.effect_type = PassiveSkillDataClass.EffectType.CRIT_BONUS
-	ps1.effect_value = 5.0
-	mage.passive_skills.append(ps1)
-
-	var ps2 = PassiveSkillDataClass.new()
-	ps2.skill_name = "魔力涌动"
-	ps2.description = "魔力充沛，生命值上限+10"
-	ps2.effect_type = PassiveSkillDataClass.EffectType.HEALTH_BONUS
-	ps2.effect_value = 10.0
-	mage.passive_skills.append(ps2)
-
+	var mage = hero_factory.create_hero(HeroDataClass.HeroType.MAGE)
 	GameManager.select_hero(mage)
 	_apply_passive_skills(mage)
 	_on_game_started()
@@ -245,16 +195,13 @@ func _hide_event_panel() -> void:
 	event_panel.visible = false
 
 ## 生成随机事件选项（使用 EventManager）
-func _generate_event_options() -> void:
-	var hour = GameManager.current_hour
-	var day = GameManager.current_day
-
-	# 使用 EventManager 生成选项
-	var options: Array[Dictionary] = event_manager.generate_options(hour, day)
-	_current_event_options = options
-	_current_random_event_id = ""
-
+## 由 GameFlowService.event_options_generated 信号触发
+func _on_game_flow_options_generated(options: Array[Dictionary]) -> void:
+	# 更新事件选项UI
 	if options.is_empty():
+		event_option_1.visible = false
+		event_option_2.visible = false
+		event_option_3.visible = false
 		return
 
 	event_option_1.text = str(options[0].get("text", ""))
@@ -272,6 +219,10 @@ func _generate_event_options() -> void:
 	else:
 		event_option_3.visible = false
 
+func _generate_event_options() -> void:
+	# 委托给 GameFlowService
+	game_flow_service.generate_event_options()
+
 ## 事件选项被选中
 func _on_event_option_1_selected() -> void:
 	_handle_event_selection_by_index(0)
@@ -283,12 +234,10 @@ func _on_event_option_3_selected() -> void:
 	_handle_event_selection_by_index(2)
 
 func _handle_event_selection_by_index(index: int) -> void:
-	if index < 0 or index >= _current_event_options.size():
-		return
-	var option: Dictionary = _current_event_options[index]
-	var event_type: String = str(option.get("type", ""))
-	_current_random_event_id = str(option.get("event_id", ""))
-	print("选择了事件: %s" % option.get("text", event_type))
+	# 通知 GameFlowService 记录选择
+	game_flow_service.handle_event_selection(index)
+	var event_type: String = game_flow_service.get_event_type_at(index)
+	print("选择了事件类型: %s" % event_type)
 
 	match event_type:
 		"shop":
@@ -361,14 +310,14 @@ func _execute_random_event() -> void:
 	var day = GameManager.current_day
 
 	# 如果有预选的随机事件ID，使用它；否则随机选择
-	var event_id: String = _current_random_event_id
+	var event_id: String = game_flow_service.get_selected_event_id()
 	if event_id == "":
-		var evt = event_manager._pick_random_event(day)
-		if not evt.is_empty():
-			event_id = str(evt.get("id", ""))
-		else:
+		var evt = game_flow_service.execute_random_event_fallback(day)
+		if evt.is_empty():
 			_auto_advance_hour()
 			return
+		else:
+			event_id = str(evt.get("id", ""))
 
 	var result = event_manager.execute_random_event(event_id, day, GameManager)
 	print("随机事件: %s" % result)
