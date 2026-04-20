@@ -326,17 +326,47 @@ func reset() -> void:
 	day_changed.emit(current_day)
 	hour_changed.emit(current_hour, get_current_phase_name())
 
-## 完全重置（Prestige 也重置）
+## 统一重置接口（合并三个 reset）
+## mode: "partial" = 保留Prestige, "full" = 全重置, "stats" = 仅统计数据
+func reset_run(mode: String = "partial") -> void:
+	match mode:
+		"partial":
+			# 重置游戏状态，保留Prestige
+			gold = 100
+			current_day = 1
+			current_hour = 0
+			player_health = 100
+			wins = 0
+			losses = 0
+			selected_hero = null
+			day_changed.emit(current_day)
+			hour_changed.emit(current_hour, get_current_phase_name())
+		"full":
+			# 完全重置包括Prestige
+			gold = 100
+			current_day = 1
+			current_hour = 0
+			player_health = 100
+			prestige = 20
+			prestige_zero_count = 0
+			pvp_wins = 0
+			wins = 0
+			losses = 0
+			selected_hero = null
+			day_changed.emit(current_day)
+			hour_changed.emit(current_hour, get_current_phase_name())
+		"stats":
+			# 仅重置统计数据
+			stats_total_battles = 0
+			stats_total_wins = 0
+			stats_total_losses = 0
+			stats_total_gold_earned = 0
+			wins = 0
+			losses = 0
+			pvp_wins = 0
+		_:
+			pass  # unknown mode, do nothing
+
+## 完全重置（Prestige 也重置）- 保留作为别名
 func full_reset() -> void:
-	gold = 100
-	current_day = 1
-	current_hour = 0
-	player_health = 100
-	prestige = 20
-	prestige_zero_count = 0
-	pvp_wins = 0
-	wins = 0
-	losses = 0
-	selected_hero = null
-	day_changed.emit(current_day)
-	hour_changed.emit(current_hour, get_current_phase_name())
+	reset_run("full")
