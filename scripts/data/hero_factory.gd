@@ -1,4 +1,3 @@
-class_name HeroFactory
 extends Node
 
 const HeroDataClass = preload("res://scripts/data/hero_data.gd")
