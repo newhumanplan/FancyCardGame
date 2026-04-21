@@ -11,11 +11,13 @@ const EndingManagerClass = preload("res://scripts/data/ending_manager.gd")
 const HeroFactory = preload("res://scripts/data/hero_factory.gd")
 const LinearInventoryClass = preload("res://scripts/data/linear_inventory.gd")
 
-## 玩家背包（持久化）
-var player_inventory: LinearInventoryClass = LinearInventoryClass.new()
+## 玩家背包引用（指向 InventoryUI 的 inventory，避免两套独立系统）
+var player_inventory: LinearInventoryClass = null  # 已废弃，改用 $InventoryUI.get_inventory()
+
+## Inventory UI 引用
+@onready var inventory_ui: Control = $InventoryUI
 
 ## 底部常驻层引用（三层布局共享）
-var item_bar_layer: Control = null
 var hero_bar_layer: Control = null
 var hero_bar_hp_bar: ProgressBar = null
 var hero_bar_hp_label: Label = null
@@ -162,9 +164,6 @@ func _on_game_started() -> void:
 	_update_ui()
 	print("游戏开始! Day %d, Hour %d - %s" % [GameManager.current_day, GameManager.current_hour, GameManager.get_current_phase_name()])
 	$VBox.visible = true  # 显示游戏主UI
-	# 确保 HeroBar 和 ItemBar 始终可见
-	if item_bar_layer:
-		item_bar_layer.visible = true
 	if hero_bar_layer:
 		hero_bar_layer.visible = true
 
@@ -172,8 +171,6 @@ func _on_game_started() -> void:
 
 ## 显示事件选择面板
 func _show_event_panel() -> void:
-	if item_bar_layer:
-		item_bar_layer.visible = true
 	if hero_bar_layer:
 		hero_bar_layer.visible = true
 	event_panel.visible = true
@@ -257,12 +254,11 @@ func _execute_shop_event() -> void:
 ## 打开商店 UI
 func _open_shop_ui() -> void:
 	_write_debug("========== _open_shop_ui() 被调用 ==========")
-	_write_debug("player_inventory: " + str(player_inventory))
-	if player_inventory:
-		var inventory = player_inventory
+	_write_debug("========== _open_shop_ui() 被调用 ==========")
+	_write_debug("inventory_ui: " + str(inventory_ui))
+	if inventory_ui != null and inventory_ui.has_method("get_inventory"):
+		var inventory = inventory_ui.get_inventory()
 		_write_debug("inventory: " + str(inventory))
-		if item_bar_layer:
-			item_bar_layer.visible = true
 		if hero_bar_layer:
 			hero_bar_layer.visible = true
 		shop_ui.visible = true
@@ -271,7 +267,7 @@ func _open_shop_ui() -> void:
 			shop_ui.shop_closed.connect(_on_shop_closed)
 		_write_debug("商店已打开")
 	else:
-		_write_debug("ERROR: 无法获取背包实例")
+		_write_debug("ERROR: 无法获取 InventoryUI 实例")
 
 ## 写调试文件
 func _write_debug(msg: String) -> void:
@@ -337,8 +333,6 @@ func _start_battle() -> void:
 	_hide_event_panel()
 	battle_ui.visible = true
 	# 确保底部常驻层在进入战斗时可见
-	if item_bar_layer:
-		item_bar_layer.visible = true
 	if hero_bar_layer:
 		hero_bar_layer.visible = true
 	battle_ui.start_battle(null, false, 0)
@@ -356,8 +350,6 @@ func _start_pvp_battle() -> void:
 	_hide_event_panel()
 	battle_ui.visible = true
 	# 确保底部常驻层在进入战斗时可见
-	if item_bar_layer:
-		item_bar_layer.visible = true
 	if hero_bar_layer:
 		hero_bar_layer.visible = true
 
@@ -377,8 +369,8 @@ func _on_battle_ended(won: bool, gold_reward: int) -> void:
 
 ## 计算属性（物品触发系统下显示物品总属性）
 func _calculate_stats() -> void:
-	if player_inventory:
-		var inventory = player_inventory
+	if inventory_ui != null and inventory_ui.has_method("get_inventory"):
+		var inventory = inventory_ui.get_inventory()
 		var total_damage = 0
 		var total_shield = 0
 		var total_heal = 0
@@ -465,8 +457,10 @@ func _update_ui() -> void:
 
 ## 获取背包物品数量
 func _get_item_count() -> int:
-	if player_inventory:
-		return player_inventory.get_item_count()
+	if inventory_ui != null and inventory_ui.has_method("get_inventory"):
+		var inventory = inventory_ui.get_inventory()
+		if inventory:
+			return inventory.get_item_count()
 	return 0
 
 ## ============ 信号回调 ============
