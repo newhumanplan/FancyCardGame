@@ -1,5 +1,6 @@
 class_name SkillData
 extends Resource
+const SkillDataClass = preload("res://scripts/data/skill_data.gd")
 
 ## 技能品质枚举
 enum Rarity { BRONZE, SILVER, GOLD, DIAMOND }
@@ -144,7 +145,7 @@ static func _parse_effect_type(raw_value) -> EffectType:
 
 ## 从字典创建（用于JSON加载）
 static func from_dict(data: Dictionary) -> SkillData:
-	var skill = SkillData.new()
+	var skill = SkillDataClass.new()
 	if data.has("id"): skill.id = str(data["id"])
 	elif data.has("skill_id"): skill.id = str(data["skill_id"])
 	if data.has("name"): skill.name = str(data["name"])

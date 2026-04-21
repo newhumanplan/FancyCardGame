@@ -26,7 +26,7 @@ func _ready() -> void:
 
 func _init_skill_manager() -> void:
 	skill_manager = SkillManagerClass.new()
-	var available_skills = SkillManagerClass.load_skills_from_config()
+	var available_skills = SkillManagerClass.new().load_skills_from_config()
 	for i in range(mini(available_skills.size(), 3)):
 		skill_manager.equip_skill(available_skills[i])
 	_refresh_skill_modifiers()

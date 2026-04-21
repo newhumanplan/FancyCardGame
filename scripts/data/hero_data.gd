@@ -56,7 +56,7 @@ var _combat_lifesteal: float = 0.0       ## 生命偷取百分比
 ## ============ 技能与物品 ============
 
 ## 技能列表
-@export var skills: Array[SkillData] = []
+@export var skills: Array = []
 
 ## 可用物品 ID 列表
 @export var available_items: Array[String] = []

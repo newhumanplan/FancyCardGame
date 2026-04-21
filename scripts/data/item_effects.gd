@@ -1,5 +1,7 @@
 class_name ItemEffects
 extends RefCounted
+const MonsterDataClass = preload("res://scripts/data/monster_data.gd")
+const ItemDataClass = preload("res://scripts/data/item_data.gd")
 
 ## 物品效果系统 — 集中管理物品触发时的效果计算
 ## 与 battle_system.gd 的 _trigger_player_items 和 _apply_item_special_effects 配合
@@ -25,7 +27,7 @@ static func _append_effect(effects: Array, effect_type: String, value: float, du
 	})
 
 ## 计算物品总伤害（基础伤害 + 稀有度倍率 + 暴击）
-static func calculate_damage(item: ItemData, is_crit: bool) -> int:
+static func calculate_damage(item: ItemDataClass, is_crit: bool) -> int:
 	if item == null:
 		return 0
 	var base: int = item.get_rarity_adjusted_damage()
@@ -33,20 +35,20 @@ static func calculate_damage(item: ItemData, is_crit: bool) -> int:
 	return maxi(int(float(base) * mult), 0)
 
 ## 计算物品总护盾
-static func calculate_shield(item: ItemData) -> int:
+static func calculate_shield(item: ItemDataClass) -> int:
 	return 0 if item == null else maxi(item.get_rarity_adjusted_shield(), 0)
 
 ## 计算物品总治疗
-static func calculate_heal(item: ItemData) -> int:
+static func calculate_heal(item: ItemDataClass) -> int:
 	return 0 if item == null else maxi(item.get_rarity_adjusted_heal(), 0)
 
 ## 计算物品总暴击率加成
-static func calculate_crit_chance(item: ItemData) -> float:
+static func calculate_crit_chance(item: ItemDataClass) -> float:
 	return 0.0 if item == null else clampf(item.crit_chance * item.get_rarity_multiplier(), 0.0, 1.0)
 
 ## 构建持续效果数据（供 battle_system.gd 的 active_effects 使用）
 ## 返回 Array[Dictionary]，每个 dict: {type, value, duration, item_name, target}
-static func build_active_effects(item: ItemData, is_crit: bool) -> Array:
+static func build_active_effects(item: ItemDataClass, is_crit: bool) -> Array:
 	var effects: Array = []
 	if item == null:
 		return effects
@@ -61,7 +63,7 @@ static func build_active_effects(item: ItemData, is_crit: bool) -> Array:
 
 ## 处理持续效果 tick（供 battle_system.gd 的 _process_active_effects 使用）
 ## 返回处理结果: {damage_to_monster: int, damage_to_player: int, heal_player: int}
-static func process_effect_tick(effect: Dictionary, battle_tick: float, monster: MonsterData, player_health: int, max_health: int) -> Dictionary:
+static func process_effect_tick(effect: Dictionary, battle_tick: float, monster: MonsterDataClass, player_health: int, max_health: int) -> Dictionary:
 	var result = {
 		"damage_to_monster": 0,
 		"damage_to_player": 0,
@@ -88,7 +90,7 @@ static func process_effect_tick(effect: Dictionary, battle_tick: float, monster:
 	return result
 
 ## 获取物品效果摘要文本（用于 UI 显示）
-static func get_item_summary(item: ItemData) -> String:
+static func get_item_summary(item: ItemDataClass) -> String:
 	var parts: Array[String] = []
 
 	if item.damage > 0:

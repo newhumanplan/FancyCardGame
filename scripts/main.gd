@@ -148,7 +148,7 @@ func _on_mage_selected() -> void:
 	_on_game_started()
 
 ## 应用被动技能（统一使用 PassiveSkillDataClass 新版）
-func _apply_passive_skills(hero: HeroData) -> void:
+func _apply_passive_skills(hero: HeroDataClass) -> void:
 	for ps in hero.passive_skills:
 		PassiveSkillDataClass.apply_to_hero(ps, hero)
 

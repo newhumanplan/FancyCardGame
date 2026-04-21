@@ -1,5 +1,6 @@
 class_name PassiveSkillData
 extends RefCounted
+const HeroDataClass = preload("res://scripts/data/hero_data.gd")
 
 ## 英雄被动技能定义 — 每个英雄的专属被动技能
 ## 与 SkillData 不同，被动技能是英雄固有能力，不可替换
@@ -26,7 +27,7 @@ enum EffectType {
 	LIFESTEAL,           ## 生命偷取（百分比）
 }
 
-static func get_combat_bonuses(hero: HeroData) -> Dictionary:
+static func get_combat_bonuses(hero: HeroDataClass) -> Dictionary:
 	return {
 		"shield": 0.0 if hero == null else maxf(hero._combat_bonus_shield, 0.0),
 		"cd_reduction": 0.0 if hero == null else clampf(hero._combat_cd_reduction, 0.0, 0.8),
@@ -37,7 +38,7 @@ static func get_combat_bonuses(hero: HeroData) -> Dictionary:
 ## 应用被动技能效果到英雄
 ## HEALTH/CRIT 立即修改英雄属性
 ## SHIELD/CD_REDUCTION/REFLECT/LIFESTEAL 存储到英雄字典供战斗系统读取
-static func apply_to_hero(skill: PassiveSkillData, hero: HeroData) -> void:
+static func apply_to_hero(skill: PassiveSkillData, hero: HeroDataClass) -> void:
 	if not skill or not hero:
 		return
 	match skill.effect_type:

@@ -1,14 +1,15 @@
 extends Node
+const HeroDataClass = preload("res://scripts/data/hero_data.gd")
 
 ## HeroState - 英雄/生命值管理
 ## 从 GameManager 提取
 
 signal health_changed(amount: int)
 
-var selected_hero: HeroData = null
+var selected_hero: HeroDataClass = null
 var player_health: int = 100
 
-func select_hero(hero: HeroData) -> void:
+func select_hero(hero: HeroDataClass) -> void:
 	selected_hero = hero
 	player_health = hero.max_hp if hero else 100
 	print("已选择英雄: %s (%s)" % [hero.hero_name, hero.get_type_name()])

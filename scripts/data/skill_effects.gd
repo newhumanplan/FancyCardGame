@@ -1,5 +1,7 @@
 class_name SkillEffects
 extends RefCounted
+const HeroDataClass = preload("res://scripts/data/hero_data.gd")
+const SkillDataClass = preload("res://scripts/data/skill_data.gd")
 
 ## 技能效果应用器 — 将被动技能效果应用到英雄属性
 
@@ -47,7 +49,7 @@ static func calculate_passive_modifiers(skills: Array) -> Dictionary:
 
 ## 将技能效果应用到英雄属性
 ## 返回修改后的属性字典
-static func apply_passive_skills(skills: Array, hero: HeroData) -> Dictionary:
+static func apply_passive_skills(skills: Array, hero: HeroDataClass) -> Dictionary:
 	var modifiers: Dictionary = calculate_passive_modifiers(skills)
 
 	if hero != null and modifiers["crit_bonus"] > 0:

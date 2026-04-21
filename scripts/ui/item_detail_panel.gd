@@ -21,8 +21,8 @@ var special_effects_label: Label
 var synergy_label: Label
 
 ## 当前物品
-var item: ItemData = null
-var inventory: LinearInventory = null
+var item: ItemDataClass = null
+var inventory: LinearInventoryClass = null
 
 ## 样式颜色
 const COLOR_WEAPON = Color(1.0, 0.4, 0.4)
@@ -138,7 +138,7 @@ func _create_ui() -> void:
 	main_vbox.add_child(desc_label)
 
 ## 设置物品数据
-func set_item(item_data: ItemData, inv: LinearInventory = null) -> void:
+func set_item(item_data: ItemDataClass, inv: LinearInventoryClass = null) -> void:
 	item = item_data
 	inventory = inv
 	

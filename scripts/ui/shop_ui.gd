@@ -23,13 +23,13 @@ const EVENT_CARD_BG: String = "res://assets/art/ui/ui_event_card_bg.png"
 @onready var refresh_button: Button = $Panel/VBox/BottomBar/RefreshBtn
 
 ## 商店物品列表
-var shop_items: Array[ItemData] = []
+var shop_items: Array[ItemDataClass] = []
 
 ## 玩家金币（引用 GameManager）
 var player_gold: int = 0
 
 ## 背包实例（引用 InventoryUI）
-var inventory: LinearInventory = null
+var inventory: LinearInventoryClass = null
 
 ## 刷新/锁定机制
 var free_refresh_used: bool = false  ## 今日免费刷新已使用
@@ -38,7 +38,7 @@ const REFRESH_COST: int = 2  ## 刷新费用（金币）
 
 ## 信号
 signal shop_closed()
-signal item_purchased(item: ItemData)
+signal item_purchased(item: ItemDataClass)
 
 ## 回调函数引用
 var on_shop_closed_callback: Callable = Callable()
@@ -56,7 +56,7 @@ func _ready() -> void:
 	visible = false
 
 ## 显示商店
-func show_shop(inventory_ref: LinearInventory) -> void:
+func show_shop(inventory_ref: LinearInventoryClass) -> void:
 	print("[DEBUG] show_shop() called!")
 	print("  inventory_ref: " + str(inventory_ref))
 	inventory = inventory_ref
@@ -111,7 +111,7 @@ func _get_max_rarity_for_day(day: int) -> int:
 		return 4  # 传说
 
 ## 创建随机物品
-func _create_random_item(day: int, max_rarity: int) -> ItemData:
+func _create_random_item(day: int, max_rarity: int) -> ItemDataClass:
 	var item = ItemDataClass.new()
 
 	# 随机稀有度（1 到 max_rarity）
@@ -184,7 +184,7 @@ func _get_utility_name(rarity: int) -> String:
 	return names[rarity - 1]
 
 ## 计算价格（委托 EconomyManager：基础→尺寸→类型→天数通胀→声望折扣）
-func _calculate_price(item: ItemData) -> int:
+func _calculate_price(item: ItemDataClass) -> int:
 	var base_price: int = EconomyManagerClass.calculate_item_price(
 		item.rarity, item.size as int, item.type as int, GameManager.current_day
 	)
@@ -220,7 +220,7 @@ func _refresh_shop_items() -> void:
 	# 刷新按钮已直接在 tscn 中，无需动态创建
 
 ## 创建物品显示面板（返回带背景的Panel卡片）
-func _create_item_display(item: ItemData, idx: int) -> Control:
+func _create_item_display(item: ItemDataClass, idx: int) -> Control:
 	# 外层Panel作为卡片背景（固定尺寸）
 	var card_panel = Panel.new()
 	card_panel.custom_minimum_size = Vector2(180, 220)
@@ -349,7 +349,7 @@ func _get_rarity_color(rarity: int) -> Color:
 		_: return Color.WHITE
 
 ## 获取商店物品图片路径
-func _get_shop_item_texture_path(item: ItemData) -> String:
+func _get_shop_item_texture_path(item: ItemDataClass) -> String:
 	if item == null:
 		return ""
 
@@ -389,7 +389,7 @@ func _get_shop_item_texture_path(item: ItemData) -> String:
 	return ""
 
 ## 购买按钮点击
-func _on_buy_pressed(item: ItemData, button: Button) -> void:
+func _on_buy_pressed(item: ItemDataClass, button: Button) -> void:
 	# 检查金币
 	if not GameManager.can_afford(item.buy_price):
 		print("金币不足！")
@@ -421,7 +421,7 @@ func _on_buy_pressed(item: ItemData, button: Button) -> void:
 		print("[DEBUG] 购买失败: 金币不足")
 
 ## 添加物品到背包
-func _add_item_to_inventory(item: ItemData) -> void:
+func _add_item_to_inventory(item: ItemDataClass) -> void:
 	if inventory == null:
 		return
 
@@ -449,7 +449,7 @@ func _on_refresh_pressed(refresh_btn: Button) -> void:
 		GameManager.spend_gold(REFRESH_COST)
 
 	# 保留锁定物品
-	var locked_items: Array[ItemData] = []
+	var locked_items: Array[ItemDataClass] = []
 	var locked_idx_map: Array[int] = []
 	for idx in locked_indices:
 		if idx < shop_items.size():
@@ -459,7 +459,7 @@ func _on_refresh_pressed(refresh_btn: Button) -> void:
 	# 重新生成未锁定的物品
 	var day = GameManager.current_day
 	var max_rarity = _get_max_rarity_for_day(day)
-	var new_items: Array[ItemData] = []
+	var new_items: Array[ItemDataClass] = []
 	for i in range(shop_items.size()):
 		if i in locked_indices:
 			new_items.append(shop_items[i])

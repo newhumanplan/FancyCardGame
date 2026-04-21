@@ -6,15 +6,15 @@ const PassiveSkillDataClass = preload("res://scripts/data/passive_skill.gd")
 ## 英雄工厂 - 统一管理战士/法师的创建
 ## 从 main.gd _on_warrior_selected / _on_mage_selected 提取
 
-func create_hero(hero_type: HeroData.HeroType) -> HeroData:
+func create_hero(hero_type: HeroDataClass.HeroType) -> HeroDataClass:
 	match hero_type:
-		HeroData.HeroType.WARRIOR:
+		HeroDataClass.HeroType.WARRIOR:
 			return _create_warrior()
-		HeroData.HeroType.MAGE:
+		HeroDataClass.HeroType.MAGE:
 			return _create_mage()
 	return _create_warrior()
 
-func _create_warrior() -> HeroData:
+func _create_warrior() -> HeroDataClass:
 	var hero = HeroDataClass.new()
 	hero.hero_name = "战士"
 	hero.hero_type = HeroDataClass.HeroType.WARRIOR
@@ -37,7 +37,7 @@ func _create_warrior() -> HeroData:
 
 	return hero
 
-func _create_mage() -> HeroData:
+func _create_mage() -> HeroDataClass:
 	var hero = HeroDataClass.new()
 	hero.hero_name = "法师"
 	hero.hero_type = HeroDataClass.HeroType.MAGE

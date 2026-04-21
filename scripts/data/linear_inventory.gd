@@ -1,5 +1,6 @@
 class_name LinearInventory
 extends Resource
+const ItemDataClass = preload("res://scripts/data/item_data.gd")
 
 ## 总槽位数
 const TOTAL_SLOTS: int = 10
@@ -8,7 +9,7 @@ const TOTAL_SLOTS: int = 10
 var slots: Array[int] = []
 
 ## 物品数组
-var items: Array[ItemData] = []
+var items: Array[ItemDataClass] = []
 
 ## 背包变化信号
 signal inventory_changed()
@@ -24,7 +25,7 @@ func _init():
 ## item: 要放置的物品
 ## start_slot: 起始槽位索引
 ## 返回: 是否可以放置
-func can_place_item(item: ItemData, start_slot: int) -> bool:
+func can_place_item(item: ItemDataClass, start_slot: int) -> bool:
 	if item == null:
 		return false
 	
@@ -50,7 +51,7 @@ func can_place_item(item: ItemData, start_slot: int) -> bool:
 ## item: 要放置的物品
 ## start_slot: 起始槽位索引
 ## 返回: 是否放置成功
-func place_item(item: ItemData, start_slot: int) -> bool:
+func place_item(item: ItemDataClass, start_slot: int) -> bool:
 	if not can_place_item(item, start_slot):
 		return false
 	
@@ -73,7 +74,7 @@ func place_item(item: ItemData, start_slot: int) -> bool:
 ## 移除物品
 ## item: 要移除的物品
 ## 返回: 是否移除成功
-func remove_item(item: ItemData) -> bool:
+func remove_item(item: ItemDataClass) -> bool:
 	if item == null or item.slot_index == -1:
 		return false
 	
@@ -112,7 +113,7 @@ func _rebuild_slot_mapping() -> void:
 	
 	# 重新标记所有物品的槽位
 	for item_index in range(items.size()):
-		var item: ItemData = items[item_index]
+		var item: ItemDataClass = items[item_index]
 		if item != null and item.slot_index != -1:
 			var slot_count: int = item.get_slot_count()
 			for i in range(slot_count):
@@ -123,7 +124,7 @@ func _rebuild_slot_mapping() -> void:
 ## 获取指定槽位的物品
 ## slot: 槽位索引
 ## 返回: 槽位上的物品（如果没有返回 null）
-func get_item_at(slot: int) -> ItemData:
+func get_item_at(slot: int) -> ItemDataClass:
 	if slot < 0 or slot >= TOTAL_SLOTS:
 		return null
 	
@@ -139,7 +140,7 @@ func get_item_at(slot: int) -> ItemData:
 ## 获取物品占据的所有槽位
 ## item: 物品
 ## 返回: 槽位索引数组
-func get_item_slots(item: ItemData) -> Array[int]:
+func get_item_slots(item: ItemDataClass) -> Array[int]:
 	if item == null or item.slot_index == -1:
 		return []
 	
@@ -152,7 +153,7 @@ func get_item_slots(item: ItemData) -> Array[int]:
 ## 获取指定物品的左相邻物品
 ## item: 物品
 ## 返回: 左相邻物品（如果没有返回 null）
-func get_left_adjacent_item(item: ItemData) -> ItemData:
+func get_left_adjacent_item(item: ItemDataClass) -> ItemDataClass:
 	if item == null or item.slot_index == -1:
 		return null
 	
@@ -165,7 +166,7 @@ func get_left_adjacent_item(item: ItemData) -> ItemData:
 ## 获取指定物品的右相邻物品
 ## item: 物品
 ## 返回: 右相邻物品（如果没有返回 null）
-func get_right_adjacent_item(item: ItemData) -> ItemData:
+func get_right_adjacent_item(item: ItemDataClass) -> ItemDataClass:
 	if item == null or item.slot_index == -1:
 		return null
 	
@@ -179,14 +180,14 @@ func get_right_adjacent_item(item: ItemData) -> ItemData:
 ## 获取相邻物品（左相邻 + 右相邻）
 ## item: 物品
 ## 返回: 相邻物品数组
-func get_adjacent_items(item: ItemData) -> Array[ItemData]:
-	var result: Array[ItemData] = []
+func get_adjacent_items(item: ItemDataClass) -> Array[ItemDataClass]:
+	var result: Array[ItemDataClass] = []
 	
-	var left_item: ItemData = get_left_adjacent_item(item)
+	var left_item: ItemDataClass = get_left_adjacent_item(item)
 	if left_item != null:
 		result.append(left_item)
 	
-	var right_item: ItemData = get_right_adjacent_item(item)
+	var right_item: ItemDataClass = get_right_adjacent_item(item)
 	if right_item != null:
 		result.append(right_item)
 	
@@ -194,20 +195,20 @@ func get_adjacent_items(item: ItemData) -> Array[ItemData]:
 
 ## 获取最左边的物品
 ## 返回: 最左边的物品（如果没有返回 null）
-func get_leftmost_item() -> ItemData:
+func get_leftmost_item() -> ItemDataClass:
 	# 从左到右遍历，找到第一个非空槽位
 	for slot in range(TOTAL_SLOTS):
-		var item: ItemData = get_item_at(slot)
+		var item: ItemDataClass = get_item_at(slot)
 		if item != null:
 			return item
 	return null
 
 ## 获取最右边的物品
 ## 返回: 最右边的物品（如果没有返回 null）
-func get_rightmost_item() -> ItemData:
+func get_rightmost_item() -> ItemDataClass:
 	# 从右到左遍历，找到第一个非空槽位
 	for i in range(TOTAL_SLOTS - 1, -1, -1):
-		var item: ItemData = get_item_at(i)
+		var item: ItemDataClass = get_item_at(i)
 		if item != null:
 			return item
 	return null
@@ -229,21 +230,21 @@ func find_empty_slots(size: int) -> Array[int]:
 	return result
 
 ## 创建临时物品用于检查（不实际创建）
-func _create_dummy_item(slot_count: int) -> ItemData:
-	var dummy := ItemData.new()
+func _create_dummy_item(slot_count: int) -> ItemDataClass:
+	var dummy := ItemDataClass.new()
 	match slot_count:
 		1:
-			dummy.size = ItemData.Size.SMALL
+			dummy.size = ItemDataClass.Size.SMALL
 		2:
-			dummy.size = ItemData.Size.MEDIUM
+			dummy.size = ItemDataClass.Size.MEDIUM
 		_:
-			dummy.size = ItemData.Size.LARGE
+			dummy.size = ItemDataClass.Size.LARGE
 	return dummy
 
 ## ============ 实用工具方法 ============
 
 ## 获取所有物品
-func get_all_items() -> Array[ItemData]:
+func get_all_items() -> Array[ItemDataClass]:
 	return items.duplicate()
 
 ## 获取物品数量
@@ -282,7 +283,7 @@ enum SynergyType {
 ## 获取物品的协同加成
 ## item: 物品
 ## 返回: 协同加成字典 { "damage": int, "defense": int, "heal": int }
-func get_item_synergy_bonus(item: ItemData) -> Dictionary:
+func get_item_synergy_bonus(item: ItemDataClass) -> Dictionary:
 	var bonus = {
 		"damage": 0,
 		"defense": 0,
@@ -300,23 +301,23 @@ func get_item_synergy_bonus(item: ItemData) -> Dictionary:
 			continue
 		
 		# 武器 + 武器 = 伤害+10%
-		if item.type == ItemData.Type.WEAPON and adj_item.type == ItemData.Type.WEAPON:
+		if item.type == ItemDataClass.Type.WEAPON and adj_item.type == ItemDataClass.Type.WEAPON:
 			bonus["damage"] += int(float(item.damage) * 0.1)
 		
 		# 护盾 + 护盾 = 防御+10%
-		if item.type == ItemData.Type.SHIELD and adj_item.type == ItemData.Type.SHIELD:
+		if item.type == ItemDataClass.Type.SHIELD and adj_item.type == ItemDataClass.Type.SHIELD:
 			bonus["defense"] += int(float(item.shield) * 0.1)
 		
 		# 治疗 + 治疗 = 治疗+10%
-		if item.type == ItemData.Type.HEAL and adj_item.type == ItemData.Type.HEAL:
+		if item.type == ItemDataClass.Type.HEAL and adj_item.type == ItemDataClass.Type.HEAL:
 			bonus["heal"] += int(float(item.heal) * 0.1)
 		
 		# 武器 + 护盾 = 伤害+5%
-		if item.type == ItemData.Type.WEAPON and adj_item.type == ItemData.Type.SHIELD:
+		if item.type == ItemDataClass.Type.WEAPON and adj_item.type == ItemDataClass.Type.SHIELD:
 			bonus["damage"] += int(float(item.damage) * 0.05)
 		
 		# 护盾 + 武器 = 防御+5%
-		if item.type == ItemData.Type.SHIELD and adj_item.type == ItemData.Type.WEAPON:
+		if item.type == ItemDataClass.Type.SHIELD and adj_item.type == ItemDataClass.Type.WEAPON:
 			bonus["defense"] += int(float(item.shield) * 0.05)
 	
 	return bonus
@@ -324,7 +325,7 @@ func get_item_synergy_bonus(item: ItemData) -> Dictionary:
 ## 获取物品的最终属性（包含协同加成）
 ## item: 物品
 ## 返回: 属性字典（已应用稀有度和协同加成）
-func get_item_final_stats(item: ItemData) -> Dictionary:
+func get_item_final_stats(item: ItemDataClass) -> Dictionary:
 	if item == null:
 		return {}
 	
@@ -359,7 +360,7 @@ func get_slot_info(slot: int) -> Dictionary:
 	
 	var item_index: int = slots[slot]
 	var occupied: bool = item_index != -1
-	var item: ItemData = null
+	var item: ItemDataClass = null
 	var item_slots: Array[int] = []
 	
 	if occupied and item_index >= 0 and item_index < items.size():

@@ -15,14 +15,14 @@ const TOTAL_SLOTS: int = 10
 const SLOT_SPACING: int = 12
 
 ## Inventory 数据
-var inventory: LinearInventory
+var inventory: LinearInventoryClass
 
 ## 槽位节点数组
 var slot_panels: Array[Panel] = []
 var item_panels: Array[Control] = []
 
 ## 当前拖拽
-var dragging_item: ItemData = null
+var dragging_item: ItemDataClass = null
 var dragging_panel: Control = null
 var drag_start_slot: int = -1
 var is_dragging: bool = false
@@ -35,7 +35,7 @@ var current_hover_slot: int = -1
 
 ## 物品详情面板
 var detail_panel: Control = null
-var selected_item: ItemData = null
+var selected_item: ItemDataClass = null
 
 ## 协同效果高亮
 var synergy_highlights: Array[Control] = []  # 协同高亮效果
@@ -52,10 +52,10 @@ var background_layer: Control
 ## 物品图片映射（名称 -> 图片路径）
 var item_texture_map: Dictionary = {}
 
-signal item_placed(item: ItemData, slot: int)
-signal item_removed(item: ItemData)
-signal item_drag_started(item: ItemData)
-signal item_drag_ended(item: ItemData)
+signal item_placed(item: ItemDataClass, slot: int)
+signal item_removed(item: ItemDataClass)
+signal item_drag_started(item: ItemDataClass)
+signal item_drag_ended(item: ItemDataClass)
 
 ## 初始化物品图片映射
 func _init_item_texture_map() -> void:
@@ -113,7 +113,7 @@ func _init_item_texture_map() -> void:
 	item_texture_map["毒匕首"] = "res://assets/art/items/item_dagger.png"
 
 ## 获取物品图片路径
-func _get_item_texture_path(item: ItemData) -> String:
+func _get_item_texture_path(item: ItemDataClass) -> String:
 	if item == null:
 		return ""
 	
@@ -154,7 +154,7 @@ func _ready() -> void:
 	_init_item_texture_map()
 	
 	# 创建 Inventory 实例
-	inventory = LinearInventory.new()
+	inventory = LinearInventoryClass.new()
 	
 	# 连接信号
 	inventory.inventory_changed.connect(_on_inventory_changed)
@@ -273,7 +273,7 @@ func _refresh_display() -> void:
 			_display_item(item)
 
 ## 显示物品
-func _display_item(item: ItemData, is_synergy_highlight: bool = false) -> void:
+func _display_item(item: ItemDataClass, is_synergy_highlight: bool = false) -> void:
 	var slot_count: int = item.get_slot_count()
 	var start_slot: int = item.slot_index
 	
@@ -367,7 +367,7 @@ func _display_item(item: ItemData, is_synergy_highlight: bool = false) -> void:
 	item_panels.append(item_panel)
 
 ## 创建 Cooldown 遮罩（盖在物品图标上，显示冷却进度）
-func _create_cooldown_overlay(item: ItemData) -> ColorRect:
+func _create_cooldown_overlay(item: ItemDataClass) -> ColorRect:
 	var overlay = ColorRect.new()
 	overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	overlay.color = Color(0, 0, 0, 0.5)
@@ -389,7 +389,7 @@ func _create_cooldown_overlay(item: ItemData) -> ColorRect:
 	return overlay
 
 ## 更新单个物品的 Cooldown 遮罩
-func _update_cooldown_overlay(overlay: ColorRect, item: ItemData) -> void:
+func _update_cooldown_overlay(overlay: ColorRect, item: ItemDataClass) -> void:
 	if overlay == null or item == null:
 		return
 	
@@ -420,7 +420,7 @@ func _update_cooldown_overlays() -> void:
 		if not is_instance_valid(item_panel):
 			continue
 		
-		var item: ItemData = item_panel.get_meta("item_data", null) as ItemData
+		var item: ItemDataClass = item_panel.get_meta("item_data", null) as ItemDataClass
 		if item == null or item.cooldown <= 0.0:
 			continue
 		
@@ -431,7 +431,7 @@ func _update_cooldown_overlays() -> void:
 		_update_cooldown_overlay(cooldown_overlay, item)
 
 ## 获取物品颜色（基于稀有度）
-func _get_item_color(item: ItemData) -> Color:
+func _get_item_color(item: ItemDataClass) -> Color:
 	match item.rarity:
 		1: return Color(0.6, 0.6, 0.6)  # 普通 - 灰色
 		2: return Color(0.2, 0.8, 0.2)  # 优秀 - 绿色
@@ -461,7 +461,7 @@ func _on_slot_input(event: InputEvent, slot_index: int) -> void:
 				_show_item_detail(item)
 
 ## 物品输入处理（拖拽）
-func _on_item_input(event: InputEvent, item: ItemData, panel: Control) -> void:
+func _on_item_input(event: InputEvent, item: ItemDataClass, panel: Control) -> void:
 	if event is InputEventMouseButton:
 		if event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
 			_start_drag(item, panel)
@@ -472,7 +472,7 @@ func _on_item_input(event: InputEvent, item: ItemData, panel: Control) -> void:
 			_show_item_detail(item)
 
 ## 物品悬停效果
-func _on_item_hover(item: ItemData, panel: Control, hovering: bool) -> void:
+func _on_item_hover(item: ItemDataClass, panel: Control, hovering: bool) -> void:
 	var style = panel.get_child(0).get_theme_stylebox("panel")
 	if style != null:
 		if hovering:
@@ -489,7 +489,7 @@ func _on_item_hover(item: ItemData, panel: Control, hovering: bool) -> void:
 ## ========== 拖拽系统增强 ==========
 
 ## 开始拖拽
-func _start_drag(item: ItemData, panel: Control) -> void:
+func _start_drag(item: ItemDataClass, panel: Control) -> void:
 	is_dragging = true
 	dragging_item = item
 	dragging_panel = panel
@@ -586,7 +586,7 @@ func _clear_drag_overlays() -> void:
 func _end_drag(target_slot: int) -> void:
 	if not is_dragging or dragging_item == null:
 		return
-	var emitted_item: ItemData = dragging_item
+	var emitted_item: ItemDataClass = dragging_item
 	
 	# 清除高亮
 	_clear_drag_overlays()
@@ -630,7 +630,7 @@ func _on_slot_clicked_for_place(slot_index: int) -> void:
 ## ========== 物品详情面板 ==========
 
 ## 显示物品详情
-func _show_item_detail(item: ItemData) -> void:
+func _show_item_detail(item: ItemDataClass) -> void:
 	# 关闭已有面板
 	_close_detail_panel()
 	
@@ -659,7 +659,7 @@ func _show_item_detail(item: ItemData) -> void:
 		_create_inline_detail_panel(item)
 
 ## 创建内联详情面板（如果场景不存在）
-func _create_inline_detail_panel(item: ItemData) -> void:
+func _create_inline_detail_panel(item: ItemDataClass) -> void:
 	detail_panel = Panel.new()
 	detail_panel.name = "ItemDetailPanel"
 	detail_panel.custom_minimum_size = Vector2(300, 270)
@@ -792,7 +792,7 @@ func _create_inline_detail_panel(item: ItemData) -> void:
 	_position_detail_panel(item)
 
 ## 定位详情面板
-func _position_detail_panel(item: ItemData) -> void:
+func _position_detail_panel(item: ItemDataClass) -> void:
 	if detail_panel == null:
 		return
 	
@@ -813,13 +813,13 @@ func _position_detail_panel(item: ItemData) -> void:
 	detail_panel.global_position = target_pos
 
 ## 计算出售价格（购买价的 60%）
-func _calculate_sell_price(item: ItemData) -> int:
+func _calculate_sell_price(item: ItemDataClass) -> int:
 	if item == null or item.buy_price <= 0:
 		return 0
 	return maxi(int(float(item.buy_price) * 0.6), 1)
 
 ## 出售物品
-func _on_sell_pressed(item: ItemData, sell_price: int) -> void:
+func _on_sell_pressed(item: ItemDataClass, sell_price: int) -> void:
 	if item == null or inventory == null:
 		return
 	var slot_idx = item.slot_index
@@ -868,7 +868,7 @@ func _update_synergy_highlights() -> void:
 				_add_synergy_effect(item, adj_item)
 
 ## 添加协同效果显示
-func _add_synergy_effect(item1: ItemData, item2: ItemData) -> void:
+func _add_synergy_effect(item1: ItemDataClass, item2: ItemDataClass) -> void:
 	# 在两个物品之间添加连线效果
 	var start_slot = item1.slot_index + item1.get_slot_count() - 1
 	var end_slot = item2.slot_index
@@ -897,7 +897,7 @@ func _add_synergy_effect(item1: ItemData, item2: ItemData) -> void:
 	synergy_highlights.append(connector)
 
 ## 获取指定槽位的物品
-func _get_item_at_slot(slot_index: int) -> ItemData:
+func _get_item_at_slot(slot_index: int) -> ItemDataClass:
 	return null if inventory == null else inventory.get_item_at(slot_index)
 
 ## 添加测试物品
@@ -972,9 +972,9 @@ func _process(delta: float) -> void:
 	_update_cooldown_overlays()
 
 ## 获取库存实例（供外部使用）
-func get_inventory() -> LinearInventory:
+func get_inventory() -> LinearInventoryClass:
 	return inventory
 
 ## 获取选中的物品
-func get_selected_item() -> ItemData:
+func get_selected_item() -> ItemDataClass:
 	return selected_item

@@ -1,5 +1,9 @@
 class_name BattleUI
 extends Control
+const LinearInventoryClass = preload("res://scripts/data/linear_inventory.gd")
+const HeroDataClass = preload("res://scripts/data/hero_data.gd")
+const ItemDataClass = preload("res://scripts/data/item_data.gd")
+const MonsterDataClass = preload("res://scripts/data/monster_data.gd")
 
 ## 战斗面板 UI - 管理战斗界面和自动战斗循环
 ## 重构：纯物品触发战斗，移除独立攻击逻辑
@@ -69,10 +73,10 @@ var game_manager: Node
 var battle_system: Node
 
 ## 背包系统引用
-var inventory: LinearInventory = null
+var inventory: LinearInventoryClass = null
 
 ## 敌人数据
-var current_monster: MonsterData = null
+var current_monster: MonsterDataClass = null
 
 ## 是否为 PvP 战斗
 var is_pvp: bool = false
@@ -208,7 +212,7 @@ func _on_effect_applied(item_name: String, effect_type: String, value: int, targ
 
 ## ============ 战斗控制 ============
 
-func start_battle(monster: MonsterData = null, pvp: bool = false, enemy_atk_bonus: int = 0) -> void:
+func start_battle(monster: MonsterDataClass = null, pvp: bool = false, enemy_atk_bonus: int = 0) -> void:
 	is_pvp = pvp
 	battle_timer = 0.0
 	elapsed_since_last_tick = 0.0
@@ -254,58 +258,58 @@ func start_battle(monster: MonsterData = null, pvp: bool = false, enemy_atk_bonu
 
 ## ============ 怪物生成 ============
 
-func _assign_monster_ai(monster: MonsterData, day: int) -> void:
+func _assign_monster_ai(monster: MonsterDataClass, day: int) -> void:
 	match monster.tier:
-		MonsterData.MonsterTier.TIER_1:
+		MonsterDataClass.MonsterTier.TIER_1:
 			monster.ai = MonsterAIClass.create_swarm()
-		MonsterData.MonsterTier.TIER_2:
+		MonsterDataClass.MonsterTier.TIER_2:
 			if randf() < 0.5:
 				monster.ai = MonsterAIClass.create_technical()
 			else:
 				monster.ai = MonsterAIClass.create_defensive()
-		MonsterData.MonsterTier.TIER_3:
+		MonsterDataClass.MonsterTier.TIER_3:
 			monster.ai = MonsterAIClass.create_boss()
 	print("👹 [%s] AI模式: %s" % [monster.monster_name, monster.ai.get_mode_name()])
 
-func _generate_random_monster() -> MonsterData:
-	var monster: MonsterData = MonsterData.new()
+func _generate_random_monster() -> MonsterDataClass:
+	var monster: MonsterDataClass = MonsterDataClass.new()
 	var day: int = game_manager.current_day
-	var tier: MonsterData.MonsterTier = MonsterData.MonsterTier.TIER_1
+	var tier: MonsterDataClass.MonsterTier = MonsterDataClass.MonsterTier.TIER_1
 
 	if day >= 3:
-		tier = [MonsterData.MonsterTier.TIER_1, MonsterData.MonsterTier.TIER_2].pick_random()
+		tier = [MonsterDataClass.MonsterTier.TIER_1, MonsterDataClass.MonsterTier.TIER_2].pick_random()
 	if day >= 5:
 		tier = [
-			MonsterData.MonsterTier.TIER_1,
-			MonsterData.MonsterTier.TIER_2,
-			MonsterData.MonsterTier.TIER_3
+			MonsterDataClass.MonsterTier.TIER_1,
+			MonsterDataClass.MonsterTier.TIER_2,
+			MonsterDataClass.MonsterTier.TIER_3
 		].pick_random()
 
 	match tier:
-		MonsterData.MonsterTier.TIER_1:
+		MonsterDataClass.MonsterTier.TIER_1:
 			monster.monster_name = "史莱姆"
 			monster.max_hp = 40 + day * 10
 			monster.gold_reward_min = 5 + day
 			monster.gold_reward_max = 10 + day * 2
 			monster.monster_items = [
-				_create_monster_item("酸液喷射", ItemData.Type.WEAPON, 3 + day, 5 + day, 3.0)
+				_create_monster_item("酸液喷射", ItemDataClass.Type.WEAPON, 3 + day, 5 + day, 3.0)
 			]
-		MonsterData.MonsterTier.TIER_2:
+		MonsterDataClass.MonsterTier.TIER_2:
 			monster.monster_name = "哥布林"
 			monster.max_hp = 80 + day * 15
 			monster.gold_reward_min = 10 + day * 2
 			monster.gold_reward_max = 20 + day * 3
 			monster.monster_items = [
-				_create_monster_item("石斧", ItemData.Type.WEAPON, 6 + day, 8 + day * 2, 3.5)
+				_create_monster_item("石斧", ItemDataClass.Type.WEAPON, 6 + day, 8 + day * 2, 3.5)
 			]
-		MonsterData.MonsterTier.TIER_3:
+		MonsterDataClass.MonsterTier.TIER_3:
 			monster.monster_name = "食人魔"
 			monster.max_hp = 130 + day * 20
 			monster.gold_reward_min = 20 + day * 3
 			monster.gold_reward_max = 40 + day * 5
 			monster.monster_items = [
-				_create_monster_item("重锤", ItemData.Type.WEAPON, 10 + day, 12 + day * 2, 4.0),
-				_create_monster_item("碎骨", ItemData.Type.WEAPON, 8 + day, 6 + day, 3.0)
+				_create_monster_item("重锤", ItemDataClass.Type.WEAPON, 10 + day, 12 + day * 2, 4.0),
+				_create_monster_item("碎骨", ItemDataClass.Type.WEAPON, 8 + day, 6 + day, 3.0)
 			]
 
 	monster.tier = tier
@@ -313,8 +317,8 @@ func _generate_random_monster() -> MonsterData:
 	_assign_monster_ai(monster, day)
 	return monster
 
-func _create_pvp_enemy(enemy_atk_bonus: int = 0) -> MonsterData:
-	var monster: MonsterData = MonsterData.new()
+func _create_pvp_enemy(enemy_atk_bonus: int = 0) -> MonsterDataClass:
+	var monster: MonsterDataClass = MonsterDataClass.new()
 	var hero_types: Array[int] = [0, 1]
 	var random_hero_type: int = hero_types.pick_random()
 	var day: int = game_manager.current_day
@@ -323,14 +327,14 @@ func _create_pvp_enemy(enemy_atk_bonus: int = 0) -> MonsterData:
 		monster.monster_name = "PvP 战士"
 		monster.max_hp = 200 + day * 15
 		monster.monster_items = [
-			_create_monster_item("战士之剑", ItemData.Type.WEAPON, 12 + day, 15 + day + enemy_atk_bonus, 3.0),
-			_create_monster_item("铁盾反击", ItemData.Type.SHIELD, 10 + day, 5 + day + enemy_atk_bonus, 2.5)
+			_create_monster_item("战士之剑", ItemDataClass.Type.WEAPON, 12 + day, 15 + day + enemy_atk_bonus, 3.0),
+			_create_monster_item("铁盾反击", ItemDataClass.Type.SHIELD, 10 + day, 5 + day + enemy_atk_bonus, 2.5)
 		]
 	else:
 		monster.monster_name = "PvP 法师"
 		monster.max_hp = 160 + day * 15
 		monster.monster_items = [
-			_create_monster_item("奥术法杖", ItemData.Type.UTILITY, 14 + day, 22 + day * 2 + enemy_atk_bonus, 4.5)
+			_create_monster_item("奥术法杖", ItemDataClass.Type.UTILITY, 14 + day, 22 + day * 2 + enemy_atk_bonus, 4.5)
 		]
 
 	monster.gold_reward_min = 0
@@ -777,7 +781,7 @@ func _update_pvp_player_hand() -> void:
 
 	var card_count: int = 0
 	for item in inventory.items:
-		var item_data: ItemData = item as ItemData
+		var item_data: ItemDataClass = item as ItemDataClass
 		if item_data == null:
 			continue
 
@@ -1005,7 +1009,7 @@ func _layout_card_row(container: Control, slot_width: float, slot_height: float,
 			_set_percent_rect(card, x_position, y_position, x_position + card_width_ratio, y_position + card_height_ratio)
 			x_position += card_width_ratio + gap_ratio
 
-func _create_static_item_card(item_data: ItemData, opponent: bool) -> Panel:
+func _create_static_item_card(item_data: ItemDataClass, opponent: bool) -> Panel:
 	var card_panel: Panel = Panel.new()
 	card_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	card_panel.add_theme_stylebox_override("panel", _create_card_front_style(item_data.type, opponent))
@@ -1054,7 +1058,7 @@ func _update_pvp_battle_ui() -> void:
 	if pvp_root == null:
 		return
 
-	var hero: HeroData = game_manager.selected_hero
+	var hero: HeroDataClass = game_manager.selected_hero
 	var max_hp: int = game_manager.get_max_health()
 	var player_hp: int = clampi(game_manager.player_health, 0, max_hp)
 	var current_shield: float = 0.0
@@ -1120,7 +1124,7 @@ func _update_pvp_cooldown_overlays() -> void:
 		if not is_instance_valid(card_panel):
 			continue
 
-		var item_data: ItemData = card_panel.get_meta("item_data", null) as ItemData
+		var item_data: ItemDataClass = card_panel.get_meta("item_data", null) as ItemDataClass
 		if item_data == null:
 			continue
 
@@ -1455,7 +1459,7 @@ func _create_pvp_tooltip() -> void:
 	if pvp_root != null:
 		pvp_root.add_child(pvp_tooltip_panel)
 
-func _show_pvp_tooltip(card_panel: Panel, item_data: ItemData) -> void:
+func _show_pvp_tooltip(card_panel: Panel, item_data: ItemDataClass) -> void:
 	if pvp_tooltip_panel == null or pvp_tooltip_label == null:
 		return
 
@@ -1498,7 +1502,7 @@ func _on_pvp_card_hovered(card_panel: Panel) -> void:
 		_on_pvp_card_unhovered(pvp_hover_card)
 
 	pvp_hover_card = card_panel
-	var item_data: ItemData = card_panel.get_meta("item_data", null) as ItemData
+	var item_data: ItemDataClass = card_panel.get_meta("item_data", null) as ItemDataClass
 	if item_data != null:
 		card_panel.add_theme_stylebox_override("panel", _create_player_card_style(item_data, true))
 		_show_pvp_tooltip(card_panel, item_data)
@@ -1508,7 +1512,7 @@ func _on_pvp_card_unhovered(card_panel: Panel = null) -> void:
 		return
 
 	if pvp_hover_card != null and is_instance_valid(pvp_hover_card):
-		var item_data: ItemData = pvp_hover_card.get_meta("item_data", null) as ItemData
+		var item_data: ItemDataClass = pvp_hover_card.get_meta("item_data", null) as ItemDataClass
 		var is_selected: bool = pvp_hover_card == pvp_selected_card
 		if item_data != null:
 			pvp_hover_card.add_theme_stylebox_override("panel", _create_player_card_style(item_data, false, is_selected))
@@ -1516,7 +1520,7 @@ func _on_pvp_card_unhovered(card_panel: Panel = null) -> void:
 	pvp_hover_card = null
 	_hide_pvp_tooltip()
 
-func _on_pvp_card_input(event: InputEvent, card_panel: Panel, item_data: ItemData) -> void:
+func _on_pvp_card_input(event: InputEvent, card_panel: Panel, item_data: ItemDataClass) -> void:
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
 		if pvp_selected_card == card_panel:
 			var old: Panel = pvp_selected_card
@@ -1524,7 +1528,7 @@ func _on_pvp_card_input(event: InputEvent, card_panel: Panel, item_data: ItemDat
 			old.add_theme_stylebox_override("panel", _create_player_card_style(item_data, false, false))
 		else:
 			if pvp_selected_card != null and is_instance_valid(pvp_selected_card):
-				var old_data: ItemData = pvp_selected_card.get_meta("item_data", null) as ItemData
+				var old_data: ItemDataClass = pvp_selected_card.get_meta("item_data", null) as ItemDataClass
 				if old_data != null:
 					pvp_selected_card.add_theme_stylebox_override("panel", _create_player_card_style(old_data, false, false))
 
@@ -1600,13 +1604,13 @@ func _create_empty_hand_slot_style() -> StyleBoxFlat:
 
 func _get_illustration_color(item_type: int) -> Color:
 	match item_type:
-		ItemData.Type.WEAPON:
+		ItemDataClass.Type.WEAPON:
 			return Color(0.6, 0.2, 0.2, 0.8)
-		ItemData.Type.SHIELD:
+		ItemDataClass.Type.SHIELD:
 			return Color(0.2, 0.4, 0.7, 0.8)
-		ItemData.Type.HEAL:
+		ItemDataClass.Type.HEAL:
 			return Color(0.2, 0.6, 0.3, 0.8)
-		ItemData.Type.UTILITY:
+		ItemDataClass.Type.UTILITY:
 			return Color(0.5, 0.2, 0.6, 0.8)
 		_:
 			return Color(0.35, 0.35, 0.4, 0.8)
@@ -1653,7 +1657,7 @@ func _create_illustration_block(item_type: int) -> ColorRect:
 	illustration.offset_bottom = 60.0
 	return illustration
 
-func _create_player_card_style(item_data: ItemData, hovered: bool = false, selected: bool = false) -> StyleBoxFlat:
+func _create_player_card_style(item_data: ItemDataClass, hovered: bool = false, selected: bool = false) -> StyleBoxFlat:
 	var colors: Dictionary = _get_card_colors_by_rarity(item_data.rarity)
 	var style: StyleBoxFlat = StyleBoxFlat.new()
 	style.bg_color = colors["background"]
@@ -1704,14 +1708,14 @@ func _add_empty_opponent_slots(empty_count: int) -> void:
 
 func _get_monster_item_type(monster_item: Dictionary) -> int:
 	if monster_item.has("type"):
-		return int(monster_item.get("type", ItemData.Type.WEAPON))
+		return int(monster_item.get("type", ItemDataClass.Type.WEAPON))
 	if int(monster_item.get("shield", 0)) > 0:
-		return ItemData.Type.SHIELD
+		return ItemDataClass.Type.SHIELD
 	if int(monster_item.get("heal", 0)) > 0:
-		return ItemData.Type.HEAL
+		return ItemDataClass.Type.HEAL
 	if int(monster_item.get("damage", 0)) > 0:
-		return ItemData.Type.WEAPON
-	return ItemData.Type.UTILITY
+		return ItemDataClass.Type.WEAPON
+	return ItemDataClass.Type.UTILITY
 
 func _get_monster_item_stat_text(damage: int, shield: int, heal: int, item_type: int) -> String:
 	if damage > 0:
@@ -1720,7 +1724,7 @@ func _get_monster_item_stat_text(damage: int, shield: int, heal: int, item_type:
 		return "Shield %d" % shield
 	if heal > 0:
 		return "Heal %d" % heal
-	return ItemData.Type.keys()[item_type]
+	return ItemDataClass.Type.keys()[item_type]
 
 func _get_card_colors_by_rarity(rarity: int) -> Dictionary:
 	match rarity:
@@ -1889,7 +1893,7 @@ func _create_shield_fill_style() -> StyleBoxFlat:
 	style.corner_radius_bottom_left = 6
 	return style
 
-func _create_card_cooldown_overlay(item_data: ItemData) -> ColorRect:
+func _create_card_cooldown_overlay(item_data: ItemDataClass) -> ColorRect:
 	var overlay: ColorRect = ColorRect.new()
 	overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	overlay.color = Color(0.0, 0.0, 0.0, 0.5)
@@ -1907,7 +1911,7 @@ func _create_card_cooldown_overlay(item_data: ItemData) -> ColorRect:
 	_update_card_cooldown_overlay(overlay, item_data)
 	return overlay
 
-func _update_card_cooldown_overlay(overlay: ColorRect, item_data: ItemData) -> void:
+func _update_card_cooldown_overlay(overlay: ColorRect, item_data: ItemDataClass) -> void:
 	if overlay == null or item_data == null:
 		return
 
@@ -1937,7 +1941,7 @@ func _update_pvp_player_hand_labels() -> void:
 		if not is_instance_valid(card_panel):
 			continue
 
-		var item_data: ItemData = card_panel.get_meta("item_data", null) as ItemData
+		var item_data: ItemDataClass = card_panel.get_meta("item_data", null) as ItemDataClass
 		if item_data == null:
 			continue
 
@@ -1945,7 +1949,7 @@ func _update_pvp_player_hand_labels() -> void:
 		if cooldown_label != null:
 			cooldown_label.text = _get_item_cooldown_text(item_data)
 
-func _get_item_stat_text(item_data: ItemData) -> String:
+func _get_item_stat_text(item_data: ItemDataClass) -> String:
 	if item_data == null:
 		return ""
 
@@ -1957,7 +1961,7 @@ func _get_item_stat_text(item_data: ItemData) -> String:
 		return "🛡️ Shield +%d" % item_data.get_rarity_adjusted_shield()
 	return "✨ %s" % item_data.get_type_name()
 
-func _get_item_cooldown_text(item_data: ItemData) -> String:
+func _get_item_cooldown_text(item_data: ItemDataClass) -> String:
 	if item_data == null:
 		return ""
 	if item_data.current_cooldown > 0.0:
@@ -1981,13 +1985,13 @@ func _get_player_skill_names() -> Array[String]:
 		if skill_manager != null and skill_manager.has_method("get_equipped_skills"):
 			var equipped_skills: Array = skill_manager.get_equipped_skills()
 			for skill_entry in equipped_skills:
-				var skill_data: SkillData = skill_entry as SkillData
+				var skill_data: SkillDataClass = skill_entry as SkillDataClass
 				if skill_data != null and not skill_data.skill_name.is_empty():
 					names.append(skill_data.skill_name)
 
 	if names.is_empty() and game_manager.selected_hero != null:
 		for hero_skill in game_manager.selected_hero.skills:
-			var skill_data: SkillData = hero_skill as SkillData
+			var skill_data: SkillDataClass = hero_skill as SkillDataClass
 			if skill_data != null and not skill_data.skill_name.is_empty():
 				names.append(skill_data.skill_name)
 

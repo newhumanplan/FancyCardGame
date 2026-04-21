@@ -1,19 +1,20 @@
 class_name SkillManager
 extends RefCounted
+const SkillDataClass = preload("res://scripts/data/skill_data.gd")
 
 ## 技能管理器 — 管理英雄的被动技能装备与效果计算
 
 ## 已装备的技能列表
-var equipped_skills: Array[SkillData] = []
+var equipped_skills: Array[SkillDataClass] = []
 
 ## 技能字典（ID -> SkillData）用于快速查找
 var _skill_dict: Dictionary = {}
 
 ## 信号
-signal skill_added(skill: SkillData)
-signal skill_removed(skill: SkillData)
+signal skill_added(skill: SkillDataClass)
+signal skill_removed(skill: SkillDataClass)
 
-static func _is_valid_skill(skill: SkillData) -> bool:
+static func _is_valid_skill(skill: SkillDataClass) -> bool:
 	return skill != null and not skill.id.is_empty()
 
 func _build_effect_totals() -> Dictionary:
@@ -30,7 +31,7 @@ func _build_effect_totals() -> Dictionary:
 	}
 
 ## 装备技能
-func equip(skill: SkillData) -> bool:
+func equip(skill: SkillDataClass) -> bool:
 	if not _is_valid_skill(skill):
 		return false
 	if not _skill_dict.has(skill.id):
@@ -42,7 +43,7 @@ func equip(skill: SkillData) -> bool:
 		return true
 	return false
 
-func equip_skill(skill: SkillData) -> void:
+func equip_skill(skill: SkillDataClass) -> void:
 	equip(skill)
 
 ## 卸下技能
@@ -104,7 +105,7 @@ func apply_passive_skills(hero: HeroData) -> Dictionary:
 	return totals
 
 ## 获取所有已装备技能
-func get_equipped_skills() -> Array[SkillData]:
+func get_equipped_skills() -> Array[SkillDataClass]:
 	return equipped_skills.duplicate()
 
 ## 获取技能数量
@@ -112,8 +113,8 @@ func get_skill_count() -> int:
 	return equipped_skills.size()
 
 ## 按类型获取技能列表
-func get_skills_by_type(effect_type: SkillData.EffectType) -> Array[SkillData]:
-	var result: Array[SkillData] = []
+func get_skills_by_type(effect_type: SkillData.EffectType) -> Array[SkillDataClass]:
+	var result: Array[SkillDataClass] = []
 	for skill in equipped_skills:
 		if skill.effect_type == effect_type:
 			result.append(skill)
@@ -128,10 +129,10 @@ func clear() -> void:
 	_skill_dict.clear()
 
 ## 从 skills_config.json 加载技能库（不自动装备）
-## 返回 Array[SkillData] 所有可加载的技能
-static func load_skills_from_config() -> Array[SkillData]:
+## 返回 Array[SkillDataClass] 所有可加载的技能
+static func load_skills_from_config() -> Array[SkillDataClass]:
 	var skill_script = load("res://scripts/data/skill_data.gd")
-	var skills: Array[SkillData] = []
+	var skills: Array[SkillDataClass] = []
 	if skill_script == null:
 		push_warning("skill_data.gd 加载失败")
 		return skills

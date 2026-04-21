@@ -1,5 +1,6 @@
 class_name MonsterAI
 extends RefCounted
+const MonsterDataClass = preload("res://scripts/data/monster_data.gd")
 
 ## 怪物 AI 系统 — 定义怪物行为模式
 ## 不同怪物有不同的 AI 策略，影响战斗中的行为
@@ -115,20 +116,20 @@ static func create_swarm() -> MonsterAI:
 var low_hp_heal_chance_bonus: float = 0.0
 
 ## 判断是否处于低血量状态
-func is_low_hp(monster: MonsterData) -> bool:
+func is_low_hp(monster: MonsterDataClass) -> bool:
 	if monster == null:
 		return false
 	return monster.get_hp_percent() <= low_hp_threshold
 
 ## 获取当前伤害倍率
-func get_current_damage_multiplier(monster: MonsterData) -> float:
+func get_current_damage_multiplier(monster: MonsterDataClass) -> float:
 	var mult = damage_multiplier
 	if is_low_hp(monster):
 		mult = low_hp_damage_multiplier
 	return mult
 
 ## 判断是否触发自我治疗（每 tick）
-func should_heal(monster: MonsterData) -> bool:
+func should_heal(monster: MonsterDataClass) -> bool:
 	var chance = heal_chance
 	if is_low_hp(monster) and low_hp_heal_chance_bonus > 0:
 		chance += low_hp_heal_chance_bonus
@@ -153,7 +154,7 @@ func get_mode_name() -> String:
 		_: return "普通"
 
 ## 根据 AI 模式调整物品冷却（在战斗开始时调用）
-func apply_to_monster_items(monster: MonsterData) -> void:
+func apply_to_monster_items(monster: MonsterDataClass) -> void:
 	if monster == null:
 		return
 	var modifier = get_cooldown_modifier()

@@ -1,4 +1,5 @@
 extends Node
+const HeroDataClass = preload("res://scripts/data/hero_data.gd")
 
 ## 游戏管理器 - 管理全局状态
 ## 重构：移除 ATK/DEF，按原版大巴扎 1:1 复刻
@@ -76,7 +77,7 @@ signal hour_changed(hour: int, phase_name: String)
 ## ============ 英雄系统 ============
 
 ## 当前选择的英雄
-var selected_hero: HeroData = null
+var selected_hero: HeroDataClass = null
 
 ## 玩家生命值
 var player_health: int = 100
@@ -146,15 +147,15 @@ func reset_day_hour() -> void:
 ## ============ 英雄系统 ============
 
 ## 选择英雄（只设置 HP，ATK/DEF 已移除）
-func select_hero(hero: HeroData) -> void:
+func select_hero(hero: HeroDataClass) -> void:
 	if hero == null:
 		return
 	selected_hero = hero
 	# 根据英雄类型设置初始属性（只有 HP）
-	if hero.hero_type == HeroData.HeroType.WARRIOR:
+	if hero.hero_type == HeroDataClass.HeroType.WARRIOR:
 		# 战士: HP120
 		player_health = 120
-	elif hero.hero_type == HeroData.HeroType.MAGE:
+	elif hero.hero_type == HeroDataClass.HeroType.MAGE:
 		# 法师: HP80
 		player_health = 80
 	selected_hero.current_hp = player_health
