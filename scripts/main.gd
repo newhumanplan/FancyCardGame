@@ -9,6 +9,10 @@ const EventManagerClass = preload("res://scripts/data/event_manager.gd")
 const PassiveSkillDataClass = preload("res://scripts/data/passive_skill.gd")
 const EndingManagerClass = preload("res://scripts/data/ending_manager.gd")
 const HeroFactory = preload("res://scripts/data/hero_factory.gd")
+const LinearInventoryClass = preload("res://scripts/data/linear_inventory.gd")
+
+## 玩家背包（持久化）
+var player_inventory: LinearInventoryClass = LinearInventoryClass.new()
 
 ## 底部常驻层引用（三层布局共享）
 var item_bar_layer: Control = null
@@ -56,9 +60,6 @@ var event_manager = EventManagerClass.new()
 @onready var event_option_1: Button = $EventPanel/EventVBox/EventOptions/Option1
 @onready var event_option_2: Button = $EventPanel/EventVBox/EventOptions/Option2
 @onready var event_option_3: Button = $EventPanel/EventVBox/EventOptions/Option3
-
-## 背包 UI
-@onready var inventory_ui: Control = $InventoryUI
 
 ## 商店 UI
 @onready var shop_ui: Control = $ShopUI
@@ -256,9 +257,9 @@ func _execute_shop_event() -> void:
 ## 打开商店 UI
 func _open_shop_ui() -> void:
 	_write_debug("========== _open_shop_ui() 被调用 ==========")
-	_write_debug("inventory_ui: " + str(inventory_ui))
-	if inventory_ui and inventory_ui.has_method("get_inventory"):
-		var inventory = inventory_ui.get_inventory()
+	_write_debug("player_inventory: " + str(player_inventory))
+	if player_inventory:
+		var inventory = player_inventory
 		_write_debug("inventory: " + str(inventory))
 		if item_bar_layer:
 			item_bar_layer.visible = true
@@ -376,8 +377,8 @@ func _on_battle_ended(won: bool, gold_reward: int) -> void:
 
 ## 计算属性（物品触发系统下显示物品总属性）
 func _calculate_stats() -> void:
-	if inventory_ui and inventory_ui.has_method("get_inventory"):
-		var inventory = inventory_ui.get_inventory()
+	if player_inventory:
+		var inventory = player_inventory
 		var total_damage = 0
 		var total_shield = 0
 		var total_heal = 0
@@ -464,8 +465,8 @@ func _update_ui() -> void:
 
 ## 获取背包物品数量
 func _get_item_count() -> int:
-	if inventory_ui and inventory_ui.has_method("get_inventory"):
-		return inventory_ui.get_inventory().get_item_count()
+	if player_inventory:
+		return player_inventory.get_item_count()
 	return 0
 
 ## ============ 信号回调 ============
