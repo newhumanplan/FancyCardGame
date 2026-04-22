@@ -1,6 +1,18 @@
-[gd_scene load_steps=2 format=3 uid="uid://inventory_ui_scene"]
+[gd_scene load_steps=3 format=3 uid="uid://inventory_ui_scene"]
 
 [ext_resource type="Script" path="res://scripts/ui/inventory_ui.gd" id="1_inventory"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_1"]
+bg_color = Color(0.08, 0.08, 0.12, 0.92)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.3, 0.3, 0.4, 0.8)
+corner_radius_left = 4
+corner_radius_top = 4
+corner_radius_right = 4
+corner_radius_bottom = 4
 
 [node name="InventoryUI" type="Control"]
 layout_mode = 3
@@ -11,6 +23,15 @@ grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_inventory")
 
+[node name="Background" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.08, 0.08, 0.12, 0.92)
+
 [node name="Panel" type="Panel" parent="."]
 layout_mode = 1
 anchors_preset = 15
@@ -18,6 +39,7 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_1")
 
 [node name="VBox" type="VBoxContainer" parent="Panel"]
 layout_mode = 1
