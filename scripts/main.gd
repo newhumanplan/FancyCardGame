@@ -29,10 +29,10 @@ var event_manager = EventManagerClass.new()
 
 ## ============ UI 节点 ============
 
-## 顶部栏
-@onready var day_label: Label = $TopBar/DayLabel
-@onready var hour_label: Label = $TopBar/HourLabel
-@onready var hero_label: Label = $TopBar/HeroLabel
+## 顶部栏（旧 UI 已移除）
+var day_label: Label = null
+var hour_label: Label = null
+var hero_label: Label = null
 
 ## 属性面板
 @onready var hp_label: Label = get_node_or_null("StatsPanel/HPBarLabel")
@@ -86,6 +86,7 @@ func _ready() -> void:
 	shop_ui.visible = false
 	battle_ui.visible = false
 
+	_connect_inventory_signals()
 	_connect_signals()
 	_setup_buttons()
 	_show_hero_selection()
@@ -105,6 +106,14 @@ func _connect_signals() -> void:
 	GameManager.prestige_changed.connect(_on_prestige_changed)
 	GameManager.game_over.connect(_on_game_over)
 	GameManager.futura_triggered.connect(_on_futura_triggered)
+
+func _connect_inventory_signals() -> void:
+	if inventory_ui == null or not inventory_ui.has_method("get_inventory"):
+		return
+
+	var inventory: LinearInventoryClass = inventory_ui.get_inventory()
+	if inventory != null and not inventory.inventory_changed.is_connected(_on_player_inventory_changed):
+		inventory.inventory_changed.connect(_on_player_inventory_changed)
 
 ## ============ 按钮设置 ============
 
@@ -423,14 +432,17 @@ func _update_ui() -> void:
 		gold_label.text = "金币: %d" % GameManager.gold
 
 	# Day/Hour
-	day_label.text = "Day %d" % GameManager.current_day
-	hour_label.text = "[%s]" % GameManager.get_current_phase_name()
+	if day_label != null:
+		day_label.text = "Day %d" % GameManager.current_day
+	if hour_label != null:
+		hour_label.text = "[%s]" % GameManager.get_current_phase_name()
 
 	# 英雄信息
-	if GameManager.selected_hero != null:
-		hero_label.text = "%s (%s)" % [GameManager.selected_hero.hero_name, GameManager.selected_hero.get_type_name()]
-	else:
-		hero_label.text = "未选择英雄"
+	if hero_label != null:
+		if GameManager.selected_hero != null:
+			hero_label.text = "%s (%s)" % [GameManager.selected_hero.hero_name, GameManager.selected_hero.get_type_name()]
+		else:
+			hero_label.text = "未选择英雄"
 
 	# 属性
 	var max_hp = GameManager.get_max_health()
@@ -473,11 +485,16 @@ func _on_gold_changed(amount: int) -> void:
 		hero_bar_gold_label.text = "💰 %d" % GameManager.gold
 
 func _on_day_changed(day: int) -> void:
-	day_label.text = "Day %d" % day
+	if day_label != null:
+		day_label.text = "Day %d" % day
 
 func _on_hour_changed(hour: int, phase_name: String) -> void:
-	hour_label.text = "[%s]" % phase_name
+	if hour_label != null:
+		hour_label.text = "[%s]" % phase_name
 	round_label.text = "回合: %d / 5" % [hour + 1]
+
+func _on_player_inventory_changed() -> void:
+	_update_ui()
 
 func _on_health_changed(amount: int) -> void:
 	var max_hp = GameManager.get_max_health()

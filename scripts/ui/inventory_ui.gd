@@ -157,7 +157,7 @@ func _ready() -> void:
 	inventory = LinearInventoryClass.new()
 	
 	# 连接信号
-	inventory.inventory_changed.connect(_on_inventory_changed)
+	_ensure_inventory_signal_connection()
 	
 	# 创建背景层（用于处理点击空白处）
 	_create_background_layer()
@@ -176,6 +176,10 @@ func _ready() -> void:
 	
 	# 默认显示背包
 	visible = true
+
+func _ensure_inventory_signal_connection() -> void:
+	if inventory != null and not inventory.inventory_changed.is_connected(_on_inventory_changed):
+		inventory.inventory_changed.connect(_on_inventory_changed)
 
 ## 创建背景层
 func _create_background_layer() -> void:
@@ -973,6 +977,7 @@ func _process(delta: float) -> void:
 
 ## 获取库存实例（供外部使用）
 func get_inventory() -> LinearInventoryClass:
+	_ensure_inventory_signal_connection()
 	return inventory
 
 ## 获取选中的物品
