@@ -263,6 +263,7 @@ func _open_shop_ui() -> void:
 			hero_bar_layer.visible = true
 		shop_ui.visible = true
 		shop_ui.show_shop(inventory)
+		debug_verify_inventory()
 		if not shop_ui.shop_closed.is_connected(_on_shop_closed):
 			shop_ui.shop_closed.connect(_on_shop_closed)
 		_write_debug("商店已打开")
@@ -759,3 +760,17 @@ func _create_hero_bar_layer() -> void:
 
 	_on_health_changed(GameManager.player_health)
 	_on_gold_changed(GameManager.gold)
+
+## Debug: 验证 inventory 引用一致性
+func debug_verify_inventory() -> void:
+	if inventory_ui == null:
+		print("[DEBUG] inventory_ui is NULL!")
+		return
+	var inv_from_ui = inventory_ui.get_inventory()
+	print("[DEBUG] main.inventory_ui address: %s" % str(inventory_ui))
+	print("[DEBUG] inv_from_ui address: %s" % str(inv_from_ui))
+	print("[DEBUG] shop_ui.inventory address: %s" % str(shop_ui.inventory if shop_ui else "shop_ui is null"))
+	if inv_from_ui != shop_ui.inventory:
+		print("[BUG!] inventory mismatch! inv_from_ui != shop_ui.inventory")
+	else:
+		print("[OK] inventory references match")

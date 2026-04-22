@@ -423,7 +423,11 @@ func _on_buy_pressed(item: ItemDataClass, button: Button) -> void:
 ## 添加物品到背包
 func _add_item_to_inventory(item: ItemDataClass) -> void:
 	if inventory == null:
+		print("[DEBUG] _add_item_to_inventory: inventory is NULL!")
 		return
+
+	print("[DEBUG] _add_item_to_inventory called. inventory instance_id=%s, item=%s" % [str(inventory), item.item_name])
+	print("[DEBUG] inventory.items before: %s" % [inventory.items.map(func(x): return x.item_name if x else "null")])
 
 	# 创建物品副本，避免多个同类物品共享同一个实例
 	var item_copy = item.duplicate()
@@ -433,7 +437,8 @@ func _add_item_to_inventory(item: ItemDataClass) -> void:
 	if not empty_slots.is_empty():
 		var slot = empty_slots[0]
 		inventory.place_item(item_copy, slot)
-		print("物品已放入背包，槽位: %d" % slot)
+		print("[DEBUG] 物品已放入背包，槽位: %d, inventory.instance_id=%s" % [slot, str(inventory)])
+		print("[DEBUG] inventory.items after: %s" % [inventory.items.map(func(x): return x.item_name if x else "null")])
 	else:
 		print("警告: 没有可用槽位")
 
