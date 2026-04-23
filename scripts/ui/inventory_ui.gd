@@ -13,6 +13,8 @@ const ItemDetailPanelClass = preload("res://scenes/ui/item_detail_panel.tscn")
 const SLOT_SIZE: int = 108
 const TOTAL_SLOTS: int = 10
 const SLOT_SPACING: int = 12
+const HOVER_DELAY_SEC: float = 0.3
+const HOVER_TOOLTIP_OFFSET: Vector2 = Vector2(16, 20)
 
 ## Inventory 数据
 var inventory: LinearInventoryClass
@@ -36,6 +38,9 @@ var current_hover_slot: int = -1
 ## 物品详情面板
 var detail_panel: Control = null
 var selected_item: ItemDataClass = null
+var hover_timer: Timer = null
+var hovered_item: ItemDataClass = null
+var hover_tooltip: Control = null
 
 ## 协同效果高亮
 var synergy_highlights: Array[Control] = []  # 协同高亮效果
@@ -159,6 +164,13 @@ func _ready() -> void:
 	# 连接信号
 	_ensure_inventory_signal_connection()
 
+	# 创建 hover 延迟计时器
+	hover_timer = Timer.new()
+	hover_timer.name = "HoverTimer"
+	hover_timer.one_shot = true
+	hover_timer.timeout.connect(_on_hover_timer_timeout)
+	add_child(hover_timer)
+
 	# 创建背景层(用于处理点击空白处)
 	_create_background_layer()
 
@@ -265,6 +277,10 @@ func _on_inventory_changed() -> void:
 
 ## 刷新物品显示
 func _refresh_display() -> void:
+	hover_timer.stop()
+	hovered_item = null
+	_hide_hover_tooltip()
+
 	# 清除所有物品显示
 	for child in item_display_layer.get_children():
 		if child.name != "SlotOverlayLayer":
@@ -473,6 +489,9 @@ func _on_item_input(event: InputEvent, item: ItemDataClass, panel: Control) -> v
 			_end_drag(item.slot_index)
 		elif event.button_index == MOUSE_BUTTON_RIGHT and event.pressed:
 			# 右键点击显示物品详情
+			hover_timer.stop()
+			_hide_hover_tooltip()
+			hovered_item = null
 			_show_item_detail(item)
 
 ## 物品悬停效果
@@ -490,10 +509,69 @@ func _on_item_hover(item: ItemDataClass, panel: Control, hovering: bool) -> void
 			style.border_width_top = 2
 			style.border_width_bottom = 2
 
+	if hovering:
+		hover_timer.stop()
+		_hide_hover_tooltip()
+		hovered_item = item
+		hover_timer.start(HOVER_DELAY_SEC)
+	else:
+		hover_timer.stop()
+		_hide_hover_tooltip()
+		hovered_item = null
+
+func _on_hover_timer_timeout() -> void:
+	if hovered_item == null or is_dragging:
+		return
+	_show_hover_tooltip(hovered_item)
+
+func _show_hover_tooltip(item: ItemDataClass) -> void:
+	if item == null:
+		return
+
+	_hide_hover_tooltip()
+
+	hover_tooltip = ItemDetailPanelClass.instantiate()
+	hover_tooltip.name = "HoverTooltip"
+	add_child(hover_tooltip)
+	hover_tooltip.set_item(item, inventory)
+	hover_tooltip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	hover_tooltip.move_to_front()
+	_position_hover_tooltip()
+
+func _hide_hover_tooltip() -> void:
+	if hover_tooltip != null:
+		hover_tooltip.queue_free()
+		hover_tooltip = null
+
+func _position_hover_tooltip() -> void:
+	if hover_tooltip == null:
+		return
+
+	var viewport_size: Vector2 = get_viewport_rect().size
+	var panel_size: Vector2 = hover_tooltip.custom_minimum_size
+	if panel_size == Vector2.ZERO:
+		panel_size = hover_tooltip.size
+
+	var mouse_pos: Vector2 = get_global_mouse_position()
+	var target_pos: Vector2 = mouse_pos + HOVER_TOOLTIP_OFFSET
+
+	if target_pos.x + panel_size.x > viewport_size.x:
+		target_pos.x = mouse_pos.x - panel_size.x - HOVER_TOOLTIP_OFFSET.x
+	if target_pos.y + panel_size.y > viewport_size.y:
+		target_pos.y = mouse_pos.y - panel_size.y - HOVER_TOOLTIP_OFFSET.y
+
+	target_pos.x = clampf(target_pos.x, 0.0, maxf(viewport_size.x - panel_size.x, 0.0))
+	target_pos.y = clampf(target_pos.y, 0.0, maxf(viewport_size.y - panel_size.y, 0.0))
+	hover_tooltip.global_position = target_pos
+
 ## ========== 拖拽系统增强 ==========
 
 ## 开始拖拽
 func _start_drag(item: ItemDataClass, panel: Control) -> void:
+	hover_timer.stop()
+	_hide_hover_tooltip()
+	hovered_item = null
+
 	is_dragging = true
 	dragging_item = item
 	dragging_panel = panel
@@ -698,13 +776,9 @@ func _show_item_detail(item: ItemDataClass) -> void:
 	selected_item = item
 
 	# 尝试加载场景
-	var panel_scene = load("res://scenes/ui/item_detail_panel.tscn")
-	if panel_scene:
-		detail_panel = panel_scene.instantiate()
+	if ItemDetailPanelClass:
+		detail_panel = ItemDetailPanelClass.instantiate()
 		detail_panel.name = "ItemDetailPanel"
-
-		# 设置物品数据
-		detail_panel.set_item(item)
 
 		# 连接关闭信号
 		if detail_panel.has_signal("close_requested"):
@@ -712,6 +786,7 @@ func _show_item_detail(item: ItemDataClass) -> void:
 
 		add_child(detail_panel)
 		detail_panel.move_to_front()
+		detail_panel.set_item(item, inventory)
 
 		# 定位到物品附近
 		_position_detail_panel(item)
