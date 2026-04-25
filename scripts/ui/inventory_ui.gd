@@ -10,9 +10,9 @@ const ItemDataClass = preload("res://scripts/data/item_data.gd")
 const ItemDetailPanelClass = preload("res://scenes/ui/item_detail_panel.tscn")
 
 ## 常量
-const SLOT_SIZE: int = 108
+const SLOT_SIZE: int = 96
 const TOTAL_SLOTS: int = 10
-const SLOT_SPACING: int = 12
+const SLOT_SPACING: int = 8
 const HOVER_DELAY_SEC: float = 0.3
 const HOVER_TOOLTIP_OFFSET: Vector2 = Vector2(16, 20)
 

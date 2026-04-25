@@ -57,7 +57,8 @@ func _ready() -> void:
 
 func _run_tests() -> void:
 	test_generate_options_for_pvp_hour()
-	test_generate_options_for_non_pvp_hour()
+	test_generate_options_for_pve_hour()
+	test_generate_options_for_build_hour()
 	test_get_all_events_and_count()
 	test_execute_random_event_for_each_event_id()
 
@@ -87,16 +88,24 @@ func _assert_eq(actual, expected, label: String) -> void:
 
 func _print_summary() -> void:
 	print("SUMMARY: %d/%d passed" % [_passed, _total])
+	get_tree().quit(1 if _passed < _total else 0)
 
 
 func test_generate_options_for_pvp_hour() -> void:
-	var options = _manager().generate_options(4, 2)
+	var options = _manager().generate_options(5, 2)
 
 	_assert_eq(options.size(), 1, "generate_options returns only one option at PvP hour")
-	_assert_eq(options[0]["type"], "pvp", "generate_options labels hour 4 option as pvp")
+	_assert_eq(options[0]["type"], "pvp", "generate_options labels hour 5 option as pvp")
 
 
-func test_generate_options_for_non_pvp_hour() -> void:
+func test_generate_options_for_pve_hour() -> void:
+	var options = _manager().generate_options(2, 3)
+	_assert_eq(options.size(), 3, "generate_options returns three monster options at PvE hour")
+	for option in options:
+		_assert_eq(option["type"], "monster", "generate_options labels PvE options as monsters")
+
+
+func test_generate_options_for_build_hour() -> void:
 	var manager = _manager()
 	var saw_random_event := false
 	var random_event_is_registered := true
@@ -105,7 +114,7 @@ func test_generate_options_for_non_pvp_hour() -> void:
 		registered_ids[event_data["id"]] = true
 
 	for _i in range(50):
-		var options = manager.generate_options(2, 3)
+		var options = manager.generate_options(0, 3)
 		var types: Array[String] = []
 		for option in options:
 			types.append(str(option["type"]))
@@ -113,10 +122,12 @@ func test_generate_options_for_non_pvp_hour() -> void:
 				saw_random_event = true
 				if not registered_ids.has(option.get("event_id", "")):
 					random_event_is_registered = false
-		if options.size() == 3 and "shop" in types and "monster" in types and saw_random_event:
+		if "monster" in types or "pvp" in types:
+			random_event_is_registered = false
+		if options.size() == 3 and "shop" in types and saw_random_event:
 			break
 
-	_assert_true(saw_random_event, "generate_options can produce random events outside PvP hour")
+	_assert_true(saw_random_event, "generate_options can produce random events in build hours")
 	_assert_true(random_event_is_registered, "generate_options random_event ids come from registered event list")
 
 
@@ -156,3 +167,4 @@ func test_execute_random_event_for_each_event_id() -> void:
 		_assert_eq(game_manager.damage_taken, case_data["damage_taken"], "execute_random_event updates damage for %s" % case_data["id"])
 		_assert_true(absf(game_manager.selected_hero.crit_chance - float(case_data["crit"])) <= 0.001, "execute_random_event updates hero crit for %s" % case_data["id"])
 		_assert_true(str(case_data["text"]) in result, "execute_random_event result mentions expected amount for %s" % case_data["id"])
+		game_manager.free()

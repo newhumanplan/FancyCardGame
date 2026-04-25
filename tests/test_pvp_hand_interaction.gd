@@ -72,10 +72,10 @@ func test_tooltip_content_damage() -> void:
 	_total += 1
 	var text: String = "[b]Iron Sword[/b]\n"
 	text += "Type: Weapon\n"
-	text += "ATK: %d\n" % 15
+	text += "Damage: %d\n" % 15
 	text += "CD: %.1fs\n" % 3.0
-	var passed: bool = text.find("Iron Sword") >= 0 and text.find("ATK: 15") >= 0 and text.find("CD: 3.0s") >= 0
-	_assert("Tooltip: damage item shows name/ATK/CD", passed)
+	var passed: bool = text.find("Iron Sword") >= 0 and text.find("Damage: 15") >= 0 and text.find("CD: 3.0s") >= 0
+	_assert("Tooltip: damage item shows name/Damage/CD", passed)
 
 
 func test_tooltip_content_heal() -> void:
@@ -106,7 +106,7 @@ func test_card_style_states() -> void:
 	var hover_width: int = 3
 	var select_width: int = 3
 	var gold := Color(1.0, 0.84, 0.0, 1.0)
-	var is_gold: bool = absf(gold.r - 1.0) and is_equal_approx(gold.g) < 0.01
+	var is_gold: bool = absf(gold.r - 1.0) < 0.01 and absf(gold.g - 0.84) < 0.01
 	var passed: bool = hover_width > normal_width and select_width > normal_width and is_gold
 	_assert("Hover/Selected border wider, selected=gold", passed)
 
@@ -121,3 +121,4 @@ func _assert(description: String, passed: bool) -> void:
 
 func _print_summary() -> void:
 	print("\nResults: %d/%d passed" % [_passed, _total])
+	get_tree().quit(1 if _passed < _total else 0)

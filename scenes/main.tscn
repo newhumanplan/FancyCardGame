@@ -1,9 +1,10 @@
-[gd_scene load_steps=6 format=3 uid="uid://main_scene"]
+[gd_scene load_steps=10 format=3 uid="uid://main_scene"]
 
 [ext_resource type="Script" path="res://scripts/main.gd" id="1_main"]
 [ext_resource type="PackedScene" uid="uid://inventory_ui_scene" path="res://scenes/inventory_ui.tscn" id="2_inventory"]
 [ext_resource type="PackedScene" path="res://scenes/shop_panel.tscn" id="3_shop"]
 [ext_resource type="PackedScene" uid="uid://battle_panel_scene" path="res://scenes/battle_panel.tscn" id="4_battle"]
+[ext_resource type="PackedScene" path="res://scenes/ui/bazaar_shell.tscn" id="5_shell"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_prestige"]
 bg_color = Color(0.2, 0.2, 0.3, 1)
@@ -54,6 +55,14 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 color = Color(0.08, 0.08, 0.12, 1)
 
+[node name="BazaarShell" parent="." instance=ExtResource("5_shell")]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
 [node name="HeroSelectPanel" type="PanelContainer" parent="."]
 visible = false
 layout_mode = 1
@@ -87,13 +96,13 @@ theme_override_constants/separation = 45
 layout_mode = 2
 size_flags_horizontal = 3
 text = "⚔️ 战士
-HP: 120 | ATK: 15 | DEF: 10"
+HP: 120 | 暴击: 5% | 坚韧被动"
 
 [node name="MageButton" type="Button" parent="HeroSelectPanel/HeroSelectVBox/Heroes"]
 layout_mode = 2
 size_flags_horizontal = 3
 text = "🔮 法师
-HP: 80 | ATK: 25 | DEF: 5"
+HP: 80 | 暴击: 15% | 奥术被动"
 
 [node name="VBox" type="VBoxContainer" parent="."]
 visible = false
@@ -114,7 +123,7 @@ horizontal_alignment = 1
 
 [node name="RoundLabel" type="Label" parent="VBox"]
 layout_mode = 2
-text = "回合: 1 / 5"
+text = "回合: 1 / 6"
 horizontal_alignment = 1
 
 [node name="ButtonBox" type="HBoxContainer" parent="VBox"]
@@ -179,15 +188,15 @@ text = "✨ 事件"
 
 [node name="InventoryUI" parent="." instance=ExtResource("2_inventory")]
 layout_mode = 1
-anchor_left = 0.0
-anchor_top = 0.77
-anchor_right = 1.0
-anchor_bottom = 0.89
-offset_left = 15.0
+anchor_left = 0.20
+anchor_top = 0.53
+anchor_right = 0.82
+anchor_bottom = 0.76
+offset_left = 0.0
 offset_top = 0.0
-offset_right = -15.0
+offset_right = 0.0
 offset_bottom = 0.0
-z_index = 20
+z_index = 25
 
 [node name="ShopUI" parent="." instance=ExtResource("3_shop")]
 layout_mode = 1

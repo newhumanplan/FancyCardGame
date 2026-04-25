@@ -291,6 +291,7 @@ func _generate_random_monster() -> MonsterDataClass:
 			monster.max_hp = 40 + day * 10
 			monster.gold_reward_min = 5 + day
 			monster.gold_reward_max = 10 + day * 2
+			monster.xp_reward = 1
 			monster.monster_items = [
 				_create_monster_item("酸液喷射", ItemDataClass.Type.WEAPON, 3 + day, 5 + day, 3.0)
 			]
@@ -299,6 +300,7 @@ func _generate_random_monster() -> MonsterDataClass:
 			monster.max_hp = 80 + day * 15
 			monster.gold_reward_min = 10 + day * 2
 			monster.gold_reward_max = 20 + day * 3
+			monster.xp_reward = 2
 			monster.monster_items = [
 				_create_monster_item("石斧", ItemDataClass.Type.WEAPON, 6 + day, 8 + day * 2, 3.5)
 			]
@@ -307,6 +309,7 @@ func _generate_random_monster() -> MonsterDataClass:
 			monster.max_hp = 130 + day * 20
 			monster.gold_reward_min = 20 + day * 3
 			monster.gold_reward_max = 40 + day * 5
+			monster.xp_reward = 3
 			monster.monster_items = [
 				_create_monster_item("重锤", ItemDataClass.Type.WEAPON, 10 + day, 12 + day * 2, 4.0),
 				_create_monster_item("碎骨", ItemDataClass.Type.WEAPON, 8 + day, 6 + day, 3.0)
@@ -339,6 +342,7 @@ func _create_pvp_enemy(enemy_atk_bonus: int = 0) -> MonsterDataClass:
 
 	monster.gold_reward_min = 0
 	monster.gold_reward_max = 0
+	monster.xp_reward = 0
 	monster.current_hp = monster.max_hp
 	monster.ai = MonsterAIClass.create_aggressive()
 
@@ -1080,12 +1084,16 @@ func _update_pvp_battle_ui() -> void:
 		var item_count: int = inventory.items.size() if inventory != null else 0
 		pvp_player_meta_label.text = "%s  |  🎒 %d" % [crit_text, item_count]
 	if pvp_gold_label != null:
-		pvp_gold_label.text = "金币: %d" % int(game_manager.gold)
+		pvp_gold_label.text = "金币 %d  收入 %d" % [int(game_manager.gold), int(game_manager.income)]
 	if pvp_wins_label != null:
 		var total_wins: int = int(game_manager.pvp_wins)
 		pvp_wins_label.text = "🏆 %d/10" % total_wins
 	if pvp_clock_label != null:
-		pvp_clock_label.text = "Day %d\nPrestige %d" % [int(game_manager.current_day), int(game_manager.prestige)]
+		pvp_clock_label.text = "Day %d\nLv %d\nPrestige %d" % [
+			int(game_manager.current_day),
+			int(game_manager.level),
+			int(game_manager.prestige)
+		]
 
 	_update_skill_labels(pvp_player_skill_labels, _get_player_skill_names(), false)
 
@@ -1362,47 +1370,36 @@ func _on_battle_win() -> void:
 	pvp_selected_card = null
 
 	var gold_reward: int = 0
-	if is_pvp:
-		game_manager.on_pvp_win()
-	elif current_monster:
-		gold_reward = current_monster.get_gold_reward()
-		game_manager.add_gold(gold_reward)
-		game_manager.on_battle_win()
 
 	_last_battle_won = true
 	_last_gold_reward = gold_reward
 
 	if pvp_result_label != null:
 		if is_pvp:
-			pvp_result_label.text = "🎉 胜利! PvP 胜场 %d / 10" % game_manager.pvp_wins
+			pvp_result_label.text = "🎉 胜利!"
 		else:
-			pvp_result_label.text = "🎉 胜利! 获得 %d 金币!" % gold_reward
+			pvp_result_label.text = "🎉 胜利!"
 		pvp_result_label.visible = true
 	if pvp_continue_button != null:
 		pvp_continue_button.visible = true
 	elif not is_pvp:
-		result_label.text = "🎉 胜利! 获得 %d 金币!" % gold_reward
+		result_label.text = "🎉 胜利!"
 		result_label.visible = true
 		continue_button.visible = true
 
-	_log("🎉 战斗胜利! 获得 %d 金币!" % gold_reward)
+	_log("🎉 战斗胜利!")
 	battle_system.end_battle()
 
 func _on_battle_lose() -> void:
 	is_battle_active = false
 	pvp_selected_card = null
 
-	if is_pvp:
-		game_manager.on_pvp_lose()
-	else:
-		game_manager.on_battle_lose()
-
 	_last_battle_won = false
 	_last_gold_reward = 0
 
 	if pvp_result_label != null:
 		if is_pvp:
-			pvp_result_label.text = "💀 失败! Prestige: %d" % game_manager.prestige
+			pvp_result_label.text = "💀 失败!"
 		else:
 			pvp_result_label.text = "💀 战斗失败!"
 		pvp_result_label.visible = true
@@ -1466,7 +1463,7 @@ func _show_pvp_tooltip(card_panel: Panel, item_data: ItemDataClass) -> void:
 	var text: String = "[b]%s[/b]\n" % item_data.item_name
 	text += "Type: %s\n" % item_data.get_type_name()
 	if item_data.damage > 0:
-		text += "ATK: %d\n" % item_data.get_rarity_adjusted_damage()
+		text += "Damage: %d\n" % item_data.get_rarity_adjusted_damage()
 	if item_data.heal > 0:
 		text += "Heal: %d\n" % item_data.get_rarity_adjusted_heal()
 	if item_data.shield > 0:

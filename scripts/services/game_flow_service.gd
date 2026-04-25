@@ -22,8 +22,8 @@ func _init() -> void:
 
 func generate_event_options() -> Array[Dictionary]:
 	## 生成随机事件选项，返回选项文本列表供main.gd显示
-	var hour = GameManager.current_hour
-	var day = GameManager.current_day
+	var hour = RunStateService.current_hour
+	var day = RunStateService.current_day
 	var options: Array[Dictionary] = event_manager.generate_options(hour, day)
 	_current_event_options = options
 	_current_random_event_id = ""

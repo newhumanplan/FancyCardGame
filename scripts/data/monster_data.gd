@@ -41,6 +41,12 @@ var ai = null  ## MonsterAI
 ## 物品掉落几率
 @export var item_drop_chance: float = 0.3
 
+## XP 奖励
+@export var xp_reward: int = 1
+
+## 兼容目标 reward model，可覆写 gold/xp/income/max_health/heal/prestige 等字段
+@export var reward: Dictionary = {}
+
 ## ============ 初始化方法 ============
 
 func _init():
@@ -96,6 +102,14 @@ func get_gold_reward() -> int:
 	if gold_reward_max <= gold_reward_min:
 		return gold_reward_min
 	return randi() % (gold_reward_max - gold_reward_min + 1) + gold_reward_min
+
+func get_reward() -> Dictionary:
+	var result: Dictionary = reward.duplicate(true)
+	if not result.has("gold"):
+		result["gold"] = get_gold_reward()
+	if not result.has("xp"):
+		result["xp"] = xp_reward
+	return result
 
 ## 检查是否掉落物品
 func should_drop_item() -> bool:

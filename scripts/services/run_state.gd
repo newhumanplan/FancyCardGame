@@ -7,31 +7,28 @@ signal day_changed(day: int)
 signal hour_changed(hour: int, phase_name: String)
 signal prestige_changed(value: int)
 signal battle_ended(won: bool, gold_reward: int)
+signal last_chance_triggered()
+signal run_failed()
+signal pvp_wins_changed(value: int)
+
+const STARTING_PRESTIGE: int = 20
 
 var current_day: int = 1
 var current_hour: int = 0
-var prestige: int = 20
-var max_prestige: int = 100
+var prestige: int = STARTING_PRESTIGE
+var max_prestige: int = STARTING_PRESTIGE
 var prestige_zero_count: int = 0
+var last_chance_used: bool = false
 var wins: int = 0
 var losses: int = 0
 var pvp_wins: int = 0
 
-## 阶段: 0=采购, 1=采购, 2=打怪, 3=采购, 4=PvP
-const PHASE_HOURS = {
-	0: "采购阶段",
-	1: "采购阶段",
-	2: "战斗阶段",
-	3: "采购阶段",
-	4: "PvP阶段"
-}
-
 func get_current_phase_name() -> String:
-	return PHASE_HOURS.get(current_hour % 5, "未知")
+	return PhaseService.get_current_phase_name(current_hour)
 
 func next_hour() -> void:
 	current_hour += 1
-	if current_hour >= 5:
+	if current_hour >= PhaseService.MAX_HOURS_PER_DAY:
 		current_hour = 0
 		current_day += 1
 		print("进入第 %d 天" % current_day)
@@ -39,28 +36,68 @@ func next_hour() -> void:
 	hour_changed.emit(current_hour, get_current_phase_name())
 
 func add_prestige(amount: int) -> void:
-	prestige = mini(prestige + amount, max_prestige)
+	if amount <= 0:
+		return
+	prestige = clampi(prestige + amount, 0, max_prestige)
 	prestige_changed.emit(prestige)
 
-func remove_prestige(amount: int) -> void:
-	prestige -= amount
-	if prestige <= 0:
-		prestige = 0
-		prestige_zero_count += 1
-		print("Prestige 归零！次数: %d" % prestige_zero_count)
+func remove_prestige(amount: int) -> Dictionary:
+	var result: Dictionary = {
+		"amount": maxi(amount, 0),
+		"prestige": prestige,
+		"last_chance": false,
+		"run_failed": false,
+	}
+	if amount <= 0:
+		return result
+
+	var old_prestige: int = prestige
+	prestige = maxi(prestige - amount, 0)
 	prestige_changed.emit(prestige)
+	result["prestige"] = prestige
+
+	if old_prestige > 0 and prestige == 0:
+		if not last_chance_used:
+			last_chance_used = true
+			prestige_zero_count = 1
+			prestige = 1
+			result["prestige"] = prestige
+			result["last_chance"] = true
+			print("Prestige 首次归零，触发 Last Chance")
+			prestige_changed.emit(prestige)
+			last_chance_triggered.emit()
+		else:
+			prestige_zero_count = 2
+			result["run_failed"] = true
+			print("Prestige 再次归零，Run 失败")
+			run_failed.emit()
+
+	return result
 
 func get_prestige_bonus() -> float:
-	return float(prestige) / 100.0
+	return 1.0 + (float(prestige) / 100.0)
 
 func get_prestige_percent() -> float:
+	if max_prestige <= 0:
+		return 0.0
 	return float(prestige) / float(max_prestige)
 
-func reset() -> void:
+func add_pvp_win() -> int:
+	pvp_wins += 1
+	pvp_wins_changed.emit(pvp_wins)
+	return pvp_wins
+
+func reset(full: bool = true) -> void:
 	current_day = 1
 	current_hour = 0
 	wins = 0
 	losses = 0
 	pvp_wins = 0
+	if full:
+		prestige = STARTING_PRESTIGE
+		prestige_zero_count = 0
+		last_chance_used = false
 	day_changed.emit(current_day)
 	hour_changed.emit(current_hour, get_current_phase_name())
+	prestige_changed.emit(prestige)
+	pvp_wins_changed.emit(pvp_wins)

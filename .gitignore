@@ -28,7 +28,7 @@ screenshots/
 /tmp/
 
 # AI agent temp files
-AGENTS.md
+# AGENTS.md is the project-level Codex/ACP instruction file and should be tracked.
 PLAN.md
 PROGRESS.md
 assets/_prompt_library/

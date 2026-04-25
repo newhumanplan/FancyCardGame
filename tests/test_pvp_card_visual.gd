@@ -12,23 +12,25 @@ func _ready() -> void:
 		print("== tests/test_pvp_card_visual.gd ==")
 		_run_tests()
 		_print_summary()
-		get_tree().quit(0)
+		get_tree().quit(1 if _passed < _total else 0)
 
 
 func _run_tests() -> void:
-	test_pvp_card_size_constant_is_80x110()
+	test_pvp_card_slot_constants()
 	test_create_price_badge_signature_and_return_type()
 	test_illustration_color_mapping()
 	test_create_illustration_block_uses_color_mapping()
 	test_pvp_visual_helpers_are_only_used_in_pvp_paths()
 
 
-func test_pvp_card_size_constant_is_80x110() -> void:
+func test_pvp_card_slot_constants() -> void:
 	_total += 1
 	var battle_ui: Control = _new_battle_ui_instance()
-	var actual_size: Vector2 = battle_ui.PVP_CARD_SIZE
-	var passed: bool = actual_size == Vector2(80.0, 110.0)
-	_assert("BattleUI.PVP_CARD_SIZE == Vector2(80.0, 110.0)", passed)
+	var item_slot_ok: bool = is_equal_approx(battle_ui.PVP_ITEM_SLOT_WIDTH, 0.045) \
+		and is_equal_approx(battle_ui.PVP_ITEM_SLOT_HEIGHT, 0.09)
+	var top_slot_ok: bool = is_equal_approx(battle_ui.PVP_TOP_CARD_WIDTH, 0.05) \
+		and is_equal_approx(battle_ui.PVP_TOP_CARD_HEIGHT, 0.11)
+	_assert("BattleUI PvP card slot constants match percent-layout spec", item_slot_ok and top_slot_ok)
 	battle_ui.free()
 
 
@@ -87,30 +89,30 @@ func test_pvp_visual_helpers_are_only_used_in_pvp_paths() -> void:
 	var player_hand_block: String = _extract_function_block(source, "_update_pvp_player_hand")
 	var illustration_block: String = _extract_function_block(source, "_create_illustration_block")
 
-	var show_panel_ok: bool = show_panel_block.find("if is_pvp:") >= 0 \
+	var show_panel_ok: bool = show_panel_block.find("pvp_root.visible = true") >= 0 \
 		and show_panel_block.find("_update_pvp_player_hand()") >= 0 \
 		and show_panel_block.find("_update_pvp_opponent_hand()") >= 0
-	var player_hand_ok: bool = player_hand_block.find("card_panel.custom_minimum_size = PVP_CARD_SIZE") >= 0 \
+	var player_hand_ok: bool = player_hand_block.find("_layout_card_row(pvp_player_hand_container, PVP_ITEM_SLOT_WIDTH, PVP_ITEM_SLOT_HEIGHT") >= 0 \
 		and player_hand_block.find("_create_illustration_block(item_data.type)") >= 0 \
 		and player_hand_block.find("_create_price_badge(item_data.buy_price)") >= 0
 	var illustration_ok: bool = illustration_block.find("illustration.color = _get_illustration_color(item_type)") >= 0
 
-	var card_size_funcs: Array[String] = _extract_usage_functions(source, "PVP_CARD_SIZE")
+	var card_slot_funcs: Array[String] = _extract_usage_functions(source, "PVP_ITEM_SLOT_WIDTH")
 	var price_badge_funcs: Array[String] = _extract_usage_functions(source, "_create_price_badge")
 	var illustration_color_funcs: Array[String] = _extract_usage_functions(source, "_get_illustration_color")
 	var illustration_block_funcs: Array[String] = _extract_usage_functions(source, "_create_illustration_block")
 
-	var card_size_ok: bool = _all_functions_allowed(
-		card_size_funcs,
-		["_update_pvp_player_hand", "_update_pvp_opponent_hand", "_add_empty_player_slots"]
+	var card_slot_ok: bool = _all_functions_allowed(
+		card_slot_funcs,
+		["_update_pvp_player_hand"]
 	)
-	var price_badge_ok: bool = _all_functions_allowed(price_badge_funcs, ["_update_pvp_player_hand"])
-	var illustration_color_usage_ok: bool = _all_functions_allowed(illustration_color_funcs, ["_create_illustration_block"])
-	var illustration_block_usage_ok: bool = _all_functions_allowed(illustration_block_funcs, ["_update_pvp_player_hand"])
+	var price_badge_ok: bool = _all_functions_allowed(price_badge_funcs, ["_update_pvp_player_hand", "_update_pvp_opponent_hand", "_create_static_item_card"])
+	var illustration_color_usage_ok: bool = _all_functions_allowed(illustration_color_funcs, ["_create_card_front_style", "_create_illustration_block"])
+	var illustration_block_usage_ok: bool = _all_functions_allowed(illustration_block_funcs, ["_update_pvp_player_hand", "_update_pvp_opponent_hand", "_create_static_item_card"])
 
 	_assert(
-		"PVP visual helpers stay inside is_pvp-only update paths",
-		show_panel_ok and player_hand_ok and illustration_ok and card_size_ok and price_badge_ok and illustration_color_usage_ok and illustration_block_usage_ok
+		"PVP visual helpers stay inside PvP layout helper paths",
+		show_panel_ok and player_hand_ok and illustration_ok and card_slot_ok and price_badge_ok and illustration_color_usage_ok and illustration_block_usage_ok
 	)
 
 

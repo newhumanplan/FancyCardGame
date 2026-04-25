@@ -32,33 +32,44 @@ func _build_option(text: String, option_type: String, event_id: String = "") -> 
 		option["event_id"] = event_id
 	return option
 
+func _build_monster_option(index: int, day: int) -> Dictionary:
+	var option := _build_option("👹 怪物 %d" % index, "monster")
+	option["encounter_index"] = index
+	option["day"] = day
+	return option
+
 ## ============ 事件选项生成 ============
 
 ## 生成事件选项列表（替代 main.gd 中的 _generate_event_options）
 ## 返回最多3个选项字典: [{"text": "...", "icon": "...", "type": "..."}]
 func generate_options(hour: int, day: int) -> Array[Dictionary]:
-	if hour == 4:
+	if PhaseService.is_pvp_phase(hour):
 		return [_build_option("⚔️ PvP 对战", "pvp")]
+
+	if PhaseService.is_pve_phase(hour):
+		return [
+			_build_monster_option(1, day),
+			_build_monster_option(2, day),
+			_build_monster_option(3, day),
+		]
 
 	var options: Array[Dictionary] = []
 	options.append(_build_option("🏪 商人", "shop"))
-	options.append(_build_option("👹 怪物", "monster"))
 
-	var extra_types := ["random_event", "treasure", "camp", "shop", "monster"]
-	var extra_type: String = extra_types.pick_random()
-	match extra_type:
-		"random_event":
-			var evt = _pick_random_event(day)
-			if not evt.is_empty():
-				options.append(_build_option("%s %s" % [evt.get("icon", ""), evt.get("name", "随机事件")], "random_event", str(evt.get("id", ""))))
-		"treasure":
-			options.append(_build_option("💎 宝库", "treasure"))
-		"camp":
-			options.append(_build_option("⛺ 营地", "camp"))
-		"shop":
-			options.append(_build_option("🏪 商人", "shop"))
-		"monster":
-			options.append(_build_option("👹 怪物", "monster"))
+	var extra_types := ["random_event", "treasure", "camp", "shop"]
+	while options.size() < 3:
+		var extra_type: String = extra_types.pick_random()
+		match extra_type:
+			"random_event":
+				var evt = _pick_random_event(day)
+				if not evt.is_empty():
+					options.append(_build_option("%s %s" % [evt.get("icon", ""), evt.get("name", "随机事件")], "random_event", str(evt.get("id", ""))))
+			"treasure":
+				options.append(_build_option("💎 宝库", "treasure"))
+			"camp":
+				options.append(_build_option("⛺ 营地", "camp"))
+			"shop":
+				options.append(_build_option("🏪 商人", "shop"))
 
 	options.shuffle()
 	return options

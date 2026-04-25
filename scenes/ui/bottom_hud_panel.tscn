@@ -1,0 +1,202 @@
+[gd_scene load_steps=6 format=3]
+
+[ext_resource type="Script" path="res://scripts/ui/bottom_hud_panel.gd" id="1_script"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_hud"]
+bg_color = Color(0.08, 0.10, 0.12, 0.92)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.42, 0.37, 0.27, 0.85)
+corner_radius_left = 6
+corner_radius_top = 6
+corner_radius_right = 6
+corner_radius_bottom = 6
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_portrait"]
+bg_color = Color(0.16, 0.15, 0.18, 0.95)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.86, 0.62, 0.24, 0.95)
+corner_radius_left = 8
+corner_radius_top = 8
+corner_radius_right = 8
+corner_radius_bottom = 8
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_health_bg"]
+bg_color = Color(0.10, 0.12, 0.10, 0.95)
+corner_radius_left = 6
+corner_radius_top = 6
+corner_radius_right = 6
+corner_radius_bottom = 6
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_health_fill"]
+bg_color = Color(0.18, 0.82, 0.20, 1)
+corner_radius_left = 6
+corner_radius_top = 6
+corner_radius_right = 6
+corner_radius_bottom = 6
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_wallet"]
+bg_color = Color(0.20, 0.16, 0.08, 0.82)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.76, 0.56, 0.22, 0.88)
+corner_radius_left = 6
+corner_radius_top = 6
+corner_radius_right = 6
+corner_radius_bottom = 6
+
+[node name="BottomHudPanel" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("1_script")
+
+[node name="HudFrame" type="Panel" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_hud")
+
+[node name="HealthBar" type="ProgressBar" parent="HudFrame"]
+layout_mode = 1
+anchor_left = 0.22
+anchor_top = 0.06
+anchor_right = 0.78
+anchor_bottom = 0.25
+show_percentage = false
+theme_override_styles/background = SubResource("StyleBoxFlat_health_bg")
+theme_override_styles/fill = SubResource("StyleBoxFlat_health_fill")
+max_value = 100.0
+value = 100.0
+
+[node name="HPLabel" type="Label" parent="HudFrame/HealthBar"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+text = "100"
+horizontal_alignment = 1
+vertical_alignment = 1
+theme_override_font_sizes/font_size = 24
+
+[node name="StashButtonArea" type="Control" parent="HudFrame"]
+layout_mode = 1
+anchor_left = 0.02
+anchor_top = 0.18
+anchor_right = 0.18
+anchor_bottom = 0.92
+mouse_filter = 2
+
+[node name="StashButton" type="Button" parent="HudFrame/StashButtonArea"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+text = "Stash"
+
+[node name="HeroPortraitArea" type="Panel" parent="HudFrame"]
+layout_mode = 1
+anchor_left = 0.42
+anchor_top = 0.28
+anchor_right = 0.58
+anchor_bottom = 0.98
+theme_override_styles/panel = SubResource("StyleBoxFlat_portrait")
+
+[node name="Avatar" type="TextureRect" parent="HudFrame/HeroPortraitArea"]
+layout_mode = 1
+anchor_left = 0.16
+anchor_top = 0.02
+anchor_right = 0.84
+anchor_bottom = 0.56
+expand_mode = 1
+stretch_mode = 5
+
+[node name="HeroNameLabel" type="Label" parent="HudFrame/HeroPortraitArea"]
+layout_mode = 1
+anchor_left = 0.04
+anchor_top = 0.55
+anchor_right = 0.96
+anchor_bottom = 0.72
+text = "Hero"
+horizontal_alignment = 1
+vertical_alignment = 1
+theme_override_font_sizes/font_size = 12
+
+[node name="LevelLabel" type="Label" parent="HudFrame/HeroPortraitArea"]
+layout_mode = 1
+anchor_left = 0.04
+anchor_top = 0.70
+anchor_right = 0.96
+anchor_bottom = 0.84
+text = "Lv 1"
+horizontal_alignment = 1
+vertical_alignment = 1
+theme_override_font_sizes/font_size = 14
+
+[node name="XPLabel" type="Label" parent="HudFrame/HeroPortraitArea"]
+layout_mode = 1
+anchor_left = 0.04
+anchor_top = 0.84
+anchor_right = 0.96
+anchor_bottom = 0.98
+text = "XP 0/8"
+horizontal_alignment = 1
+vertical_alignment = 1
+theme_override_font_sizes/font_size = 11
+
+[node name="PassiveSkillArea" type="HBoxContainer" parent="HudFrame"]
+layout_mode = 1
+anchor_left = 0.59
+anchor_top = 0.36
+anchor_right = 0.72
+anchor_bottom = 0.76
+theme_override_constants/separation = 8
+alignment = 1
+
+[node name="WalletArea" type="Panel" parent="HudFrame"]
+layout_mode = 1
+anchor_left = 0.78
+anchor_top = 0.22
+anchor_right = 0.98
+anchor_bottom = 0.90
+theme_override_styles/panel = SubResource("StyleBoxFlat_wallet")
+
+[node name="GoldLabel" type="Label" parent="HudFrame/WalletArea"]
+layout_mode = 1
+anchor_left = 0.05
+anchor_top = 0.15
+anchor_right = 0.95
+anchor_bottom = 0.45
+text = "Gold 15"
+horizontal_alignment = 1
+vertical_alignment = 1
+theme_override_font_sizes/font_size = 18
+
+[node name="IncomeLabel" type="Label" parent="HudFrame/WalletArea"]
+layout_mode = 1
+anchor_left = 0.05
+anchor_top = 0.48
+anchor_right = 0.95
+anchor_bottom = 0.78
+text = "Income 7"
+horizontal_alignment = 1
+vertical_alignment = 1
+theme_override_font_sizes/font_size = 15

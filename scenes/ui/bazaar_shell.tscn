@@ -1,0 +1,123 @@
+[gd_scene load_steps=8 format=3]
+
+[ext_resource type="Script" path="res://scripts/ui/bazaar_shell.gd" id="1_script"]
+[ext_resource type="Texture2D" path="res://assets/art/ui/ui_bg_gradient.png" id="2_bg"]
+[ext_resource type="PackedScene" path="res://scenes/ui/left_clock_panel.tscn" id="3_clock"]
+[ext_resource type="PackedScene" path="res://scenes/ui/player_board_panel.tscn" id="4_board"]
+[ext_resource type="PackedScene" path="res://scenes/ui/bottom_hud_panel.tscn" id="5_hud"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_top"]
+bg_color = Color(0.18, 0.11, 0.08, 0.36)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.45, 0.31, 0.16, 0.45)
+corner_radius_left = 8
+corner_radius_top = 8
+corner_radius_right = 8
+corner_radius_bottom = 8
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_upper"]
+bg_color = Color(0.12, 0.11, 0.18, 0.30)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.56, 0.46, 0.24, 0.52)
+corner_radius_left = 6
+corner_radius_top = 6
+corner_radius_right = 6
+corner_radius_bottom = 6
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_action"]
+bg_color = Color(0.10, 0.13, 0.18, 0.50)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.38, 0.62, 0.78, 0.62)
+corner_radius_left = 6
+corner_radius_top = 6
+corner_radius_right = 6
+corner_radius_bottom = 6
+
+[node name="BazaarShell" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("1_script")
+
+[node name="BackgroundLayer" type="TextureRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+texture = ExtResource("2_bg")
+expand_mode = 1
+stretch_mode = 6
+modulate = Color(0.60, 0.72, 0.82, 0.72)
+
+[node name="TopContextPanel" type="Panel" parent="."]
+layout_mode = 1
+anchor_left = 0.24
+anchor_top = 0.05
+anchor_right = 0.80
+anchor_bottom = 0.28
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_top")
+
+[node name="UpperBoardPanel" type="Panel" parent="."]
+layout_mode = 1
+anchor_left = 0.20
+anchor_top = 0.29
+anchor_right = 0.82
+anchor_bottom = 0.52
+mouse_filter = 1
+theme_override_styles/panel = SubResource("StyleBoxFlat_upper")
+
+[node name="LeftClockPanel" parent="." instance=ExtResource("3_clock")]
+layout_mode = 1
+anchor_left = 0.06
+anchor_top = 0.36
+anchor_right = 0.18
+anchor_bottom = 0.66
+
+[node name="PlayerBoardPanel" parent="." instance=ExtResource("4_board")]
+layout_mode = 1
+anchor_left = 0.20
+anchor_top = 0.53
+anchor_right = 0.82
+anchor_bottom = 0.76
+
+[node name="BottomHudPanel" parent="." instance=ExtResource("5_hud")]
+layout_mode = 1
+anchor_left = 0.18
+anchor_top = 0.76
+anchor_right = 0.84
+anchor_bottom = 0.97
+
+[node name="RightActionArea" type="Panel" parent="."]
+layout_mode = 1
+anchor_left = 0.70
+anchor_top = 0.08
+anchor_right = 0.81
+anchor_bottom = 0.28
+mouse_filter = 1
+theme_override_styles/panel = SubResource("StyleBoxFlat_action")
+
+[node name="OverlayLayer" type="Control" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2

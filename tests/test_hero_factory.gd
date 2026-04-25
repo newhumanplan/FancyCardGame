@@ -27,13 +27,13 @@ func _run_tests() -> void:
 
 
 func test_hero_factory_autoload_exists() -> void:
-	# HeroFactory must be registered as autoload - this is the critical test
-	var hf = get_node_or_null("/root/HeroFactory")
-	_assert_not_null(hf, "HeroFactory autoload should exist at /root/HeroFactory")
+	# HeroFactoryService must be registered as the single autoload name.
+	var hf = get_node_or_null("/root/HeroFactoryService")
+	_assert_not_null(hf, "HeroFactoryService autoload should exist at /root/HeroFactoryService")
 
 
 func test_create_warrior() -> void:
-	var hf = get_node("/root/HeroFactory")
+	var hf = get_node("/root/HeroFactoryService")
 	var hero = hf.create_hero(HeroDataClass.HeroType.WARRIOR)
 	_assert_not_null(hero, "create_hero(WARRIOR) should return a HeroData")
 	_assert_eq(hero.hero_name, "战士", "warrior hero_name")
@@ -41,7 +41,7 @@ func test_create_warrior() -> void:
 
 
 func test_create_mage() -> void:
-	var hf = get_node("/root/HeroFactory")
+	var hf = get_node("/root/HeroFactoryService")
 	var hero = hf.create_hero(HeroDataClass.HeroType.MAGE)
 	_assert_not_null(hero, "create_hero(MAGE) should return a HeroData")
 	_assert_eq(hero.hero_name, "法师", "mage hero_name")
@@ -49,33 +49,33 @@ func test_create_mage() -> void:
 
 
 func test_warrior_has_correct_stats() -> void:
-	var hf = get_node("/root/HeroFactory")
+	var hf = get_node("/root/HeroFactoryService")
 	var hero = hf.create_hero(HeroDataClass.HeroType.WARRIOR)
 	_assert_eq(hero.max_hp, 120, "warrior max_hp")
 	_assert_eq(hero.crit_chance, 0.05, "warrior crit_chance")
 
 
 func test_mage_has_correct_stats() -> void:
-	var hf = get_node("/root/HeroFactory")
+	var hf = get_node("/root/HeroFactoryService")
 	var hero = hf.create_hero(HeroDataClass.HeroType.MAGE)
 	_assert_eq(hero.max_hp, 80, "mage max_hp")
 	_assert_eq(hero.crit_chance, 0.15, "mage crit_chance")
 
 
 func test_warrior_passive_skills_count() -> void:
-	var hf = get_node("/root/HeroFactory")
+	var hf = get_node("/root/HeroFactoryService")
 	var hero = hf.create_hero(HeroDataClass.HeroType.WARRIOR)
 	_assert_eq(hero.passive_skills.size(), 2, "warrior should have 2 passive skills")
 
 
 func test_mage_passive_skills_count() -> void:
-	var hf = get_node("/root/HeroFactory")
+	var hf = get_node("/root/HeroFactoryService")
 	var hero = hf.create_hero(HeroDataClass.HeroType.MAGE)
 	_assert_eq(hero.passive_skills.size(), 2, "mage should have 2 passive skills")
 
 
 func test_warrior_passive_skill_types() -> void:
-	var hf = get_node("/root/HeroFactory")
+	var hf = get_node("/root/HeroFactoryService")
 	var hero = hf.create_hero(HeroDataClass.HeroType.WARRIOR)
 	var types = hero.passive_skills.map(func(ps): return ps.effect_type)
 	_assert_true(types.has(PassiveSkillDataClass.EffectType.HEALTH_BONUS), "warrior should have HEALTH_BONUS skill")
@@ -83,7 +83,7 @@ func test_warrior_passive_skill_types() -> void:
 
 
 func test_mage_passive_skill_types() -> void:
-	var hf = get_node("/root/HeroFactory")
+	var hf = get_node("/root/HeroFactoryService")
 	var hero = hf.create_hero(HeroDataClass.HeroType.MAGE)
 	var types = hero.passive_skills.map(func(ps): return ps.effect_type)
 	_assert_true(types.has(PassiveSkillDataClass.EffectType.CRIT_BONUS), "mage should have CRIT_BONUS skill")

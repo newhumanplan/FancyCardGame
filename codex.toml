@@ -1,0 +1,19 @@
+# FancyCardGame Codex project note
+#
+# Current local verification shows Codex CLI automatically includes AGENTS.md in
+# the model prompt. It does not appear to automatically load a project-local
+# codex.toml from this repository root.
+#
+# Keep this file valid TOML and intentionally comment-only unless the ACP
+# launcher explicitly implements support for it. The authoritative project
+# instructions live in:
+#
+#   AGENTS.md
+#
+# Recommended ACP wrapper behavior:
+#
+# 1. Start Codex with cwd=/Users/Allenz/Projects/FancyCardGame.
+# 2. Include AGENTS.md and the task-relevant root docs in the prompt.
+#    For UI tasks also include docs/planning/ui-layout-reference.md.
+# 3. Pass a task_id and require .codex-status/{task_id}/ artifacts.
+# 4. Do not route implementation tasks to nested agents.

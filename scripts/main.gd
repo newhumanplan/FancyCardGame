@@ -10,6 +10,7 @@ const PassiveSkillDataClass = preload("res://scripts/data/passive_skill.gd")
 const EndingManagerClass = preload("res://scripts/data/ending_manager.gd")
 const HeroFactory = preload("res://scripts/data/hero_factory.gd")
 const LinearInventoryClass = preload("res://scripts/data/linear_inventory.gd")
+const ItemDataClass = preload("res://scripts/data/item_data.gd")
 
 ## 玩家背包引用（指向 InventoryUI 的 inventory，避免两套独立系统）
 var player_inventory: LinearInventoryClass = null  # 已废弃，改用 $InventoryUI.get_inventory()
@@ -17,11 +18,16 @@ var player_inventory: LinearInventoryClass = null  # 已废弃，改用 $Invento
 ## Inventory UI 引用
 @onready var inventory_ui: Control = $InventoryUI
 
+## Bazaar shell 引用（统一主流程 UI 骨架）
+@onready var bazaar_shell: Control = $BazaarShell
+
 ## 底部常驻层引用（三层布局共享）
 var hero_bar_layer: Control = null
 var hero_bar_hp_bar: ProgressBar = null
 var hero_bar_hp_label: Label = null
 var hero_bar_gold_label: Label = null
+var hero_bar_income_label: Label = null
+var hero_bar_level_label: Label = null
 var hero_bar_chest_button: Control = null
 
 ## 服务实例（重构后）
@@ -80,11 +86,18 @@ var is_in_hero_selection: bool = true
 
 ## 当前事件选项（用于自动流转）
 var current_event_type: String = ""
+var active_merchant_view: Control = null
 
 func _ready() -> void:
 	# 隐藏全屏UI（避免遮挡英雄选择）
+	inventory_ui.visible = false
 	shop_ui.visible = false
 	battle_ui.visible = false
+	bazaar_shell.setup(GameManager, inventory_ui)
+	if not bazaar_shell.option_selected.is_connected(_handle_event_selection_by_index):
+		bazaar_shell.option_selected.connect(_handle_event_selection_by_index)
+	if not bazaar_shell.right_action_pressed.is_connected(_on_shell_right_action_pressed):
+		bazaar_shell.right_action_pressed.connect(_on_shell_right_action_pressed)
 
 	_connect_inventory_signals()
 	_connect_signals()
@@ -92,7 +105,6 @@ func _ready() -> void:
 	_show_hero_selection()
 	_hide_game_buttons()
 	_update_ui()
-	_create_hero_bar_layer()
 	print("大巴扎游戏初始化完成")
 
 ## ============ 信号连接 ============
@@ -104,16 +116,28 @@ func _connect_signals() -> void:
 	GameManager.hour_changed.connect(_on_hour_changed)
 	GameManager.health_changed.connect(_on_health_changed)
 	GameManager.prestige_changed.connect(_on_prestige_changed)
+	GameManager.income_changed.connect(_on_income_changed)
+	GameManager.xp_changed.connect(_on_xp_changed)
+	GameManager.level_changed.connect(_on_level_changed)
+	GameManager.level_reward_applied.connect(_on_level_reward_applied)
 	GameManager.game_over.connect(_on_game_over)
 	GameManager.futura_triggered.connect(_on_futura_triggered)
+	if not GameFlowService.event_options_generated.is_connected(_on_game_flow_options_generated):
+		GameFlowService.event_options_generated.connect(_on_game_flow_options_generated)
 
 func _connect_inventory_signals() -> void:
-	if inventory_ui == null or not inventory_ui.has_method("get_inventory"):
-		return
-
-	var inventory: LinearInventoryClass = inventory_ui.get_inventory()
+	var inventory: LinearInventoryClass = _get_player_inventory()
 	if inventory != null and not inventory.inventory_changed.is_connected(_on_player_inventory_changed):
 		inventory.inventory_changed.connect(_on_player_inventory_changed)
+
+func _get_player_inventory() -> LinearInventoryClass:
+	if bazaar_shell != null and bazaar_shell.has_method("get_player_inventory"):
+		var shell_inventory: Resource = bazaar_shell.get_player_inventory()
+		if shell_inventory is LinearInventoryClass:
+			return shell_inventory as LinearInventoryClass
+	if inventory_ui != null and inventory_ui.has_method("get_inventory"):
+		return inventory_ui.get_inventory()
+	return null
 
 ## ============ 按钮设置 ============
 
@@ -140,6 +164,7 @@ func _setup_buttons() -> void:
 func _show_hero_selection() -> void:
 	is_in_hero_selection = true
 	hero_select_panel.visible = true
+	bazaar_shell.hide_run_shell()
 	_hide_game_buttons()
 	_hide_event_panel()
 
@@ -167,12 +192,13 @@ func _apply_passive_skills(hero: HeroDataClass) -> void:
 ## 游戏开始
 func _on_game_started() -> void:
 	_hide_hero_selection()
+	bazaar_shell.show_run_shell()
 	_show_event_panel()
 	_generate_event_options()
 	_update_button_visibility()
 	_update_ui()
 	print("游戏开始! Day %d, Hour %d - %s" % [GameManager.current_day, GameManager.current_hour, GameManager.get_current_phase_name()])
-	$VBox.visible = true  # 显示游戏主UI
+	$VBox.visible = false
 	if hero_bar_layer:
 		hero_bar_layer.visible = true
 
@@ -180,17 +206,26 @@ func _on_game_started() -> void:
 
 ## 显示事件选择面板
 func _show_event_panel() -> void:
+	bazaar_shell.show_run_shell()
+	active_merchant_view = null
 	if hero_bar_layer:
 		hero_bar_layer.visible = true
-	event_panel.visible = true
+	event_panel.visible = false
+	var options: Array[Dictionary] = GameFlowService.get_current_options()
+	if not options.is_empty():
+		bazaar_shell.show_time_select(options)
 
 ## 隐藏事件选择面板
 func _hide_event_panel() -> void:
 	event_panel.visible = false
+	bazaar_shell.clear_dynamic_regions()
 
 ## 生成随机事件选项（使用 EventManager）
 ## 由 GameFlowService.event_options_generated 信号触发
 func _on_game_flow_options_generated(options: Array[Dictionary]) -> void:
+	bazaar_shell.refresh_static_panels()
+	event_panel.visible = false
+	bazaar_shell.show_time_select(options)
 	# 更新事件选项UI
 	if options.is_empty():
 		event_option_1.visible = false
@@ -232,6 +267,7 @@ func _handle_event_selection_by_index(index: int) -> void:
 	GameFlowService.handle_event_selection(index)
 	var event_type: String = GameFlowService.get_event_type_at(index)
 	print("选择了事件类型: %s" % event_type)
+	_hide_event_panel()
 
 	match event_type:
 		"shop":
@@ -254,8 +290,8 @@ func _handle_event_selection_by_index(index: int) -> void:
 ## 执行商店事件
 func _execute_shop_event() -> void:
 	print("执行商店事件")
-	if GameManager.is_pvp_hour():
-		print("PvP阶段不能购买!")
+	if not PhaseService.can_shop(GameManager.current_hour):
+		print("当前阶段不能购买!")
 		_auto_advance_hour()
 		return
 	_open_shop_ui()
@@ -263,19 +299,15 @@ func _execute_shop_event() -> void:
 ## 打开商店 UI
 func _open_shop_ui() -> void:
 	_write_debug("========== _open_shop_ui() 被调用 ==========")
-	_write_debug("========== _open_shop_ui() 被调用 ==========")
 	_write_debug("inventory_ui: " + str(inventory_ui))
-	if inventory_ui != null and inventory_ui.has_method("get_inventory"):
-		var inventory = inventory_ui.get_inventory()
+	var inventory: LinearInventoryClass = _get_player_inventory()
+	if inventory != null:
 		_write_debug("inventory: " + str(inventory))
-		if hero_bar_layer:
-			hero_bar_layer.visible = true
-		shop_ui.visible = true
-		shop_ui.show_shop(inventory)
-		debug_verify_inventory()
-		if not shop_ui.shop_closed.is_connected(_on_shop_closed):
-			shop_ui.shop_closed.connect(_on_shop_closed)
-		_write_debug("商店已打开")
+		bazaar_shell.show_run_shell()
+		shop_ui.visible = false
+		active_merchant_view = bazaar_shell.show_merchant(inventory)
+		_connect_merchant_signals(active_merchant_view)
+		_write_debug("商人货架已打开")
 	else:
 		_write_debug("ERROR: 无法获取 InventoryUI 实例")
 
@@ -286,7 +318,97 @@ func _write_debug(msg: String) -> void:
 ## 商店关闭回调
 func _on_shop_closed() -> void:
 	print("商店已关闭，进入下一小时")
+	active_merchant_view = null
+	shop_ui.visible = false
+	bazaar_shell.clear_dynamic_regions()
 	_auto_advance_hour()
+
+func _connect_merchant_signals(view: Control) -> void:
+	if view == null:
+		return
+	var purchase_callable: Callable = Callable(self, "_on_merchant_purchase_requested")
+	if view.has_signal("purchase_requested") and not view.is_connected("purchase_requested", purchase_callable):
+		view.connect("purchase_requested", purchase_callable)
+	var refresh_callable: Callable = Callable(self, "_on_merchant_refresh_requested")
+	if view.has_signal("refresh_requested") and not view.is_connected("refresh_requested", refresh_callable):
+		view.connect("refresh_requested", refresh_callable)
+	var closed_callable: Callable = Callable(self, "_on_shop_closed")
+	if view.has_signal("closed") and not view.is_connected("closed", closed_callable):
+		view.connect("closed", closed_callable)
+
+func _on_shell_right_action_pressed(action_id: String) -> void:
+	if not is_instance_valid(active_merchant_view):
+		return
+	match action_id:
+		"merchant_refresh":
+			if active_merchant_view.has_method("request_refresh"):
+				active_merchant_view.call("request_refresh")
+		"merchant_leave":
+			if active_merchant_view.has_method("request_close"):
+				active_merchant_view.call("request_close")
+
+func _on_merchant_purchase_requested(item: ItemDataClass, index: int) -> void:
+	if item == null:
+		_show_merchant_feedback("商品无效", true)
+		return
+	var inventory: LinearInventoryClass = _get_player_inventory()
+	if inventory == null:
+		_show_merchant_feedback("无法读取背包", true)
+		return
+	if not GameManager.can_afford(item.buy_price):
+		_show_merchant_feedback("金币不足", true)
+		_update_active_merchant_buttons()
+		return
+	var empty_slots: Array[int] = inventory.find_empty_slots(item.get_slot_count())
+	if empty_slots.is_empty():
+		_show_merchant_feedback("背包空间不足", true)
+		_update_active_merchant_buttons()
+		return
+	if not GameManager.spend_gold(item.buy_price):
+		_show_merchant_feedback("购买失败", true)
+		_update_active_merchant_buttons()
+		return
+
+	var item_copy: ItemDataClass = item.duplicate() as ItemDataClass
+	item_copy.slot_index = -1
+	if not inventory.place_item(item_copy, empty_slots[0]):
+		GameManager.add_gold(item.buy_price)
+		_show_merchant_feedback("背包放置失败", true)
+		_update_active_merchant_buttons()
+		return
+
+	if is_instance_valid(active_merchant_view) and active_merchant_view.has_method("apply_purchase_success"):
+		active_merchant_view.call("apply_purchase_success", index)
+	bazaar_shell.refresh_static_panels()
+	_update_ui()
+	print("购买成功: %s (花费 %d 金币)" % [item.item_name, item.buy_price])
+
+func _on_merchant_refresh_requested(cost: int) -> void:
+	if not is_instance_valid(active_merchant_view):
+		return
+	if cost > 0:
+		if not GameManager.can_afford(cost):
+			_show_merchant_feedback("金币不足，无法刷新", true)
+			_update_active_merchant_buttons()
+			return
+		if not GameManager.spend_gold(cost):
+			_show_merchant_feedback("刷新失败", true)
+			_update_active_merchant_buttons()
+			return
+	if active_merchant_view.has_method("apply_refresh"):
+		active_merchant_view.call("apply_refresh")
+	bazaar_shell.refresh_static_panels()
+	_update_ui()
+
+func _show_merchant_feedback(message: String, is_error: bool = false) -> void:
+	if is_instance_valid(active_merchant_view) and active_merchant_view.has_method("show_feedback"):
+		active_merchant_view.call("show_feedback", message, is_error)
+	else:
+		print(message)
+
+func _update_active_merchant_buttons() -> void:
+	if is_instance_valid(active_merchant_view) and active_merchant_view.has_method("update_button_states"):
+		active_merchant_view.call("update_button_states")
 
 ## 执行怪物事件
 func _execute_monster_event() -> void:
@@ -373,14 +495,24 @@ func _start_pvp_battle() -> void:
 
 ## 战斗结束回调
 func _on_battle_ended(won: bool, gold_reward: int) -> void:
-	print("战斗结束: 胜利=%s, 金币=%d" % [won, gold_reward])
+	var result: Dictionary = BattleProgressionService.apply_battle_result(won, battle_ui.is_pvp, battle_ui.current_monster)
+	var settled_gold: int = int(result.get("gold_reward", gold_reward))
+	print("战斗结束: 胜利=%s, 金币=%d" % [won, settled_gold])
+	_update_ui()
+	if bool(result.get("run_won", false)):
+		GameManager.finish_run(true)
+		return
+	if bool(result.get("run_failed", false)):
+		return
+	if bool(result.get("last_chance", false)):
+		return
 	_show_event_panel()
 	_auto_advance_hour()
 
 ## 计算属性（物品触发系统下显示物品总属性）
 func _calculate_stats() -> void:
-	if inventory_ui != null and inventory_ui.has_method("get_inventory"):
-		var inventory = inventory_ui.get_inventory()
+	var inventory: LinearInventoryClass = _get_player_inventory()
+	if inventory != null:
 		var total_damage = 0
 		var total_shield = 0
 		var total_heal = 0
@@ -412,15 +544,8 @@ func _hide_game_buttons() -> void:
 func _update_button_visibility() -> void:
 	var hour = GameManager.current_hour
 
-	if hour == 0 or hour == 1 or hour == 3 or hour == 4:
-		shop_button.visible = true
-		battle_button.visible = false
-	elif hour == 2:
-		shop_button.visible = false
-		battle_button.visible = true
-	elif hour == 5:
-		shop_button.visible = false
-		battle_button.visible = true
+	shop_button.visible = PhaseService.can_shop(hour)
+	battle_button.visible = PhaseService.can_battle(hour)
 
 	next_hour_button.visible = false
 
@@ -429,7 +554,7 @@ func _update_button_visibility() -> void:
 func _update_ui() -> void:
 	# 金币
 	if gold_label != null:
-		gold_label.text = "金币: %d" % GameManager.gold
+		gold_label.text = "金币: %d  收入: %d" % [GameManager.gold, GameManager.income]
 
 	# Day/Hour
 	if day_label != null:
@@ -456,7 +581,7 @@ func _update_ui() -> void:
 			atk_label.text = "暴击: 5%"
 	# DEF 标签改为显示物品数
 	if def_label != null:
-		def_label.text = "物品: %d" % _get_item_count()
+		def_label.text = "Lv %d  XP %d/%d" % [GameManager.level, GameManager.xp, HeroStateService.XP_PER_LEVEL]
 
 	# Prestige
 	if prestige_label != null:
@@ -466,23 +591,46 @@ func _update_ui() -> void:
 		prestige_bar.value = GameManager.prestige
 
 	# 回合
-	round_label.text = "回合: %d / 5" % [GameManager.current_hour + 1]
+	round_label.text = "回合: %d / %d" % [GameManager.current_hour + 1, PhaseService.MAX_HOURS_PER_DAY]
 
 ## 获取背包物品数量
 func _get_item_count() -> int:
-	if inventory_ui != null and inventory_ui.has_method("get_inventory"):
-		var inventory = inventory_ui.get_inventory()
-		if inventory:
-			return inventory.get_item_count()
+	var inventory: LinearInventoryClass = _get_player_inventory()
+	if inventory != null:
+		return inventory.get_item_count()
 	return 0
 
 ## ============ 信号回调 ============
 
 func _on_gold_changed(amount: int) -> void:
 	if gold_label != null:
-		gold_label.text = "金币: %d" % GameManager.gold
+		gold_label.text = "金币: %d  收入: %d" % [GameManager.gold, GameManager.income]
 	if hero_bar_gold_label != null:
-		hero_bar_gold_label.text = "💰 %d" % GameManager.gold
+		hero_bar_gold_label.text = "金币 %d" % GameManager.gold
+	_update_active_merchant_buttons()
+
+func _on_income_changed(amount: int) -> void:
+	if gold_label != null:
+		gold_label.text = "金币: %d  收入: %d" % [GameManager.gold, amount]
+	if hero_bar_income_label != null:
+		hero_bar_income_label.text = "收入 %d" % amount
+
+func _on_xp_changed(value: int) -> void:
+	_update_level_labels()
+
+func _on_level_changed(value: int) -> void:
+	_update_level_labels()
+	_update_ui()
+
+func _on_level_reward_applied(level_value: int, reward: Dictionary, summary: Dictionary) -> void:
+	print("升级到 Lv %d，奖励: %s" % [level_value, str(reward)])
+	_update_ui()
+
+func _update_level_labels() -> void:
+	if hero_bar_level_label != null:
+		hero_bar_level_label.text = "Lv %d  XP %d/%d" % [GameManager.level, GameManager.xp, HeroStateService.XP_PER_LEVEL]
+	if def_label != null:
+		def_label.text = "Lv %d  XP %d/%d" % [GameManager.level, GameManager.xp, HeroStateService.XP_PER_LEVEL]
 
 func _on_day_changed(day: int) -> void:
 	if day_label != null:
@@ -491,10 +639,11 @@ func _on_day_changed(day: int) -> void:
 func _on_hour_changed(hour: int, phase_name: String) -> void:
 	if hour_label != null:
 		hour_label.text = "[%s]" % phase_name
-	round_label.text = "回合: %d / 5" % [hour + 1]
+	round_label.text = "回合: %d / %d" % [hour + 1, PhaseService.MAX_HOURS_PER_DAY]
 
 func _on_player_inventory_changed() -> void:
 	_update_ui()
+	_update_active_merchant_buttons()
 
 func _on_health_changed(amount: int) -> void:
 	var max_hp = GameManager.get_max_health()
@@ -528,6 +677,7 @@ func _on_game_over(won: bool) -> void:
 	game_over_stats.text = EndingManagerClass.generate_summary(GameManager, ending)
 
 	_show_game_over_panel()
+	bazaar_shell.hide_run_shell()
 	_hide_event_panel()
 	_hide_game_buttons()
 	$VBox.visible = false
@@ -619,7 +769,7 @@ func _on_battle_pressed() -> void:
 	if not GameManager.is_battle_hour():
 		print("当前不是战斗阶段!")
 		return
-	if GameManager.current_hour == 5:
+	if PhaseService.is_pvp_phase(GameManager.current_hour):
 		_execute_pvp_event()
 	else:
 		_execute_monster_event()
@@ -723,9 +873,39 @@ func _create_hero_bar_layer() -> void:
 	gold_label.offset_right = 0.0
 	gold_label.offset_bottom = 0.0
 	gold_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	gold_label.text = "💰 %d" % GameManager.gold
+	gold_label.text = "金币 %d" % GameManager.gold
 	hero_bar_layer.add_child(gold_label)
 	hero_bar_gold_label = gold_label
+
+	var income_label: Label = Label.new()
+	income_label.name = "IncomeLabel"
+	income_label.anchor_top = 0.5
+	income_label.anchor_bottom = 1.0
+	income_label.anchor_left = 0.7
+	income_label.anchor_right = 1.0
+	income_label.offset_left = 0.0
+	income_label.offset_top = 0.0
+	income_label.offset_right = 0.0
+	income_label.offset_bottom = 0.0
+	income_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	income_label.text = "收入 %d" % GameManager.income
+	hero_bar_layer.add_child(income_label)
+	hero_bar_income_label = income_label
+
+	var level_label: Label = Label.new()
+	level_label.name = "LevelLabel"
+	level_label.anchor_top = 0.0
+	level_label.anchor_bottom = 0.5
+	level_label.anchor_left = 0.42
+	level_label.anchor_right = 0.55
+	level_label.offset_left = 0.0
+	level_label.offset_top = 0.0
+	level_label.offset_right = 0.0
+	level_label.offset_bottom = 0.0
+	level_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	level_label.text = "Lv %d  XP %d/%d" % [GameManager.level, GameManager.xp, HeroStateService.XP_PER_LEVEL]
+	hero_bar_layer.add_child(level_label)
+	hero_bar_level_label = level_label
 
 	# 角色头像（中央偏左）
 	var avatar: TextureRect = TextureRect.new()
@@ -777,13 +957,12 @@ func _create_hero_bar_layer() -> void:
 
 	_on_health_changed(GameManager.player_health)
 	_on_gold_changed(GameManager.gold)
+	_on_income_changed(GameManager.income)
+	_update_level_labels()
 
 ## Debug: 验证 inventory 引用一致性
 func debug_verify_inventory() -> void:
-	if inventory_ui == null:
-		print("[DEBUG] inventory_ui is NULL!")
-		return
-	var inv_from_ui = inventory_ui.get_inventory()
+	var inv_from_ui: LinearInventoryClass = _get_player_inventory()
 	print("[DEBUG] main.inventory_ui address: %s" % str(inventory_ui))
 	print("[DEBUG] inv_from_ui address: %s" % str(inv_from_ui))
 	print("[DEBUG] shop_ui.inventory address: %s" % str(shop_ui.inventory if shop_ui else "shop_ui is null"))
