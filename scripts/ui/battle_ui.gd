@@ -61,6 +61,8 @@ const PVP_ITEM_CARD_BG: String = "res://assets/art/ui/ui_item_card_bg.png"
 const PVP_CHEST_ICON: String = "res://assets/art/ui/ui_chest_icon.png"
 const PVP_HAND_SLOT_COUNT: int = 10
 const PVP_OPPONENT_SLOT_COUNT: int = 5
+const SHELL_BOARD_SLOT_SPACING: int = 8
+const SHELL_BOARD_SLOT_SIZE: Vector2 = Vector2(96, 96)
 const PVP_RIVER_COLOR: Color = Color8(26, 92, 110, 235)
 const PVP_SHOP_BORDER_COLOR: Color = Color8(74, 158, 255, 255)
 const PVP_HAND_BORDER_COLOR: Color = Color8(42, 42, 62, 255)
@@ -528,10 +530,7 @@ func _create_shell_opponent_context(parent: Control) -> void:
 func _create_shell_opponent_board(parent: Control) -> void:
 	pvp_shop_container = Control.new()
 	pvp_shop_container.name = "OpponentBoardContainer"
-	pvp_shop_container.anchor_left = 0.04
-	pvp_shop_container.anchor_top = 0.08
-	pvp_shop_container.anchor_right = 0.96
-	pvp_shop_container.anchor_bottom = 0.92
+	pvp_shop_container.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	pvp_shop_container.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	parent.add_child(pvp_shop_container)
 
@@ -1000,6 +999,9 @@ func _update_pvp_player_hand() -> void:
 func _update_pvp_opponent_hand() -> void:
 	if pvp_shop_container == null:
 		return
+	if _uses_shell_layout:
+		_update_shell_opponent_board()
+		return
 
 	for child in pvp_shop_container.get_children():
 		child.queue_free()
@@ -1073,6 +1075,154 @@ func _update_pvp_opponent_hand() -> void:
 
 	_add_empty_opponent_slots(maxi(PVP_OPPONENT_SLOT_COUNT - card_count, 0))
 	_layout_card_row(pvp_shop_container, PVP_TOP_CARD_WIDTH, PVP_TOP_CARD_HEIGHT, PVP_SHOP_ROW_RIGHT - PVP_SHOP_ROW_LEFT, PVP_SHOP_ROW_BOTTOM - PVP_SHOP_ROW_TOP, true)
+
+func _update_shell_opponent_board() -> void:
+	for child in pvp_shop_container.get_children():
+		child.queue_free()
+
+	var margin: MarginContainer = MarginContainer.new()
+	margin.name = "OpponentBoardMargin"
+	margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	margin.add_theme_constant_override("margin_left", 15)
+	margin.add_theme_constant_override("margin_top", 15)
+	margin.add_theme_constant_override("margin_right", 15)
+	margin.add_theme_constant_override("margin_bottom", 15)
+	pvp_shop_container.add_child(margin)
+
+	var row: HBoxContainer = HBoxContainer.new()
+	row.name = "OpponentSlotRow"
+	row.alignment = BoxContainer.ALIGNMENT_BEGIN
+	row.add_theme_constant_override("separation", SHELL_BOARD_SLOT_SPACING)
+	margin.add_child(row)
+
+	for slot_index in range(PVP_HAND_SLOT_COUNT):
+		row.add_child(_create_shell_board_slot(slot_index))
+
+	if current_monster == null:
+		return
+
+	var item_count: int = mini(current_monster.monster_items.size(), PVP_HAND_SLOT_COUNT)
+	for item_index in range(item_count):
+		var slot: Panel = row.get_child(item_index) as Panel
+		if slot == null:
+			continue
+		var monster_item: Dictionary = current_monster.monster_items[item_index]
+		slot.add_child(_create_shell_monster_item_panel(monster_item))
+
+func _create_shell_board_slot(slot_index: int) -> Panel:
+	var slot: Panel = Panel.new()
+	slot.name = "OpponentSlot%d" % slot_index
+	slot.custom_minimum_size = SHELL_BOARD_SLOT_SIZE
+	slot.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	slot.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	slot.add_theme_stylebox_override("panel", _create_empty_hand_slot_style())
+
+	var label: Label = Label.new()
+	label.name = "SlotLabel"
+	label.text = str(slot_index + 1)
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	label.vertical_alignment = VERTICAL_ALIGNMENT_TOP
+	label.add_theme_font_size_override("font_size", 15)
+	label.add_theme_color_override("font_color", Color(0.6, 0.6, 0.7, 0.85))
+	label.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	label.offset_left = 4.0
+	label.offset_top = 4.0
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	slot.add_child(label)
+	return slot
+
+func _create_shell_monster_item_panel(monster_item: Dictionary) -> Panel:
+	var item_type: int = _get_monster_item_type(monster_item)
+	var item_name: String = str(monster_item.get("name", "物品"))
+	var damage: int = int(monster_item.get("damage", 0))
+	var shield: int = int(monster_item.get("shield", 0))
+	var heal: int = int(monster_item.get("heal", 0))
+	var cooldown: float = float(monster_item.get("cooldown", 0.0))
+
+	var card: Panel = Panel.new()
+	card.name = "OpponentItem_%s" % item_name
+	card.clip_contents = true
+	card.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	card.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	card.offset_left = 4.0
+	card.offset_top = 4.0
+	card.offset_right = -4.0
+	card.offset_bottom = -4.0
+	card.add_theme_stylebox_override("panel", _create_card_front_style(item_type, true))
+
+	var art: ColorRect = ColorRect.new()
+	art.name = "OpponentItemArt"
+	art.color = _get_shell_item_art_color(item_type)
+	art.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	art.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	art.offset_left = 2.0
+	art.offset_top = 2.0
+	art.offset_right = -2.0
+	art.offset_bottom = -2.0
+	card.add_child(art)
+
+	var text_backing: ColorRect = ColorRect.new()
+	text_backing.name = "TextBacking"
+	text_backing.color = Color(0.05, 0.05, 0.07, 0.55)
+	text_backing.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	text_backing.anchor_left = 0.0
+	text_backing.anchor_top = 0.62
+	text_backing.anchor_right = 1.0
+	text_backing.anchor_bottom = 1.0
+	card.add_child(text_backing)
+
+	var stack: VBoxContainer = VBoxContainer.new()
+	stack.name = "OpponentItemText"
+	stack.alignment = BoxContainer.ALIGNMENT_CENTER
+	stack.add_theme_constant_override("separation", 2)
+	stack.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	stack.offset_left = 4.0
+	stack.offset_top = 4.0
+	stack.offset_right = -4.0
+	stack.offset_bottom = -4.0
+	card.add_child(stack)
+
+	var name_label: Label = Label.new()
+	name_label.text = item_name
+	name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	name_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	name_label.clip_text = true
+	name_label.max_lines_visible = 1
+	name_label.add_theme_font_size_override("font_size", 12)
+	name_label.add_theme_color_override("font_color", Color.WHITE)
+	name_label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.75))
+	name_label.add_theme_constant_override("outline_size", 1)
+	stack.add_child(name_label)
+
+	var stat_label: Label = Label.new()
+	stat_label.text = _get_monster_item_stat_text(damage, shield, heal, item_type)
+	stat_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	stat_label.clip_text = true
+	stat_label.max_lines_visible = 1
+	stat_label.add_theme_font_size_override("font_size", 10)
+	stack.add_child(stat_label)
+
+	var cooldown_label: Label = Label.new()
+	cooldown_label.text = "%.1fs" % cooldown
+	cooldown_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	cooldown_label.add_theme_font_size_override("font_size", 10)
+	stack.add_child(cooldown_label)
+
+	return card
+
+func _get_shell_item_art_color(item_type: int) -> Color:
+	match item_type:
+		ItemDataClass.Type.WEAPON:
+			return Color(0.6, 0.2, 0.2, 0.8)
+		ItemDataClass.Type.SHIELD:
+			return Color(0.2, 0.4, 0.7, 0.8)
+		ItemDataClass.Type.HEAL:
+			return Color(0.2, 0.6, 0.3, 0.8)
+		ItemDataClass.Type.UTILITY:
+			return Color(0.5, 0.2, 0.6, 0.8)
+		_:
+			return Color(0.35, 0.35, 0.4, 0.8)
 
 func _set_percent_rect(control: Control, left: float, top: float, right: float, bottom: float) -> void:
 	if control == null:

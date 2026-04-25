@@ -29,9 +29,12 @@ func test_battle_uses_shell_regions_without_duplicate_hud() -> void:
 
 	var shell: Control = main.get_node("BazaarShell") as Control
 	var battle_ui: Control = main.get_node("BattleUI") as Control
-	_assert_not_null(_find_node(shell.get_node("UpperBoardPanel"), "OpponentBoardContainer"), "battle opponent board is in BazaarShell upper board")
+	var opponent_board: Node = _find_node(shell.get_node("UpperBoardPanel"), "OpponentBoardContainer")
+	_assert_not_null(opponent_board, "battle opponent board is in BazaarShell upper board")
 	_assert_not_null(_find_node(shell.get_node("TopContextPanel"), "OpponentContext"), "battle opponent context is in BazaarShell top context")
 	_assert_not_null(_find_node(shell.get_node("RightActionArea"), "BattleActionColumn"), "battle actions are in BazaarShell right action area")
+	_assert_not_null(_find_node(opponent_board, "OpponentSlotRow"), "battle opponent board uses shell slot row")
+	_assert_equal(_count_named_children(_find_node(opponent_board, "OpponentSlotRow"), "OpponentSlot"), 10, "battle opponent board renders ten slots")
 	_assert_true(battle_ui.mouse_filter == Control.MOUSE_FILTER_IGNORE, "BattleUI does not block shell controls in shell layout")
 	_assert_true(_find_node(battle_ui, "PlayerBar") == null, "legacy green player bar is not created in shell battle layout")
 	_assert_true(_find_node(battle_ui, "ChestBox") == null, "legacy duplicate chest is not created in shell battle layout")
@@ -50,6 +53,15 @@ func _find_node(root: Node, node_name: String) -> Node:
 			return found
 	return null
 
+func _count_named_children(root: Node, name_prefix: String) -> int:
+	if root == null:
+		return 0
+	var count: int = 0
+	for child in root.get_children():
+		if child.name.begins_with(name_prefix):
+			count += 1
+	return count
+
 func _assert_true(condition: bool, label: String) -> void:
 	_total += 1
 	if condition:
@@ -60,6 +72,9 @@ func _assert_true(condition: bool, label: String) -> void:
 
 func _assert_not_null(value: Variant, label: String) -> void:
 	_assert_true(value != null, label)
+
+func _assert_equal(actual: Variant, expected: Variant, label: String) -> void:
+	_assert_true(actual == expected, "%s (expected=%s actual=%s)" % [label, str(expected), str(actual)])
 
 func _print_summary() -> void:
 	print("SUMMARY: %d/%d passed" % [_passed, _total])

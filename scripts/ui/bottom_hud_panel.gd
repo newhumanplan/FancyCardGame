@@ -27,7 +27,7 @@ var _economy: Node = null
 func _ready() -> void:
 	stash_button.pressed.connect(_on_stash_pressed)
 	_setup_chest_icon()
-	_setup_passive_placeholders()
+	_hide_passive_area_until_icons_exist()
 
 func bind_services(game_manager: Node, hero_state: Node, economy: Node) -> void:
 	_game_manager = game_manager
@@ -103,28 +103,10 @@ func _setup_chest_icon() -> void:
 	stash_button.icon = icon
 	stash_button.expand_icon = true
 
-func _setup_passive_placeholders() -> void:
+func _hide_passive_area_until_icons_exist() -> void:
 	for child in passive_skill_area.get_children():
 		child.queue_free()
-	for index in range(3):
-		var slot: Panel = Panel.new()
-		slot.name = "PassiveSlot%d" % index
-		slot.custom_minimum_size = Vector2(42, 42)
-		slot.add_theme_stylebox_override("panel", _create_passive_style(index))
-		passive_skill_area.add_child(slot)
-
-func _create_passive_style(index: int) -> StyleBoxFlat:
-	var colors: Array[Color] = [
-		Color(0.20, 0.58, 0.74, 0.92),
-		Color(0.72, 0.24, 0.42, 0.92),
-		Color(0.72, 0.57, 0.22, 0.92),
-	]
-	var style: StyleBoxFlat = StyleBoxFlat.new()
-	style.bg_color = colors[index % colors.size()]
-	style.border_color = Color(0.95, 0.90, 0.68, 0.88)
-	style.set_border_width_all(2)
-	style.set_corner_radius_all(21)
-	return style
+	passive_skill_area.visible = false
 
 func _get_int(source: Object, property_name: String, fallback: int) -> int:
 	if source == null:

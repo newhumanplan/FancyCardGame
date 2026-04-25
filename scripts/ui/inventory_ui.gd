@@ -311,10 +311,7 @@ func _display_item(item: ItemDataClass, is_synergy_highlight: bool = false) -> v
 	item_panel.name = "Item_%s_%d" % [item.item_name, start_slot]
 	item_panel.clip_contents = true
 	item_panel.position = Vector2(local_pos.x + 4, local_pos.y + 4)
-	var panel_size = Vector2(
-		slot_count * SLOT_SIZE + (slot_count - 1) * SLOT_SPACING - 8,
-		SLOT_SIZE - 8
-	)
+	var panel_size: Vector2 = _get_item_panel_size(start_slot, slot_count)
 	item_panel.size = panel_size
 	item_panel.custom_minimum_size = panel_size
 
@@ -388,6 +385,22 @@ func _display_item(item: ItemDataClass, is_synergy_highlight: bool = false) -> v
 
 	item_display_layer.add_child(item_panel)
 	item_panels.append(item_panel)
+
+func _get_item_panel_size(start_slot: int, slot_count: int) -> Vector2:
+	var first_slot: Panel = slot_panels[start_slot]
+	var panel_width: float = slot_count * SLOT_SIZE + (slot_count - 1) * SLOT_SPACING - 8.0
+	var panel_height: float = maxf(first_slot.size.y - 8.0, float(SLOT_SIZE - 8))
+
+	var end_slot_index: int = mini(start_slot + slot_count - 1, slot_panels.size() - 1)
+	if end_slot_index > start_slot:
+		var last_slot: Panel = slot_panels[end_slot_index]
+		var first_x: float = first_slot.global_position.x
+		var last_right: float = last_slot.global_position.x + last_slot.size.x
+		panel_width = maxf(last_right - first_x - 8.0, panel_width)
+	else:
+		panel_width = maxf(first_slot.size.x - 8.0, panel_width)
+
+	return Vector2(panel_width, panel_height)
 
 ## 创建 Cooldown 遮罩(盖在物品图标上,显示冷却进度)
 func _create_cooldown_overlay(item: ItemDataClass) -> ColorRect:
