@@ -309,6 +309,7 @@ func _display_item(item: ItemDataClass, is_synergy_highlight: bool = false) -> v
 	# 创建物品面板
 	var item_panel = Control.new()
 	item_panel.name = "Item_%s_%d" % [item.item_name, start_slot]
+	item_panel.clip_contents = true
 	item_panel.position = Vector2(local_pos.x + 4, local_pos.y + 4)
 	var panel_size = Vector2(
 		slot_count * SLOT_SIZE + (slot_count - 1) * SLOT_SPACING - 8,
@@ -345,14 +346,16 @@ func _display_item(item: ItemDataClass, is_synergy_highlight: bool = false) -> v
 		var texture = load(texture_path)
 		if texture:
 			var texture_rect = TextureRect.new()
+			texture_rect.name = "ItemTexture"
 			texture_rect.texture = texture
 			texture_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-			texture_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-			texture_rect.position = Vector2(4, 4)
-			texture_rect.size = Vector2(
-				slot_count * SLOT_SIZE + (slot_count - 1) * SLOT_SPACING - 16,
-				SLOT_SIZE - 16
-			)
+			texture_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+			texture_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			texture_rect.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+			texture_rect.offset_left = 2.0
+			texture_rect.offset_top = 2.0
+			texture_rect.offset_right = -2.0
+			texture_rect.offset_bottom = -2.0
 			item_panel.add_child(texture_rect)
 
 	# 添加物品名称标签(放在底部)
@@ -391,6 +394,7 @@ func _create_cooldown_overlay(item: ItemDataClass) -> ColorRect:
 	var overlay = ColorRect.new()
 	overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	overlay.color = Color(0, 0, 0, 0.5)
+	overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 
 	# 添加冷却时间文字
 	var timer_label = Label.new()

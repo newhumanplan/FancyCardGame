@@ -163,6 +163,8 @@ var pvp_selected_card: Panel = null
 var pvp_hover_card: Panel = null
 var pvp_tooltip_panel: PanelContainer = null
 var pvp_tooltip_label: RichTextLabel = null
+var _shell_layout: Control = null
+var _uses_shell_layout: bool = false
 var _pvp_content_scale: float = 1.0
 var _pvp_resize_timer: float = 0.0
 
@@ -219,12 +221,17 @@ func start_battle(monster: MonsterDataClass = null, pvp: bool = false, enemy_atk
 	_pvp_resize_timer = 0.0
 
 	var main: Node = get_parent()
+	_shell_layout = null
+	_uses_shell_layout = false
 	if main != null and main.has_node("InventoryUI"):
 		inventory = main.get_node("InventoryUI").get_inventory()
 		# Connect to inventory changes so hand display updates when items are bought
 		if inventory.has_signal("inventory_changed"):
 			if not inventory.inventory_changed.is_connected(_update_pvp_player_hand):
 				inventory.inventory_changed.connect(_update_pvp_player_hand)
+	if main != null and main.has_node("BazaarShell"):
+		_shell_layout = main.get_node("BazaarShell") as Control
+		_uses_shell_layout = _shell_layout != null and _shell_layout.visible
 
 	if monster != null:
 		current_monster = monster
@@ -242,7 +249,7 @@ func start_battle(monster: MonsterDataClass = null, pvp: bool = false, enemy_atk
 	_create_pvp_layout()
 
 	_show_battle_panel()
-	mouse_filter = Control.MOUSE_FILTER_STOP
+	mouse_filter = Control.MOUSE_FILTER_IGNORE if _uses_shell_layout else Control.MOUSE_FILTER_STOP
 	_update_battle_ui()
 
 	is_battle_active = true
@@ -405,6 +412,10 @@ func _create_pvp_layout() -> void:
 	if pvp_root != null:
 		return
 
+	if _uses_shell_layout:
+		_create_shell_battle_layout()
+		return
+
 	pvp_root = Control.new()
 	pvp_root.name = "PvPRoot"
 	pvp_root.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
@@ -437,6 +448,117 @@ func _create_pvp_layout() -> void:
 	_update_pvp_opponent_hand()
 	_setup_mode_specific()
 
+func _create_shell_battle_layout() -> void:
+	if _shell_layout == null:
+		_uses_shell_layout = false
+		return
+
+	if _shell_layout.has_method("show_run_shell"):
+		_shell_layout.call("show_run_shell")
+	if _shell_layout.has_method("clear_dynamic_regions"):
+		_shell_layout.call("clear_dynamic_regions")
+	if _shell_layout.has_method("set_board_interaction_enabled"):
+		_shell_layout.call("set_board_interaction_enabled", false)
+
+	pvp_root = Control.new()
+	pvp_root.name = "BattleShellState"
+	pvp_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(pvp_root)
+
+	var top_context: Control = _shell_layout.get_node_or_null("TopContextPanel") as Control
+	var upper_board: Control = _shell_layout.get_node_or_null("UpperBoardPanel") as Control
+	var right_actions: Control = _shell_layout.get_node_or_null("RightActionArea") as Control
+
+	if top_context != null:
+		_create_shell_opponent_context(top_context)
+	if upper_board != null:
+		_create_shell_opponent_board(upper_board)
+	if right_actions != null:
+		_create_shell_battle_actions(right_actions)
+
+	_update_pvp_opponent_hand()
+	_setup_mode_specific()
+
+func _create_shell_opponent_context(parent: Control) -> void:
+	pvp_opponent_bar = PanelContainer.new()
+	pvp_opponent_bar.name = "OpponentContext"
+	pvp_opponent_bar.anchor_left = 0.34
+	pvp_opponent_bar.anchor_top = 0.08
+	pvp_opponent_bar.anchor_right = 0.66
+	pvp_opponent_bar.anchor_bottom = 0.92
+	pvp_opponent_bar.add_theme_stylebox_override("panel", _create_panel_style(Color(0.12, 0.13, 0.20, 0.82), Color(0.46, 0.38, 0.25, 0.88)))
+	parent.add_child(pvp_opponent_bar)
+
+	var root_hbox: HBoxContainer = HBoxContainer.new()
+	root_hbox.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	root_hbox.add_theme_constant_override("separation", 12)
+	pvp_opponent_bar.add_child(root_hbox)
+
+	pvp_avatar_frame_opponent = TextureRect.new()
+	pvp_avatar_frame_opponent.name = "OpponentAvatar"
+	pvp_avatar_frame_opponent.texture = load(PVP_AVATAR_FRAME)
+	pvp_avatar_frame_opponent.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	pvp_avatar_frame_opponent.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	pvp_avatar_frame_opponent.custom_minimum_size = Vector2(76, 76)
+	pvp_avatar_frame_opponent.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root_hbox.add_child(pvp_avatar_frame_opponent)
+
+	var info_box: VBoxContainer = VBoxContainer.new()
+	info_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	info_box.alignment = BoxContainer.ALIGNMENT_CENTER
+	info_box.add_theme_constant_override("separation", 6)
+	root_hbox.add_child(info_box)
+
+	pvp_opponent_name_label = Label.new()
+	pvp_opponent_name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	pvp_opponent_name_label.add_theme_font_size_override("font_size", 22)
+	info_box.add_child(pvp_opponent_name_label)
+
+	var hp_stack: Control = _create_pvp_hp_stack()
+	hp_stack.custom_minimum_size = Vector2(250, 48)
+	info_box.add_child(hp_stack)
+	pvp_opponent_hp_bar = hp_stack.get_node("HPBar") as ProgressBar
+	pvp_opponent_hp_label = hp_stack.get_node("HPText") as Label
+	pvp_opponent_shield_bar = hp_stack.get_node("ShieldBar") as ProgressBar
+	pvp_opponent_shield_label = hp_stack.get_node("ShieldLabel") as Label
+
+	pvp_opponent_meta_label = null
+	pvp_opponent_skill_labels.clear()
+
+func _create_shell_opponent_board(parent: Control) -> void:
+	pvp_shop_container = Control.new()
+	pvp_shop_container.name = "OpponentBoardContainer"
+	pvp_shop_container.anchor_left = 0.04
+	pvp_shop_container.anchor_top = 0.08
+	pvp_shop_container.anchor_right = 0.96
+	pvp_shop_container.anchor_bottom = 0.92
+	pvp_shop_container.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	parent.add_child(pvp_shop_container)
+
+func _create_shell_battle_actions(parent: Control) -> void:
+	var column: VBoxContainer = VBoxContainer.new()
+	column.name = "BattleActionColumn"
+	column.alignment = BoxContainer.ALIGNMENT_CENTER
+	column.add_theme_constant_override("separation", 10)
+	column.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	parent.add_child(column)
+
+	pvp_result_label = Label.new()
+	pvp_result_label.name = "BattleResultLabel"
+	pvp_result_label.visible = false
+	pvp_result_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	pvp_result_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	pvp_result_label.add_theme_font_size_override("font_size", 18)
+	column.add_child(pvp_result_label)
+
+	pvp_continue_button = Button.new()
+	pvp_continue_button.name = "BattleContinueButton"
+	pvp_continue_button.text = "继续"
+	pvp_continue_button.visible = false
+	pvp_continue_button.custom_minimum_size = Vector2(120, 42)
+	pvp_continue_button.pressed.connect(_on_continue_pressed)
+	column.add_child(pvp_continue_button)
+
 func _setup_mode_specific() -> void:
 	if pvp_shop_container != null:
 		pvp_shop_container.visible = true
@@ -446,6 +568,12 @@ func _setup_mode_specific() -> void:
 		pvp_end_turn_button.visible = false
 
 func _destroy_pvp_layout() -> void:
+	if _uses_shell_layout and _shell_layout != null:
+		if _shell_layout.has_method("clear_dynamic_regions"):
+			_shell_layout.call("clear_dynamic_regions")
+		if _shell_layout.has_method("set_board_interaction_enabled"):
+			_shell_layout.call("set_board_interaction_enabled", true)
+
 	if pvp_root != null and is_instance_valid(pvp_root):
 		pvp_root.queue_free()
 
@@ -486,6 +614,8 @@ func _destroy_pvp_layout() -> void:
 	pvp_continue_button = null
 	pvp_tooltip_panel = null
 	pvp_tooltip_label = null
+	_shell_layout = null
+	_uses_shell_layout = false
 	pvp_selected_card = null
 	pvp_hover_card = null
 	pvp_player_card_panels.clear()
