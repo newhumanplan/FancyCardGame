@@ -285,6 +285,8 @@ static func create_random_mak_day1_shop_item(max_rarity: int = RARITY_BRONZE, ow
 		if not required_tag.is_empty() and not _spec_has_tag(spec, required_tag):
 			continue
 		var item_id: String = str(spec.get("id", ""))
+		if item_id == "catalyst":
+			continue  # catalyst只能由其他道具生成，不能在商店购买
 		for rarity in range(start_rarity, safe_max_rarity + 1):
 			if _shop_candidate_allowed(item_id, rarity, owned_items):
 				candidates.append({"spec": spec, "rarity": rarity})
