@@ -6,11 +6,13 @@ Codex CLI 会自动把根目录 `AGENTS.md` 带入模型上下文；不要依赖
 
 ## 工作方式
 
+- FancyCardGame 外层流程遵循 OpenClaw Workflow v4.1 / Agent Mailbox v1.1：Coder/native Codex 是代码执行者，Product 验收通过后由 PM 执行 push gate。
 - 直接在当前项目目录实现任务，不要把任务转发给 OpenClaw、intercom 或其他 agent。
 - 优先阅读本地文档；飞书链接只作为历史来源，除非任务明确要求重新读取飞书。
 - 先确认需求和规则，再改代码。发现策划冲突时，按根目录文档优先级处理。
 - 不要把当前代码现状当成正确规则；本项目仍存在旧规则残留和重构未完成状态。
-- 只在用户或 ACP 任务明确要求时提交 commit。未提交时，在交付说明中写清楚。
+- 只在用户或 mailbox/ACP 任务明确要求时提交本地 commit。未提交时，在交付说明中写清楚。
+- **默认禁止 git push**：即使任务要求提交，也只做 local commit 并在 `.codex-status/{task_id}/commit.json` 标记 `pushed=false`。Product pass 后由 PM push。只有 Allen 在当前任务中明确授权 Dev push 时例外。
 
 ## 必读文档
 
@@ -82,6 +84,7 @@ ACP 任务如果提供 `task_id`，完成后创建：
 .codex-status/{task_id}/
 ├── summary.md
 ├── changed_files.md
+├── commit.json          # include hash/message/task_id/timestamp/pushed=false when committed
 ├── test_results.json
 ├── cr_signoff.json
 └── godot_verify.json
@@ -94,5 +97,6 @@ ACP 任务如果提供 `task_id`，完成后创建：
 ## Git
 
 - Commit format: `feat|fix|refactor|docs|style|test|chore(scope): subject`
+- Local commit is allowed when requested by task; `git push` is forbidden by default.
 - 不要回滚用户或其他 agent 的未提交改动。
 - 只改任务相关文件；遇到无关 dirty worktree 直接绕开。
