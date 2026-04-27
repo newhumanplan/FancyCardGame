@@ -14,6 +14,7 @@ func _ready() -> void:
 		test_mak_hero_factory_data()
 		test_mak_bronze_item_values_match_wiki()
 		test_full_mak_item_catalog_and_starting_tiers()
+		test_shop_excludes_catalyst_but_direct_creation_stays_available()
 		test_day1_monster_values_match_wiki()
 		test_full_monster_catalog_values_match_wiki()
 		test_day1_event_catalog()
@@ -56,6 +57,19 @@ func test_full_mak_item_catalog_and_starting_tiers() -> void:
 	var regeneration_potion: ItemDataClass = BazaarContentClass.create_item("regeneration_potion", BazaarContentClass.RARITY_GOLD)
 	_assert_eq(regeneration_potion.buy_price, 8, "Gold Regeneration Potion uses second wiki cost tier")
 	_assert_eq(int(regeneration_potion.regeneration), 16, "Gold Regeneration Potion regen value")
+
+func test_shop_excludes_catalyst_but_direct_creation_stays_available() -> void:
+	var catalyst: ItemDataClass = BazaarContentClass.create_item("catalyst", BazaarContentClass.RARITY_BRONZE)
+	_assert_true(catalyst != null and catalyst.source_id == "catalyst", "Catalyst direct creation remains available for item/effect grants")
+	_assert_true(not BazaarContentClass.is_shop_candidate_allowed("catalyst", BazaarContentClass.RARITY_BRONZE, []), "shop candidate filter rejects Catalyst")
+
+	var saw_catalyst_in_shop: bool = false
+	for _i in range(200):
+		var shop_item: ItemDataClass = BazaarContentClass.create_random_mak_day1_shop_item(BazaarContentClass.RARITY_DIAMOND, [], "", "")
+		if shop_item != null and shop_item.source_id == "catalyst":
+			saw_catalyst_in_shop = true
+			break
+	_assert_true(not saw_catalyst_in_shop, "shop random generation never returns Catalyst")
 
 func test_day1_monster_values_match_wiki() -> void:
 	var viper = BazaarContentClass.create_day1_monster("viper")

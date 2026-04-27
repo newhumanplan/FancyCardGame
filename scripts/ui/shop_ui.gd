@@ -97,7 +97,8 @@ func _generate_shop_items() -> void:
 
 	for i in range(item_count):
 		var item = _create_random_item(day, max_rarity)
-		shop_items.append(item)
+		if item != null:
+			shop_items.append(item)
 
 	print("生成了 %d 个商店物品" % shop_items.size())
 
@@ -114,7 +115,11 @@ func _get_max_rarity_for_day(day: int) -> int:
 
 ## 创建随机物品
 func _create_random_item(day: int, max_rarity: int) -> ItemDataClass:
-	var bazaar_item: ItemDataClass = BazaarContentClass.create_random_mak_day1_item(mini(max_rarity, BazaarContentClass.RARITY_BRONZE), "", "", true)
+	var owned_items: Array = inventory.items if inventory != null else []
+	var bazaar_item: ItemDataClass = BazaarContentClass.create_random_mak_day1_shop_item(
+		mini(max_rarity, BazaarContentClass.RARITY_BRONZE),
+		owned_items
+	)
 	if bazaar_item != null:
 		return bazaar_item
 
