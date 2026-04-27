@@ -104,7 +104,7 @@ static func grant_start_of_day_items(primary_inventory: LinearInventoryClass, se
 	}
 	var triggers: Array[ItemDataClass] = []
 	for item in collect_owned_items(primary_inventory, secondary_inventory):
-		if item.source_id in ["aludel", "mortar_pestle", "alembic"]:
+		if item.source_id in ["aludel", "mortar_pestle"]:
 			triggers.append(item)
 
 	for _item in triggers:
