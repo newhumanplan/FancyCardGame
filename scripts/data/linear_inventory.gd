@@ -87,6 +87,14 @@ func move_item_to_inventory(item: ItemDataClass, target_inventory: LinearInvento
 func move_item_to_slot(item: ItemDataClass, target_slot: int) -> bool:
 	return move_item_to_inventory(item, self, target_slot)
 
+## 预检查把一个尚未属于任何物品栏的新物品插入到指定槽位。
+func can_insert_new_item(item: ItemDataClass, target_slot: int) -> bool:
+	return _insert_new_item_internal(item, target_slot, false)
+
+## 把一个尚未属于任何物品栏的新物品按 Bazaar 插入规则放入指定槽位。
+func insert_new_item(item: ItemDataClass, target_slot: int) -> bool:
+	return _insert_new_item_internal(item, target_slot, true)
+
 ## ============ 移除相关方法 ============
 
 ## 移除物品
@@ -446,6 +454,32 @@ func _move_item_to_inventory_internal(item: ItemDataClass, target_inventory: Lin
 	if not same_inventory:
 		target_inventory._normalize_layout()
 		target_inventory.inventory_changed.emit()
+	inventory_changed.emit()
+	return true
+
+func _insert_new_item_internal(item: ItemDataClass, target_slot: int, commit: bool) -> bool:
+	if item == null or has_item(item):
+		return false
+	if target_slot < 0 or target_slot >= TOTAL_SLOTS:
+		return false
+	if target_slot + item.get_slot_count() > TOTAL_SLOTS:
+		return false
+
+	var snapshot: Dictionary = _capture_state()
+	item.slot_index = -1
+	var success: bool = false
+	if can_place_item(item, target_slot):
+		success = _place_existing_item_no_emit(item, target_slot)
+	else:
+		success = _pack_with_insert_no_emit(item, target_slot)
+
+	if not success or not commit:
+		_restore_state(snapshot)
+		if not has_item(item):
+			item.slot_index = -1
+		return success
+
+	_normalize_layout()
 	inventory_changed.emit()
 	return true
 

@@ -21,9 +21,10 @@ const SHOP_SLOT_SPACING: int = 8
 const SHOP_SLOT_INSET: float = 4.0
 const SHOP_SLOT_SIZE: Vector2 = Vector2(96.0, 192.0)
 const SHOP_BOARD_MIN_SIZE: Vector2 = Vector2(1080.0, 220.0)
+const DRAG_START_DISTANCE: float = 6.0
 const RARITY_NAMES: Array[String] = ["普通", "稀有", "史诗", "传说"]
 
-signal purchase_requested(item: ItemDataClass, index: int)
+signal purchase_requested(item: ItemDataClass, index: int, target_slot: int, target_inventory: LinearInventoryClass)
 signal refresh_requested(cost: int)
 signal closed()
 
@@ -41,9 +42,44 @@ var shop_slot_panels: Array[Panel] = []
 var shop_item_panels: Array[Control] = []
 var shop_item_slot_starts: Array[int] = []
 var shop_item_layer: Control = null
+var is_dragging_shop_item: bool = false
+var dragging_shop_item: ItemDataClass = null
+var dragging_shop_index: int = -1
+var dragging_shop_panel: Control = null
+var drag_pointer_offset: Vector2 = Vector2.ZERO
+var drag_ghost: Control = null
+var drag_canvas_layer: CanvasLayer = null
+var pending_shop_drag_item: ItemDataClass = null
+var pending_shop_drag_index: int = -1
+var pending_shop_drag_panel: Control = null
+var pending_shop_drag_start_pos: Vector2 = Vector2.ZERO
 
 func _ready() -> void:
 	visible = true
+	set_process(false)
+
+func _process(_delta: float) -> void:
+	if is_dragging_shop_item:
+		_update_shop_drag_ghost_position()
+
+func _input(event: InputEvent) -> void:
+	if event is InputEventMouseButton:
+		var mouse_event: InputEventMouseButton = event as InputEventMouseButton
+		if mouse_event.button_index == MOUSE_BUTTON_LEFT and not mouse_event.pressed:
+			if is_dragging_shop_item:
+				_end_shop_drag_at_mouse()
+				get_viewport().set_input_as_handled()
+			elif pending_shop_drag_item != null:
+				_clear_pending_shop_drag()
+				get_viewport().set_input_as_handled()
+			else:
+				return
+	elif event is InputEventMouseMotion:
+		if pending_shop_drag_item != null and pending_shop_drag_panel != null:
+			if pending_shop_drag_start_pos.distance_to(get_global_mouse_position()) >= DRAG_START_DISTANCE:
+				_start_shop_drag(pending_shop_drag_item, pending_shop_drag_index, pending_shop_drag_panel)
+				_clear_pending_shop_drag()
+				get_viewport().set_input_as_handled()
 
 func show_merchant(inventory_ref: LinearInventoryClass, stash_inventory_ref: LinearInventoryClass = null, merchant_info_ref: Dictionary = {}) -> void:
 	inventory = inventory_ref
@@ -88,6 +124,7 @@ func apply_refresh() -> void:
 
 	shop_items = new_items
 	_filter_invalid_shop_items()
+	_ensure_minimum_shop_items(day, max_rarity, item_count)
 	free_refresh_used = true
 	_refresh_shelf()
 	show_feedback("货架已刷新")
@@ -129,8 +166,10 @@ func _generate_shop_items() -> void:
 		if generated_item != null:
 			shop_items.append(generated_item)
 	_filter_invalid_shop_items()
+	_ensure_minimum_shop_items(day, max_rarity, item_count)
 
 func _refresh_shelf() -> void:
+	_cancel_shop_drag()
 	_hide_item_tooltip()
 	for child in shelf_row.get_children():
 		shelf_row.remove_child(child)
@@ -169,6 +208,7 @@ func _create_item_card(item: ItemDataClass, index: int) -> Control:
 	card.add_theme_stylebox_override("panel", _make_item_card_style(item))
 	card.mouse_entered.connect(_show_item_tooltip.bind(item, card))
 	card.mouse_exited.connect(_hide_item_tooltip)
+	card.gui_input.connect(_on_item_card_gui_input.bind(item, index, card))
 
 	var texture_path: String = _get_shop_item_texture_path(item)
 	var item_texture: Texture2D = ItemArtCatalogClass.load_texture(texture_path)
@@ -220,11 +260,8 @@ func _create_item_card(item: ItemDataClass, index: int) -> Control:
 	if stat_grid.get_child_count() > 0:
 		card.add_child(stat_grid)
 
-	var buy_button: Button = _create_item_value_button(item.buy_price, index)
-	buy_button.tooltip_text = "%s | %s | %d gold" % [item.item_name, _get_item_stat_text(item), item.buy_price]
-	buy_button.pressed.connect(_on_buy_pressed.bind(item, index))
-	_update_buy_button_state(buy_button, item)
-	card.add_child(buy_button)
+	var value_badge: Panel = _create_item_value_badge(item.buy_price, index, _is_purchase_available(item))
+	card.add_child(value_badge)
 
 	return card
 
@@ -365,19 +402,14 @@ func _get_shop_slot_span_rect(start_slot: int, slot_count: int) -> Rect2:
 	var bottom: float = first_slot.global_position.y - layer_global.y + first_slot.size.y - SHOP_SLOT_INSET
 	return Rect2(Vector2(left, top), Vector2(maxf(right - left, 1.0), maxf(bottom - top, 1.0)))
 
-func _update_buy_button_state(button: Button, item: ItemDataClass) -> void:
+func _is_purchase_available(item: ItemDataClass) -> bool:
 	if item == null:
-		button.disabled = true
-		return
+		return false
 	if not GameManager.can_afford(item.buy_price):
-		button.disabled = true
-		button.tooltip_text = "金币不足"
-		return
+		return false
 	if inventory == null:
-		return
-	if not ItemAcquisitionClass.can_accept_item(item, inventory, stash_inventory, false):
-		button.disabled = true
-		button.tooltip_text = "背包空间不足"
+		return false
+	return ItemAcquisitionClass.can_accept_item(item, inventory, stash_inventory, false)
 
 func _show_item_tooltip(item: ItemDataClass, anchor: Control) -> void:
 	if item == null or anchor == null:
@@ -417,9 +449,131 @@ func _position_item_tooltip(anchor: Control) -> void:
 	target_pos.y = clampf(target_pos.y, 8.0, maxf(viewport_size.y - panel_size.y - 8.0, 8.0))
 	hover_tooltip.global_position = target_pos
 
-func _on_buy_pressed(item: ItemDataClass, index: int) -> void:
+func _on_item_card_gui_input(event: InputEvent, item: ItemDataClass, index: int, card: Control) -> void:
+	if item == null:
+		return
+	if event is InputEventMouseButton:
+		var mouse_event: InputEventMouseButton = event as InputEventMouseButton
+		if mouse_event.button_index != MOUSE_BUTTON_LEFT:
+			return
+		if mouse_event.pressed and mouse_event.double_click:
+			_clear_pending_shop_drag()
+			_request_purchase(item, index, -1, null)
+			accept_event()
+			return
+		if mouse_event.pressed:
+			_begin_shop_drag_candidate(item, index, card)
+			accept_event()
+
+func _request_purchase(item: ItemDataClass, index: int, target_slot: int, target_inventory: LinearInventoryClass) -> void:
 	_hide_item_tooltip()
-	purchase_requested.emit(item, index)
+	purchase_requested.emit(item, index, target_slot, target_inventory)
+
+func _begin_shop_drag_candidate(item: ItemDataClass, index: int, panel: Control) -> void:
+	pending_shop_drag_item = item
+	pending_shop_drag_index = index
+	pending_shop_drag_panel = panel
+	pending_shop_drag_start_pos = get_global_mouse_position()
+
+func _start_shop_drag(item: ItemDataClass, index: int, panel: Control) -> void:
+	if item == null or panel == null or is_dragging_shop_item:
+		return
+	_hide_item_tooltip()
+	is_dragging_shop_item = true
+	dragging_shop_item = item
+	dragging_shop_index = index
+	dragging_shop_panel = panel
+	drag_pointer_offset = get_global_mouse_position() - panel.global_position
+
+	drag_ghost = panel.duplicate()
+	drag_ghost.name = "MerchantDragGhost"
+	drag_ghost.visible = true
+	drag_ghost.modulate.a = 0.86
+	drag_ghost.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	drag_canvas_layer = CanvasLayer.new()
+	drag_canvas_layer.name = "MerchantDragCanvasLayer"
+	drag_canvas_layer.layer = 140
+	get_tree().root.add_child(drag_canvas_layer)
+	drag_canvas_layer.add_child(drag_ghost)
+	_update_shop_drag_ghost_position()
+	panel.visible = false
+	set_process(true)
+
+func _end_shop_drag_at_mouse() -> void:
+	if not is_dragging_shop_item or dragging_shop_item == null:
+		return
+	var item: ItemDataClass = dragging_shop_item
+	var index: int = dragging_shop_index
+	var drop_target: Dictionary = _find_inventory_drop_target_at(_get_shop_drag_probe_position())
+	var target_ui: InventoryUI = drop_target.get("ui", null) as InventoryUI
+	var target_slot: int = int(drop_target.get("slot", -1))
+	_clear_shop_drag_visual()
+	if dragging_shop_panel != null and is_instance_valid(dragging_shop_panel):
+		dragging_shop_panel.visible = true
+	_reset_shop_drag_state()
+	if target_ui != null and target_slot >= 0:
+		_request_purchase(item, index, target_slot, target_ui.get_inventory())
+
+func _cancel_shop_drag() -> void:
+	_clear_pending_shop_drag()
+	_clear_shop_drag_visual()
+	if dragging_shop_panel != null and is_instance_valid(dragging_shop_panel):
+		dragging_shop_panel.visible = true
+	_reset_shop_drag_state()
+
+func _clear_pending_shop_drag() -> void:
+	pending_shop_drag_item = null
+	pending_shop_drag_index = -1
+	pending_shop_drag_panel = null
+	pending_shop_drag_start_pos = Vector2.ZERO
+
+func _reset_shop_drag_state() -> void:
+	is_dragging_shop_item = false
+	dragging_shop_item = null
+	dragging_shop_index = -1
+	dragging_shop_panel = null
+	drag_pointer_offset = Vector2.ZERO
+	set_process(false)
+
+func _update_shop_drag_ghost_position() -> void:
+	if drag_ghost == null or not is_instance_valid(drag_ghost):
+		return
+	drag_ghost.global_position = _get_shop_drag_visual_position()
+
+func _get_shop_drag_visual_position() -> Vector2:
+	return get_global_mouse_position() - drag_pointer_offset
+
+func _get_shop_drag_probe_position() -> Vector2:
+	var visual_pos: Vector2 = _get_shop_drag_visual_position()
+	var probe_height: float = SHOP_SLOT_SIZE.y * 0.5
+	if drag_ghost != null and is_instance_valid(drag_ghost):
+		probe_height = maxf(drag_ghost.size.y * 0.5, 1.0)
+	return Vector2(visual_pos.x + 1.0, visual_pos.y + probe_height)
+
+func _clear_shop_drag_visual() -> void:
+	if drag_canvas_layer != null and is_instance_valid(drag_canvas_layer):
+		drag_canvas_layer.queue_free()
+		drag_canvas_layer = null
+		drag_ghost = null
+		return
+	if drag_ghost != null and is_instance_valid(drag_ghost):
+		drag_ghost.queue_free()
+	drag_ghost = null
+
+func _find_inventory_drop_target_at(global_pos: Vector2) -> Dictionary:
+	var best_target: InventoryUI = null
+	var best_slot: int = -1
+	for node in get_tree().get_nodes_in_group("inventory_drop_targets"):
+		var candidate: InventoryUI = node as InventoryUI
+		if candidate == null or not candidate.is_inside_tree() or not candidate.is_visible_in_tree():
+			continue
+		if not candidate.is_item_interaction_enabled():
+			continue
+		var slot_index: int = candidate.get_slot_index_at_global_position(global_pos)
+		if slot_index >= 0:
+			best_target = candidate
+			best_slot = slot_index
+	return {"ui": best_target, "slot": best_slot}
 
 func _on_lock_pressed(index: int) -> void:
 	if index in locked_indices:
@@ -456,6 +610,15 @@ func _filter_invalid_shop_items() -> void:
 	shop_items = filtered_items
 	locked_indices = filtered_locks
 
+func _ensure_minimum_shop_items(day: int, max_rarity: int, target_count: int) -> void:
+	var safe_target: int = clampi(target_count, 1, MAX_VISIBLE_ITEMS)
+	var attempts: int = 0
+	while shop_items.size() < safe_target and attempts < safe_target * 6:
+		attempts += 1
+		var generated_item: ItemDataClass = _create_random_item(day, max_rarity)
+		if generated_item != null:
+			shop_items.append(generated_item)
+
 func _get_max_rarity_for_day(day: int) -> int:
 	if day == 1:
 		return 1
@@ -469,8 +632,8 @@ func _create_random_item(day: int, max_rarity: int) -> ItemDataClass:
 	var required_size: String = ""
 	var required_tag: String = ""
 	var effective_max_rarity: int = max_rarity
-	var merchant_type: String = str(merchant_info.get("merchant_type", ""))
-	var merchant_tier: String = str(merchant_info.get("rarity", ""))
+	var merchant_type: String = str(merchant_info.get("merchant_type", merchant_info.get("type", "")))
+	var merchant_tier: String = str(merchant_info.get("rarity", merchant_info.get("starting_tier", "")))
 
 	if merchant_tier == "Silver":
 		effective_max_rarity = maxi(effective_max_rarity, BazaarContentClass.RARITY_SILVER)
@@ -494,7 +657,22 @@ func _create_random_item(day: int, max_rarity: int) -> ItemDataClass:
 		"Silver":
 			effective_max_rarity = maxi(effective_max_rarity, BazaarContentClass.RARITY_SILVER)
 
-	return BazaarContentClass.create_random_mak_day1_shop_item(effective_max_rarity, _get_owned_items_for_shop(), required_size, required_tag)
+	return _create_random_shop_item_with_fallback(effective_max_rarity, required_size, required_tag)
+
+func _create_random_shop_item_with_fallback(max_rarity: int, required_size: String, required_tag: String) -> ItemDataClass:
+	var owned_items: Array[ItemDataClass] = _get_owned_items_for_shop()
+	var generated_item: ItemDataClass = BazaarContentClass.create_random_mak_day1_shop_item(max_rarity, owned_items, required_size, required_tag)
+	if generated_item != null:
+		return generated_item
+	if not required_tag.is_empty():
+		generated_item = BazaarContentClass.create_random_mak_day1_shop_item(max_rarity, owned_items, required_size, "")
+		if generated_item != null:
+			return generated_item
+	if not required_size.is_empty():
+		generated_item = BazaarContentClass.create_random_mak_day1_shop_item(max_rarity, owned_items, "", required_tag)
+		if generated_item != null:
+			return generated_item
+	return BazaarContentClass.create_random_mak_day1_shop_item(max_rarity, owned_items, "", "")
 
 func _get_owned_items_for_shop() -> Array[ItemDataClass]:
 	return ItemAcquisitionClass.collect_owned_items(inventory, stash_inventory)
@@ -617,42 +795,41 @@ func _create_item_stat_badge(text: String, color: Color) -> Panel:
 	badge.add_child(label)
 	return badge
 
-func _create_item_value_button(value: int, index: int) -> Button:
-	var button: Button = Button.new()
-	button.name = "BuyButton%d" % index
-	button.text = str(maxi(value, 0))
-	button.focus_mode = Control.FOCUS_NONE
-	button.z_index = 21
-	button.anchor_left = 0.0
-	button.anchor_top = 1.0
-	button.anchor_right = 0.0
-	button.anchor_bottom = 1.0
-	button.offset_left = 4.0
-	button.offset_top = -30.0
-	button.offset_right = 50.0
-	button.offset_bottom = -4.0
-	button.add_theme_font_size_override("font_size", 14)
-	button.add_theme_color_override("font_color", Color.WHITE)
-	button.add_theme_color_override("font_outline_color", Color(0.0, 0.0, 0.0, 0.75))
-	button.add_theme_constant_override("outline_size", 1)
-	button.add_theme_stylebox_override("normal", _make_value_button_style(false))
-	button.add_theme_stylebox_override("hover", _make_value_button_style(true))
-	button.add_theme_stylebox_override("pressed", _make_value_button_style(true))
-	button.add_theme_stylebox_override("disabled", _make_value_button_disabled_style())
-	return button
+func _create_item_value_badge(value: int, index: int, is_available: bool) -> Panel:
+	var badge: Panel = Panel.new()
+	badge.name = "PriceBadge%d" % index
+	badge.z_index = 21
+	badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	badge.anchor_left = 0.0
+	badge.anchor_top = 1.0
+	badge.anchor_right = 0.0
+	badge.anchor_bottom = 1.0
+	badge.offset_left = 4.0
+	badge.offset_top = -30.0
+	badge.offset_right = 50.0
+	badge.offset_bottom = -4.0
+	badge.add_theme_stylebox_override("panel", _make_value_badge_style(is_available))
 
-func _make_value_button_style(hovered: bool) -> StyleBoxFlat:
+	var label: Label = Label.new()
+	label.name = "PriceLabel"
+	label.text = str(maxi(value, 0))
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	label.add_theme_font_size_override("font_size", 14)
+	label.add_theme_color_override("font_color", Color.WHITE if is_available else Color(0.78, 0.72, 0.62, 0.88))
+	label.add_theme_color_override("font_outline_color", Color(0.0, 0.0, 0.0, 0.75))
+	label.add_theme_constant_override("outline_size", 1)
+	label.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	badge.add_child(label)
+	return badge
+
+func _make_value_badge_style(is_available: bool) -> StyleBoxFlat:
 	var style: StyleBoxFlat = StyleBoxFlat.new()
-	style.bg_color = Color(0.72, 0.41, 0.10, 0.98) if hovered else Color(0.64, 0.36, 0.08, 0.95)
-	style.border_color = Color(1.0, 0.74, 0.30, 0.95)
+	style.bg_color = Color(0.64, 0.36, 0.08, 0.95) if is_available else Color(0.30, 0.24, 0.18, 0.78)
+	style.border_color = Color(1.0, 0.74, 0.30, 0.95) if is_available else Color(0.55, 0.46, 0.33, 0.70)
 	style.set_border_width_all(1)
 	style.set_corner_radius_all(5)
-	return style
-
-func _make_value_button_disabled_style() -> StyleBoxFlat:
-	var style: StyleBoxFlat = _make_value_button_style(false)
-	style.bg_color = Color(0.30, 0.24, 0.18, 0.78)
-	style.border_color = Color(0.55, 0.46, 0.33, 0.70)
 	return style
 
 func _get_rarity_color(rarity: int) -> Color:

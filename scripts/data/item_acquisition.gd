@@ -15,6 +15,23 @@ static func can_accept_item(item: ItemDataClass, primary_inventory: LinearInvent
 		return true
 	return allow_secondary_place and secondary_inventory != null and not secondary_inventory.find_empty_slots(item.get_slot_count()).is_empty()
 
+static func can_accept_item_at_slot(
+	item: ItemDataClass,
+	primary_inventory: LinearInventoryClass,
+	secondary_inventory: LinearInventoryClass,
+	target_inventory: LinearInventoryClass,
+	target_slot: int,
+	allow_secondary_place: bool = false
+) -> bool:
+	if item == null:
+		return false
+	var inventories: Array = _valid_inventories(primary_inventory, secondary_inventory)
+	if _can_merge_with_owned(item, inventories):
+		return true
+	if _is_valid_target_inventory(target_inventory, primary_inventory, secondary_inventory, allow_secondary_place):
+		return target_inventory.can_insert_new_item(item, target_slot)
+	return can_accept_item(item, primary_inventory, secondary_inventory, allow_secondary_place)
+
 static func grant_item(item: ItemDataClass, primary_inventory: LinearInventoryClass, secondary_inventory: LinearInventoryClass = null, allow_secondary_place: bool = false) -> Dictionary:
 	var result: Dictionary = {
 		"success": false,
@@ -42,6 +59,43 @@ static func grant_item(item: ItemDataClass, primary_inventory: LinearInventoryCl
 	result["final_item"] = item
 	result["inventory"] = placed_inventory
 	return result
+
+static func grant_item_at_slot(
+	item: ItemDataClass,
+	primary_inventory: LinearInventoryClass,
+	secondary_inventory: LinearInventoryClass,
+	target_inventory: LinearInventoryClass,
+	target_slot: int,
+	allow_secondary_place: bool = false
+) -> Dictionary:
+	var result: Dictionary = {
+		"success": false,
+		"placed": false,
+		"merged": false,
+		"merge_count": 0,
+		"final_item": null,
+		"inventory": null,
+	}
+	if item == null:
+		return result
+
+	var inventories: Array = _valid_inventories(primary_inventory, secondary_inventory)
+	var merge_result: Dictionary = _merge_into_owned(item, inventories)
+	if bool(merge_result.get("merged", false)):
+		result.merge(merge_result, true)
+		result["success"] = true
+		return result
+
+	if _is_valid_target_inventory(target_inventory, primary_inventory, secondary_inventory, allow_secondary_place):
+		item.slot_index = -1
+		if target_inventory.insert_new_item(item, target_slot):
+			result["success"] = true
+			result["placed"] = true
+			result["final_item"] = item
+			result["inventory"] = target_inventory
+			return result
+
+	return grant_item(item, primary_inventory, secondary_inventory, allow_secondary_place)
 
 static func grant_start_of_day_items(primary_inventory: LinearInventoryClass, secondary_inventory: LinearInventoryClass = null) -> Dictionary:
 	var summary: Dictionary = {
@@ -76,6 +130,18 @@ static func _valid_inventories(primary_inventory: LinearInventoryClass, secondar
 	if secondary_inventory != null and secondary_inventory != primary_inventory:
 		inventories.append(secondary_inventory)
 	return inventories
+
+static func _is_valid_target_inventory(
+	target_inventory: LinearInventoryClass,
+	primary_inventory: LinearInventoryClass,
+	secondary_inventory: LinearInventoryClass,
+	allow_secondary_place: bool
+) -> bool:
+	if target_inventory == null:
+		return false
+	if target_inventory == primary_inventory:
+		return true
+	return allow_secondary_place and target_inventory == secondary_inventory
 
 static func _items_left_to_right(inventory: LinearInventoryClass) -> Array[ItemDataClass]:
 	var result: Array[ItemDataClass] = []

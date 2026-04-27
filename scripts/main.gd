@@ -360,7 +360,12 @@ func _on_shell_right_action_pressed(action_id: String) -> void:
 			if active_merchant_view.has_method("request_close"):
 				active_merchant_view.call("request_close")
 
-func _on_merchant_purchase_requested(item: ItemDataClass, index: int) -> void:
+func _on_merchant_purchase_requested(
+	item: ItemDataClass,
+	index: int,
+	target_slot: int = -1,
+	target_inventory: LinearInventoryClass = null
+) -> void:
 	if item == null:
 		_show_merchant_feedback("商品无效", true)
 		return
@@ -373,7 +378,11 @@ func _on_merchant_purchase_requested(item: ItemDataClass, index: int) -> void:
 		_update_active_merchant_buttons()
 		return
 	var stash_inventory: LinearInventoryClass = _get_stash_inventory()
-	if not ItemAcquisitionClass.can_accept_item(item, inventory, stash_inventory, false):
+	var target_inventory_ref: LinearInventoryClass = target_inventory if target_inventory != null else inventory
+	var can_accept: bool = ItemAcquisitionClass.can_accept_item(item, inventory, stash_inventory, false)
+	if target_slot >= 0 and target_inventory_ref != null:
+		can_accept = ItemAcquisitionClass.can_accept_item_at_slot(item, inventory, stash_inventory, target_inventory_ref, target_slot, false)
+	if not can_accept:
 		_show_merchant_feedback("背包空间不足", true)
 		_update_active_merchant_buttons()
 		return
@@ -384,7 +393,11 @@ func _on_merchant_purchase_requested(item: ItemDataClass, index: int) -> void:
 
 	var item_copy: ItemDataClass = item.duplicate() as ItemDataClass
 	item_copy.slot_index = -1
-	var grant_result: Dictionary = ItemAcquisitionClass.grant_item(item_copy, inventory, stash_inventory, false)
+	var grant_result: Dictionary = {}
+	if target_slot >= 0 and target_inventory_ref != null:
+		grant_result = ItemAcquisitionClass.grant_item_at_slot(item_copy, inventory, stash_inventory, target_inventory_ref, target_slot, false)
+	else:
+		grant_result = ItemAcquisitionClass.grant_item(item_copy, inventory, stash_inventory, false)
 	if not bool(grant_result.get("success", false)):
 		GameManager.add_gold(item.buy_price)
 		_show_merchant_feedback("背包放置失败", true)

@@ -16,6 +16,7 @@ func _run_tests() -> void:
 	test_time_select_view_in_shell_emits_selection()
 	test_merchant_view_emits_purchase_without_spending()
 	test_merchant_uses_slot_board_layout_and_wiki_art()
+	test_curio_merchant_does_not_open_sold_out()
 	test_merchant_refresh_reports_free_then_paid_cost()
 	test_shell_merchant_uses_upper_board_and_right_actions()
 	test_shell_stash_toggles_inventory_overlay()
@@ -52,20 +53,28 @@ func test_merchant_view_emits_purchase_without_spending() -> void:
 	var before_gold: int = int(game_manager.get("gold"))
 	var purchase: Dictionary = {"called": false, "index": -1}
 
-	merchant.connect("purchase_requested", func(item, index: int) -> void:
+	merchant.connect("purchase_requested", func(item, index: int, target_slot: int, target_inventory) -> void:
 		purchase["called"] = item != null
 		purchase["index"] = index
+		purchase["target_slot"] = target_slot
+		purchase["target_inventory"] = target_inventory
 	)
 	merchant.call("show_merchant", inventory)
 
 	var count: int = int(merchant.call("get_visible_item_count"))
 	_assert_true(count >= 3 and count <= 5, "merchant shelf renders three to five items")
-	var buy_button: Button = _find_node(merchant, "BuyButton0") as Button
-	_assert_not_null(buy_button, "merchant item has buy intent button")
-	buy_button.emit_signal("pressed")
+	var item_card: Control = _find_node(merchant, "MerchantItemCard0") as Control
+	_assert_not_null(item_card, "merchant item has a card hit area")
+	var click: InputEventMouseButton = InputEventMouseButton.new()
+	click.button_index = MOUSE_BUTTON_LEFT
+	click.pressed = true
+	click.double_click = true
+	item_card.emit_signal("gui_input", click)
 
 	_assert_true(bool(purchase["called"]), "merchant emits purchase intent")
 	_assert_equal(int(purchase["index"]), 0, "merchant purchase intent includes shelf index")
+	_assert_equal(int(purchase["target_slot"]), -1, "merchant double-click purchase uses first available slot")
+	_assert_true(purchase["target_inventory"] == null, "merchant double-click purchase does not force a target inventory")
 	_assert_equal(int(game_manager.get("gold")), before_gold, "merchant view does not spend gold")
 	merchant.queue_free()
 
@@ -75,10 +84,10 @@ func test_merchant_uses_slot_board_layout_and_wiki_art() -> void:
 	game_manager.set("gold", 500)
 	var merchant: Control = _create_merchant_view()
 	var inventory: LinearInventoryClass = LinearInventoryClass.new()
-	var silk_scarf = BazaarContentClass.create_item("silk_scarf")
+	var stat_item = BazaarContentClass.create_item("aludel")
 
 	merchant.call("show_merchant", inventory)
-	merchant.set("shop_items", [silk_scarf])
+	merchant.set("shop_items", [stat_item])
 	merchant.call("_refresh_shelf")
 
 	var board: Control = _find_node(merchant, "MerchantShopBoard") as Control
@@ -93,8 +102,28 @@ func test_merchant_uses_slot_board_layout_and_wiki_art() -> void:
 	_assert_not_null(art, "merchant item card uses source art")
 	_assert_true(art.texture != null, "merchant source art texture is loaded")
 	_assert_not_null(_find_node(item_card, "ItemStatBadgeGrid"), "merchant item card shows top effect badges")
-	_assert_not_null(_find_node(item_card, "BuyButton0"), "merchant item value badge is the buy button")
+	var price_badge: Control = _find_node(item_card, "PriceBadge0") as Control
+	_assert_not_null(price_badge, "merchant item card shows a price badge")
+	_assert_true(not (price_badge is Button), "merchant item value badge is not a purchase button")
 	_assert_true(_find_node(item_card, "LockButton0") == null, "merchant item card does not show placeholder lock button")
+	merchant.queue_free()
+
+func test_curio_merchant_does_not_open_sold_out() -> void:
+	var game_manager: Node = _game_manager()
+	game_manager.call("reset_stats")
+	game_manager.set("gold", 500)
+	var merchant: Control = _create_merchant_view()
+	var inventory: LinearInventoryClass = LinearInventoryClass.new()
+
+	merchant.call("show_merchant", inventory, null, {
+		"id": "curio",
+		"name": "Curio",
+		"type": "Bronze, Junk",
+		"starting_tier": "Silver",
+	})
+
+	_assert_true(int(merchant.call("get_visible_item_count")) > 0, "Curio merchant opens with sellable items")
+	_assert_true(_find_node(merchant, "EmptyShelfLabel") == null, "Curio merchant does not show sold out on open")
 	merchant.queue_free()
 
 func test_merchant_refresh_reports_free_then_paid_cost() -> void:

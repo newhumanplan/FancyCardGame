@@ -19,6 +19,7 @@ func _run_tests() -> void:
 	test_cross_inventory_inserts_and_shifts_target()
 	test_cross_inventory_fails_when_group_cannot_fit_source()
 	test_can_move_preview_does_not_mutate()
+	test_new_item_insert_uses_bazaar_shift_rules()
 
 func _item(name: String, size: int = ItemDataClass.Size.SMALL) -> ItemDataClass:
 	var item: ItemDataClass = ItemDataClass.new()
@@ -107,6 +108,22 @@ func test_can_move_preview_does_not_mutate() -> void:
 	_assert_true(inventory.can_move_item_to_inventory(a, inventory, 1), "preview reports valid move")
 	_assert_eq(a.slot_index, 0, "preview keeps dragged item slot")
 	_assert_eq(b.slot_index, 1, "preview keeps target item slot")
+
+func test_new_item_insert_uses_bazaar_shift_rules() -> void:
+	var inventory: LinearInventoryClass = LinearInventoryClass.new()
+	var a: ItemDataClass = _item("A")
+	var b: ItemDataClass = _item("B")
+	var new_medium: ItemDataClass = _item("New Medium", ItemDataClass.Size.MEDIUM)
+	inventory.place_item(a, 0)
+	inventory.place_item(b, 1)
+
+	_assert_true(inventory.can_insert_new_item(new_medium, 0), "new item insert preview accepts shiftable target")
+	_assert_eq(new_medium.slot_index, -1, "new item preview does not mutate the item")
+	_assert_eq(a.slot_index, 0, "new item preview does not shift existing items")
+	_assert_true(inventory.insert_new_item(new_medium, 0), "new item insert shifts occupied target")
+	_assert_eq(new_medium.slot_index, 0, "new item lands at requested slot")
+	_assert_eq(a.slot_index, 2, "first existing item shifts after inserted span")
+	_assert_eq(b.slot_index, 3, "second existing item shifts after inserted span")
 
 func _assert_true(condition: bool, label: String) -> void:
 	_total += 1
