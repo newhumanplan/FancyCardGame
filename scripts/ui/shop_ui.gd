@@ -10,6 +10,8 @@ extends Control
 const EconomyManagerClass = preload("res://scripts/data/economy_manager.gd")
 const ItemDataClass = preload("res://scripts/data/item_data.gd")
 const LinearInventoryClass = preload("res://scripts/data/linear_inventory.gd")
+const BazaarContentClass = preload("res://scripts/data/bazaar_content.gd")
+const ItemArtCatalogClass = preload("res://scripts/data/item_art_catalog.gd")
 
 ## Bazaar风格 UI 资源
 const SHOP_CARD_BG: String = "res://assets/art/ui/ui_shop_card_bg.png"
@@ -112,6 +114,10 @@ func _get_max_rarity_for_day(day: int) -> int:
 
 ## 创建随机物品
 func _create_random_item(day: int, max_rarity: int) -> ItemDataClass:
+	var bazaar_item: ItemDataClass = BazaarContentClass.create_random_mak_day1_item(mini(max_rarity, BazaarContentClass.RARITY_BRONZE), "", "", true)
+	if bazaar_item != null:
+		return bazaar_item
+
 	var item = ItemDataClass.new()
 
 	# 随机稀有度（1 到 max_rarity）
@@ -254,8 +260,8 @@ func _create_item_display(item: ItemDataClass, idx: int) -> Control:
 
 	# 尝试加载物品图片
 	var texture_path = _get_shop_item_texture_path(item)
-	if texture_path != "" and ResourceLoader.exists(texture_path):
-		var texture = load(texture_path)
+	if texture_path != "":
+		var texture: Texture2D = ItemArtCatalogClass.load_texture(texture_path)
 		if texture:
 			var texture_rect = TextureRect.new()
 			texture_rect.texture = texture
@@ -352,6 +358,10 @@ func _get_rarity_color(rarity: int) -> Color:
 func _get_shop_item_texture_path(item: ItemDataClass) -> String:
 	if item == null:
 		return ""
+
+	var catalog_path: String = ItemArtCatalogClass.get_item_texture_path(item)
+	if not catalog_path.is_empty():
+		return catalog_path
 
 	# 武器
 	if item.type == ItemDataClass.Type.WEAPON:

@@ -71,6 +71,16 @@ RunScreen
 - `PlayerBoardPanel` 和 `BottomHudPanel` 由统一控制器渲染，不能被战斗或商店子界面重建。
 - 业务结算仍归 service/system，UI 通过 signal 提交意图。
 
+## Stash / Board 整理
+
+参考仓库截图。Stash 是 `BazaarShell.OverlayLayer` 上的半透明上方叠层，不是全屏背包页：
+
+- 点击 `BottomHudPanel/StashButtonArea` 的宝箱打开或关闭。
+- 顶部中间显示宝箱图标；中上方保留较大的仓库装饰面板；10 个 Stash 槽位放在仓库面板下半部。
+- 打开 Stash 时，`PlayerBoardPanel`、`BottomHudPanel`、`LeftClockPanel` 仍可见；玩家可以在 Board 与 Stash 之间拖动物品。
+- Board 与 Stash 都必须使用同一套线性物品栏移动规则：直接放下、右推顺延、整组互换、失败回滚。
+- Stash 默认 10 格。不要做二维 RPG 背包，也不要让 Stash 覆盖玩家 Board。
+
 ## 战斗界面
 
 参考截图一。战斗状态不是弹窗，也不是独立 battle page，而是 `BazaarShell` 的一种填充状态。

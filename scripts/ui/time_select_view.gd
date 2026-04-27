@@ -5,6 +5,8 @@ extends Control
 
 signal option_selected(index: int)
 
+const ItemArtCatalogClass = preload("res://scripts/data/item_art_catalog.gd")
+
 const EVENT_CARD_BG: String = "res://assets/art/ui/ui_event_card_bg.png"
 const SHOP_CARD_BG: String = "res://assets/art/ui/ui_shop_card_bg.png"
 
@@ -38,11 +40,13 @@ func _refresh_options() -> void:
 func _create_option_card(option: Dictionary, index: int) -> Control:
 	var option_type: String = str(option.get("type", "random_event"))
 	var title: String = str(option.get("text", "Option"))
+	var summary: String = str(option.get("summary", ""))
+	var art_path: String = str(option.get("art_path", ""))
 	var palette: Dictionary = _get_option_palette(option_type)
 
 	var card: Panel = Panel.new()
 	card.name = "OptionCard%d" % index
-	card.custom_minimum_size = Vector2(210, 150)
+	card.custom_minimum_size = Vector2(184, 168)
 	card.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	card.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	card.mouse_filter = Control.MOUSE_FILTER_STOP
@@ -50,60 +54,54 @@ func _create_option_card(option: Dictionary, index: int) -> Control:
 
 	var bg: TextureRect = TextureRect.new()
 	bg.name = "CardArt"
-	bg.texture = load(SHOP_CARD_BG if option_type == "shop" else EVENT_CARD_BG)
+	var wiki_texture: Texture2D = ItemArtCatalogClass.load_texture(art_path)
+	bg.texture = wiki_texture if wiki_texture != null else load(SHOP_CARD_BG if option_type == "shop" else EVENT_CARD_BG)
 	bg.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	bg.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-	bg.modulate = palette["bg_modulate"]
 	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	card.add_child(bg)
 
 	var tint: ColorRect = ColorRect.new()
 	tint.name = "CardTint"
-	tint.color = palette["tint"]
+	tint.color = Color(0.0, 0.0, 0.0, 0.12)
 	tint.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	tint.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	card.add_child(tint)
-
-	var margin: MarginContainer = MarginContainer.new()
-	margin.name = "ContentMargin"
-	margin.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	margin.add_theme_constant_override("margin_left", 10)
-	margin.add_theme_constant_override("margin_top", 8)
-	margin.add_theme_constant_override("margin_right", 10)
-	margin.add_theme_constant_override("margin_bottom", 8)
-	card.add_child(margin)
-
-	var stack: VBoxContainer = VBoxContainer.new()
-	stack.name = "CardContent"
-	stack.alignment = BoxContainer.ALIGNMENT_CENTER
-	stack.add_theme_constant_override("separation", 5)
-	margin.add_child(stack)
 
 	var badge: Label = Label.new()
 	badge.name = "TypeBadge"
 	badge.text = str(palette["badge"])
 	badge.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	badge.add_theme_font_size_override("font_size", 13)
+	badge.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	badge.add_theme_font_size_override("font_size", 12)
 	badge.add_theme_color_override("font_color", palette["accent"])
-	stack.add_child(badge)
+	badge.add_theme_color_override("font_outline_color", Color(0.0, 0.0, 0.0, 0.72))
+	badge.add_theme_constant_override("outline_size", 1)
+	badge.anchor_left = 0.0
+	badge.anchor_top = 0.0
+	badge.anchor_right = 1.0
+	badge.anchor_bottom = 0.0
+	badge.offset_left = 8.0
+	badge.offset_top = 7.0
+	badge.offset_right = -8.0
+	badge.offset_bottom = 28.0
+	badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	card.add_child(badge)
 
-	var portrait: Panel = Panel.new()
-	portrait.name = "PortraitDisk"
-	portrait.custom_minimum_size = Vector2(76, 58)
-	portrait.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	portrait.add_theme_stylebox_override("panel", _make_portrait_style(palette))
-	stack.add_child(portrait)
-
-	var icon_label: Label = Label.new()
-	icon_label.name = "IconLabel"
-	icon_label.text = str(palette["icon"])
-	icon_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	icon_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	icon_label.add_theme_font_size_override("font_size", 26)
-	icon_label.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	portrait.add_child(icon_label)
+	var title_ribbon: ColorRect = ColorRect.new()
+	title_ribbon.name = "TitleRibbon"
+	title_ribbon.color = Color(0.02, 0.02, 0.03, 0.58)
+	title_ribbon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	title_ribbon.anchor_left = 0.0
+	title_ribbon.anchor_top = 1.0
+	title_ribbon.anchor_right = 1.0
+	title_ribbon.anchor_bottom = 1.0
+	title_ribbon.offset_left = 0.0
+	title_ribbon.offset_top = -50.0
+	title_ribbon.offset_right = 0.0
+	title_ribbon.offset_bottom = 0.0
+	card.add_child(title_ribbon)
 
 	var title_label: Label = Label.new()
 	title_label.name = "TitleLabel"
@@ -112,17 +110,24 @@ func _create_option_card(option: Dictionary, index: int) -> Control:
 	title_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	title_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	title_label.clip_text = true
-	title_label.custom_minimum_size = Vector2(178, 42)
-	title_label.add_theme_font_size_override("font_size", 17)
+	title_label.add_theme_font_size_override("font_size", 16)
 	title_label.add_theme_color_override("font_color", Color(0.96, 0.91, 0.78, 1.0))
-	stack.add_child(title_label)
+	title_label.add_theme_color_override("font_outline_color", Color(0.0, 0.0, 0.0, 0.80))
+	title_label.add_theme_constant_override("outline_size", 2)
+	title_label.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	title_label.offset_left = 8.0
+	title_label.offset_top = 116.0
+	title_label.offset_right = -8.0
+	title_label.offset_bottom = -6.0
+	title_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	card.add_child(title_label)
 
 	var hit_button: Button = Button.new()
 	hit_button.name = "OptionHitButton%d" % index
 	hit_button.text = ""
 	hit_button.flat = true
 	hit_button.focus_mode = Control.FOCUS_NONE
-	hit_button.tooltip_text = title
+	hit_button.tooltip_text = title if summary.is_empty() else "%s\n%s" % [title, summary]
 	hit_button.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	hit_button.pressed.connect(_on_option_pressed.bind(index))
 	card.add_child(hit_button)
@@ -145,52 +150,23 @@ func _get_option_palette(option_type: String) -> Dictionary:
 		"shop":
 			return {
 				"badge": "MERCHANT",
-				"icon": "S",
 				"accent": Color(0.96, 0.78, 0.38, 1.0),
 				"border": Color(0.92, 0.62, 0.25, 0.92),
 				"fill": Color(0.22, 0.14, 0.10, 0.90),
-				"tint": Color(0.28, 0.16, 0.06, 0.26),
-				"bg_modulate": Color(1.00, 0.88, 0.68, 0.90)
 			}
 		"monster", "pvp":
 			return {
 				"badge": "BATTLE",
-				"icon": "X",
 				"accent": Color(0.94, 0.36, 0.32, 1.0),
 				"border": Color(0.86, 0.25, 0.22, 0.92),
 				"fill": Color(0.20, 0.08, 0.08, 0.90),
-				"tint": Color(0.34, 0.06, 0.06, 0.28),
-				"bg_modulate": Color(1.00, 0.72, 0.68, 0.88)
-			}
-		"treasure":
-			return {
-				"badge": "REWARD",
-				"icon": "+",
-				"accent": Color(0.42, 0.92, 0.74, 1.0),
-				"border": Color(0.28, 0.70, 0.58, 0.92),
-				"fill": Color(0.06, 0.18, 0.16, 0.90),
-				"tint": Color(0.04, 0.28, 0.20, 0.26),
-				"bg_modulate": Color(0.72, 1.00, 0.84, 0.86)
-			}
-		"camp":
-			return {
-				"badge": "REST",
-				"icon": "*",
-				"accent": Color(0.56, 0.78, 1.00, 1.0),
-				"border": Color(0.34, 0.58, 0.88, 0.92),
-				"fill": Color(0.07, 0.12, 0.22, 0.90),
-				"tint": Color(0.04, 0.14, 0.30, 0.24),
-				"bg_modulate": Color(0.72, 0.84, 1.00, 0.86)
 			}
 		_:
 			return {
 				"badge": "EVENT",
-				"icon": "?",
 				"accent": Color(0.86, 0.70, 1.00, 1.0),
 				"border": Color(0.62, 0.44, 0.88, 0.92),
 				"fill": Color(0.16, 0.10, 0.22, 0.90),
-				"tint": Color(0.20, 0.10, 0.36, 0.24),
-				"bg_modulate": Color(0.88, 0.76, 1.00, 0.86)
 			}
 
 func _make_card_style(palette: Dictionary) -> StyleBoxFlat:
@@ -202,14 +178,6 @@ func _make_card_style(palette: Dictionary) -> StyleBoxFlat:
 	style.shadow_color = Color(0.0, 0.0, 0.0, 0.35)
 	style.shadow_size = 8
 	style.shadow_offset = Vector2(0, 4)
-	return style
-
-func _make_portrait_style(palette: Dictionary) -> StyleBoxFlat:
-	var style: StyleBoxFlat = StyleBoxFlat.new()
-	style.bg_color = Color(0.04, 0.04, 0.05, 0.60)
-	style.border_color = palette["accent"]
-	style.set_border_width_all(2)
-	style.set_corner_radius_all(8)
 	return style
 
 func _on_option_pressed(index: int) -> void:

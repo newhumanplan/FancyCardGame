@@ -2,6 +2,7 @@ class_name MonsterData
 extends Resource
 
 const MonsterAIType = preload("res://scripts/data/monster_ai.gd")
+const MIN_ITEM_COOLDOWN: float = 1.0
 
 ## 怪物等级枚举
 enum MonsterTier { TIER_1, TIER_2, TIER_3 }
@@ -20,6 +21,9 @@ enum MonsterTier { TIER_1, TIER_2, TIER_3 }
 ## 当前生命值（运行时）
 var current_hp: int = 50
 
+## 当前护盾值（运行时）
+var current_shield: float = 0.0
+
 ## ============ 怪物物品系统 ============
 ## 怪物的"武器"：1-3 个物品，各有 damage + cooldown
 ## 在战斗循环中按 CD 触发，伤害扣玩家 HP
@@ -29,6 +33,9 @@ var monster_items: Array = []
 
 ## 怪物 AI 行为模式
 var ai = null  ## MonsterAI
+
+## 怪物被动/技能列表: [{name: String, effect: String, ...}]
+var monster_skills: Array = []
 
 ## ============ 掉落奖励 ============
 
@@ -57,6 +64,7 @@ func _init():
 ## 重置生命值
 func reset_hp():
 	current_hp = max_hp
+	current_shield = 0.0
 
 ## 获取当前生命值
 func get_current_hp() -> int:
@@ -67,6 +75,10 @@ func get_current_hp() -> int:
 ## 返回: 实际受到的伤害
 func take_damage(damage: int) -> int:
 	var actual_damage: int = damage
+	if current_shield > 0.0:
+		var absorbed: float = minf(current_shield, float(actual_damage))
+		current_shield = maxf(current_shield - absorbed, 0.0)
+		actual_damage = maxi(actual_damage - int(absorbed), 0)
 	current_hp = maxi(current_hp - actual_damage, 0)
 	return actual_damage
 
@@ -86,6 +98,9 @@ func get_hp_percent() -> float:
 func init_item_cooldowns() -> void:
 	for item in monster_items:
 		var cooldown: float = maxf(float(item.get("cooldown", 0.0)), 0.0)
+		if cooldown > 0.0:
+			cooldown = maxf(cooldown, MIN_ITEM_COOLDOWN)
+			item["cooldown"] = cooldown
 		item["current_cooldown"] = cooldown
 
 ## 重置怪物物品冷却（战斗结束时调用）

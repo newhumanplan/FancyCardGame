@@ -7,10 +7,12 @@ extends Control
 ## 预加载类
 const LinearInventoryClass = preload("res://scripts/data/linear_inventory.gd")
 const ItemDataClass = preload("res://scripts/data/item_data.gd")
+const ItemArtCatalogClass = preload("res://scripts/data/item_art_catalog.gd")
 const ItemDetailPanelClass = preload("res://scenes/ui/item_detail_panel.tscn")
 
 ## 常量
-const SLOT_SIZE: int = 96
+const SLOT_WIDTH: int = 96
+const SLOT_HEIGHT: int = 192
 const TOTAL_SLOTS: int = 10
 const SLOT_SPACING: int = 8
 const HOVER_DELAY_SEC: float = 0.3
@@ -27,8 +29,10 @@ var item_panels: Array[Control] = []
 var dragging_item: ItemDataClass = null
 var dragging_panel: Control = null
 var drag_start_slot: int = -1
+var drag_pointer_offset: Vector2 = Vector2.ZERO
 var is_dragging: bool = false
 var drag_ghost: Control = null  # 拖拽时的半透明副本
+var drag_canvas_layer: CanvasLayer = null
 
 ## 槽位高亮
 var valid_slot_overlays: Array[Panel] = []  # 有效放置位置高亮
@@ -41,6 +45,8 @@ var selected_item: ItemDataClass = null
 var hover_timer: Timer = null
 var hovered_item: ItemDataClass = null
 var hover_tooltip: Control = null
+var item_interaction_enabled: bool = true
+var layout_refresh_queued: bool = false
 
 ## 协同效果高亮
 var synergy_highlights: Array[Control] = []  # 协同高亮效果
@@ -122,6 +128,10 @@ func _get_item_texture_path(item: ItemDataClass) -> String:
 	if item == null:
 		return ""
 
+	var catalog_path: String = ItemArtCatalogClass.get_item_texture_path(item)
+	if not catalog_path.is_empty():
+		return catalog_path
+
 	# 精确匹配
 	if item_texture_map.has(item.item_name):
 		return item_texture_map[item.item_name]
@@ -155,11 +165,14 @@ func _get_item_texture_path(item: ItemDataClass) -> String:
 	return ""
 
 func _ready() -> void:
+	add_to_group("inventory_drop_targets")
+
 	# 初始化物品图片映射
 	_init_item_texture_map()
 
 	# 创建 Inventory 实例
-	inventory = LinearInventoryClass.new()
+	if inventory == null:
+		inventory = LinearInventoryClass.new()
 
 	# 连接信号
 	_ensure_inventory_signal_connection()
@@ -183,35 +196,75 @@ func _ready() -> void:
 	# 创建槽位高亮层
 	_create_slot_overlay_layer()
 
+	if not slot_container.resized.is_connected(_queue_inventory_layout_refresh):
+		slot_container.resized.connect(_queue_inventory_layout_refresh)
+
 	# 初始刷新协同高亮
 	_update_synergy_highlights()
 
 	# 默认显示背包
 	visible = true
 
+func _exit_tree() -> void:
+	remove_from_group("inventory_drop_targets")
+	_clear_drag_visual()
+
+func _input(event: InputEvent) -> void:
+	if not is_dragging:
+		return
+	if event is InputEventMouseButton:
+		if event.button_index == MOUSE_BUTTON_LEFT and not event.pressed:
+			_end_drag_at_mouse()
+			get_viewport().set_input_as_handled()
+
 func _ensure_inventory_signal_connection() -> void:
 	if inventory != null and not inventory.inventory_changed.is_connected(_on_inventory_changed):
 		inventory.inventory_changed.connect(_on_inventory_changed)
+
+func set_inventory(inventory_ref: LinearInventoryClass) -> void:
+	if inventory == inventory_ref:
+		return
+	if inventory != null and inventory.inventory_changed.is_connected(_on_inventory_changed):
+		inventory.inventory_changed.disconnect(_on_inventory_changed)
+	inventory = inventory_ref if inventory_ref != null else LinearInventoryClass.new()
+	_ensure_inventory_signal_connection()
+	if is_node_ready() and item_display_layer != null:
+		_refresh_display()
+		_update_synergy_highlights()
+
+func _queue_inventory_layout_refresh() -> void:
+	if not is_node_ready() or is_dragging or layout_refresh_queued:
+		return
+	layout_refresh_queued = true
+	call_deferred("_refresh_after_layout_changed")
+
+func _refresh_after_layout_changed() -> void:
+	layout_refresh_queued = false
+	if not is_inside_tree() or is_dragging:
+		return
+	_refresh_display()
+	_update_synergy_highlights()
 
 ## 创建背景层
 func _create_background_layer() -> void:
 	background_layer = Control.new()
 	background_layer.name = "BackgroundLayer"
 	background_layer.set_anchors_preset(Control.PRESET_FULL_RECT)
-	background_layer.mouse_filter = Control.MOUSE_FILTER_STOP
+	background_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 
-	# 透明背景但能接收鼠标事件
+	# 透明背景只负责视觉占位，不能抢走物品 hover。
 	var style = StyleBoxFlat.new()
 	style.bg_color = Color(0, 0, 0, 0.001)  # 几乎透明
 	background_layer.add_theme_stylebox_override("panel", style)
 
-	background_layer.gui_input.connect(_on_background_input)
 	add_child(background_layer)
-	background_layer.move_to_front()
 
 ## 创建槽位
 func _create_slots() -> void:
 	slot_container.add_theme_constant_override("separation", SLOT_SPACING)
+	slot_container.alignment = BoxContainer.ALIGNMENT_CENTER
+	slot_container.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	slot_container.size_flags_vertical = Control.SIZE_EXPAND_FILL
 
 	for i in range(TOTAL_SLOTS):
 		var slot = _create_slot(i)
@@ -221,7 +274,9 @@ func _create_slots() -> void:
 ## 创建单个槽位
 func _create_slot(index: int) -> Panel:
 	var panel = Panel.new()
-	panel.custom_minimum_size = Vector2(SLOT_SIZE, SLOT_SIZE)
+	panel.custom_minimum_size = Vector2(SLOT_WIDTH, SLOT_HEIGHT)
+	panel.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	panel.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	panel.name = "Slot_%d" % index
 
 	# 添加背景样式
@@ -253,10 +308,12 @@ func _create_item_display_layer() -> void:
 	item_display_layer = Control.new()
 	item_display_layer.name = "ItemDisplayLayer"
 	item_display_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	item_display_layer.set_anchors_preset(Control.PRESET_FULL_RECT)
 
-	# 放到 slot_container 的父节点(VBox)中,避免 HBoxContainer 干扰布局
-	slot_container.get_parent().add_child(item_display_layer)
+	var panel_parent: Control = slot_container.get_parent().get_parent() as Control
+	if panel_parent == null:
+		panel_parent = slot_container.get_parent() as Control
+	panel_parent.add_child(item_display_layer)
+	item_display_layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	item_display_layer.z_index = 10  # 放在上层
 
 ## 创建槽位高亮层
@@ -310,6 +367,7 @@ func _display_item(item: ItemDataClass, is_synergy_highlight: bool = false) -> v
 	var item_panel = Control.new()
 	item_panel.name = "Item_%s_%d" % [item.item_name, start_slot]
 	item_panel.clip_contents = true
+	item_panel.mouse_filter = Control.MOUSE_FILTER_STOP
 	item_panel.position = Vector2(local_pos.x + 4, local_pos.y + 4)
 	var panel_size: Vector2 = _get_item_panel_size(start_slot, slot_count)
 	item_panel.size = panel_size
@@ -317,8 +375,10 @@ func _display_item(item: ItemDataClass, is_synergy_highlight: bool = false) -> v
 
 	# 添加背景样式
 	var bg = Panel.new()
+	bg.name = "ItemBackground"
 	bg.size = panel_size
 	bg.position = Vector2.ZERO
+	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 	var style = StyleBoxFlat.new()
 	var item_color = _get_item_color(item)
@@ -339,14 +399,14 @@ func _display_item(item: ItemDataClass, is_synergy_highlight: bool = false) -> v
 
 	# 尝试加载并显示物品图片
 	var texture_path = _get_item_texture_path(item)
-	if texture_path != "" and ResourceLoader.exists(texture_path):
-		var texture = load(texture_path)
+	if texture_path != "":
+		var texture: Texture2D = ItemArtCatalogClass.load_texture(texture_path)
 		if texture:
 			var texture_rect = TextureRect.new()
 			texture_rect.name = "ItemTexture"
 			texture_rect.texture = texture
 			texture_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-			texture_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+			texture_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 			texture_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			texture_rect.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 			texture_rect.offset_left = 2.0
@@ -365,6 +425,7 @@ func _display_item(item: ItemDataClass, is_synergy_highlight: bool = false) -> v
 	label.add_theme_color_override("font_color", Color.WHITE)
 	label.position = Vector2(0, panel_size.y - 24)
 	label.size = Vector2(panel_size.x, 20)
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	item_panel.add_child(label)
 
 	# 如果物品有 Cooldown,添加遮罩层(盖在图标上方)
@@ -372,6 +433,8 @@ func _display_item(item: ItemDataClass, is_synergy_highlight: bool = false) -> v
 		var cooldown_overlay = _create_cooldown_overlay(item)
 		cooldown_overlay.name = "CooldownOverlay"
 		item_panel.add_child(cooldown_overlay)
+
+	_add_card_badges(item_panel, item, true)
 
 	# 添加鼠标输入(拖拽)
 	item_panel.gui_input.connect(_on_item_input.bind(item, item_panel))
@@ -387,20 +450,145 @@ func _display_item(item: ItemDataClass, is_synergy_highlight: bool = false) -> v
 	item_panels.append(item_panel)
 
 func _get_item_panel_size(start_slot: int, slot_count: int) -> Vector2:
-	var first_slot: Panel = slot_panels[start_slot]
-	var panel_width: float = slot_count * SLOT_SIZE + (slot_count - 1) * SLOT_SPACING - 8.0
-	var panel_height: float = maxf(first_slot.size.y - 8.0, float(SLOT_SIZE - 8))
+	return _get_slot_span_global_rect(start_slot, slot_count).size
+
+func _get_slot_span_global_rect(start_slot: int, slot_count: int, inset: float = 4.0) -> Rect2:
+	if start_slot < 0 or start_slot >= slot_panels.size() or slot_count <= 0:
+		return Rect2(Vector2.ZERO, Vector2(SLOT_WIDTH - inset * 2.0, SLOT_HEIGHT - inset * 2.0))
 
 	var end_slot_index: int = mini(start_slot + slot_count - 1, slot_panels.size() - 1)
-	if end_slot_index > start_slot:
-		var last_slot: Panel = slot_panels[end_slot_index]
-		var first_x: float = first_slot.global_position.x
-		var last_right: float = last_slot.global_position.x + last_slot.size.x
-		panel_width = maxf(last_right - first_x - 8.0, panel_width)
-	else:
-		panel_width = maxf(first_slot.size.x - 8.0, panel_width)
+	var first_slot: Panel = slot_panels[start_slot]
+	var last_slot: Panel = slot_panels[end_slot_index]
+	if first_slot.size.x <= 0.0 or first_slot.size.y <= 0.0 or last_slot.size.x <= 0.0:
+		var fallback_width: float = float(slot_count * SLOT_WIDTH + (slot_count - 1) * SLOT_SPACING) - inset * 2.0
+		return Rect2(first_slot.global_position + Vector2(inset, inset), Vector2(fallback_width, float(SLOT_HEIGHT) - inset * 2.0))
 
-	return Vector2(panel_width, panel_height)
+	var left: float = first_slot.global_position.x + inset
+	var top: float = first_slot.global_position.y + inset
+	var right: float = last_slot.global_position.x + last_slot.size.x - inset
+	var bottom: float = first_slot.global_position.y + first_slot.size.y - inset
+	return Rect2(Vector2(left, top), Vector2(maxf(right - left, 1.0), maxf(bottom - top, 1.0)))
+
+func _add_card_badges(item_panel: Control, item: ItemDataClass, show_value: bool) -> void:
+	if item_panel == null or item == null:
+		return
+
+	var stat_grid: GridContainer = _create_item_stat_badge_grid(item)
+	if stat_grid.get_child_count() > 0:
+		item_panel.add_child(stat_grid)
+
+	if show_value:
+		item_panel.add_child(_create_item_value_badge(item.buy_price))
+
+func _create_item_stat_badge_grid(item: ItemDataClass) -> GridContainer:
+	var grid: GridContainer = GridContainer.new()
+	grid.name = "ItemStatBadgeGrid"
+	grid.columns = 3
+	grid.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	grid.z_index = 20
+	grid.anchor_left = 0.0
+	grid.anchor_top = 0.0
+	grid.anchor_right = 1.0
+	grid.anchor_bottom = 0.0
+	grid.offset_left = 4.0
+	grid.offset_top = 4.0
+	grid.offset_right = -4.0
+	grid.offset_bottom = 52.0
+	grid.add_theme_constant_override("h_separation", 3)
+	grid.add_theme_constant_override("v_separation", 3)
+
+	for stat in _collect_item_badge_stats(item):
+		grid.add_child(_create_item_stat_badge(str(stat.get("text", "")), stat.get("color", Color.WHITE)))
+	return grid
+
+func _collect_item_badge_stats(item: ItemDataClass) -> Array:
+	var stats: Array = []
+	if item == null:
+		return stats
+
+	var damage_value: int = item.get_rarity_adjusted_damage() if item.damage > 0 else 0
+	var poison_value: int = int(round(item.poison_damage * item.get_rarity_multiplier())) if item.poison_damage > 0.0 else 0
+	var burn_value: int = int(round(item.burn_damage * item.get_rarity_multiplier())) if item.burn_damage > 0.0 else 0
+	var regen_value: int = int(round(item.regeneration * item.get_rarity_multiplier())) if item.regeneration > 0.0 else 0
+	var heal_value: int = item.get_rarity_adjusted_heal() if item.heal > 0 else 0
+	var shield_value: int = item.get_rarity_adjusted_shield() if item.shield > 0 else 0
+
+	if damage_value > 0:
+		stats.append({"text": str(damage_value), "color": Color(0.86, 0.20, 0.17, 0.94)})
+	if poison_value > 0:
+		stats.append({"text": "毒 %d" % poison_value, "color": Color(0.20, 0.62, 0.30, 0.94)})
+	if burn_value > 0:
+		stats.append({"text": "火 %d" % burn_value, "color": Color(0.93, 0.42, 0.12, 0.94)})
+	if regen_value > 0:
+		stats.append({"text": "再 %d" % regen_value, "color": Color(0.20, 0.58, 0.52, 0.94)})
+	if heal_value > 0:
+		stats.append({"text": "疗 %d" % heal_value, "color": Color(0.26, 0.70, 0.34, 0.94)})
+	if shield_value > 0:
+		stats.append({"text": "盾 %d" % shield_value, "color": Color(0.20, 0.46, 0.78, 0.94)})
+	return stats
+
+func _create_item_stat_badge(text: String, color: Color) -> Panel:
+	var badge: Panel = Panel.new()
+	badge.name = "ItemStatBadge"
+	badge.custom_minimum_size = Vector2(36, 20)
+	badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	var style: StyleBoxFlat = StyleBoxFlat.new()
+	style.bg_color = color
+	style.border_color = color.lightened(0.28)
+	style.set_border_width_all(1)
+	style.set_corner_radius_all(4)
+	badge.add_theme_stylebox_override("panel", style)
+
+	var label: Label = Label.new()
+	label.name = "BadgeLabel"
+	label.text = text
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	label.clip_text = true
+	label.add_theme_font_size_override("font_size", 12)
+	label.add_theme_color_override("font_color", Color.WHITE)
+	label.add_theme_color_override("font_outline_color", Color(0.0, 0.0, 0.0, 0.75))
+	label.add_theme_constant_override("outline_size", 1)
+	label.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	badge.add_child(label)
+	return badge
+
+func _create_item_value_badge(value: int) -> Panel:
+	var badge: Panel = Panel.new()
+	badge.name = "ItemValueBadge"
+	badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	badge.z_index = 21
+	badge.anchor_left = 0.0
+	badge.anchor_top = 1.0
+	badge.anchor_right = 0.0
+	badge.anchor_bottom = 1.0
+	badge.offset_left = 4.0
+	badge.offset_top = -30.0
+	badge.offset_right = 48.0
+	badge.offset_bottom = -4.0
+
+	var style: StyleBoxFlat = StyleBoxFlat.new()
+	style.bg_color = Color(0.64, 0.36, 0.08, 0.95)
+	style.border_color = Color(1.0, 0.74, 0.30, 0.95)
+	style.set_border_width_all(1)
+	style.set_corner_radius_all(5)
+	badge.add_theme_stylebox_override("panel", style)
+
+	var label: Label = Label.new()
+	label.name = "ValueLabel"
+	label.text = str(maxi(value, 0))
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	label.add_theme_font_size_override("font_size", 14)
+	label.add_theme_color_override("font_color", Color.WHITE)
+	label.add_theme_color_override("font_outline_color", Color(0.0, 0.0, 0.0, 0.75))
+	label.add_theme_constant_override("outline_size", 1)
+	label.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	badge.add_child(label)
+	return badge
 
 ## 创建 Cooldown 遮罩(盖在物品图标上,显示冷却进度)
 func _create_cooldown_overlay(item: ItemDataClass) -> ColorRect:
@@ -479,6 +667,8 @@ func _get_item_color(item: ItemDataClass) -> Color:
 
 ## 槽位输入处理
 func _on_slot_input(event: InputEvent, slot_index: int) -> void:
+	if not item_interaction_enabled:
+		return
 	if event is InputEventMouseButton:
 		if event.button_index == MOUSE_BUTTON_LEFT:
 			if event.pressed:
@@ -490,7 +680,7 @@ func _on_slot_input(event: InputEvent, slot_index: int) -> void:
 			else:
 				# 释放鼠标
 				if is_dragging:
-					_end_drag(slot_index)
+					_end_drag_at_mouse()
 		elif event.button_index == MOUSE_BUTTON_RIGHT and event.pressed:
 			# 右键点击显示物品详情
 			var item = _get_item_at_slot(slot_index)
@@ -499,11 +689,13 @@ func _on_slot_input(event: InputEvent, slot_index: int) -> void:
 
 ## 物品输入处理(拖拽)
 func _on_item_input(event: InputEvent, item: ItemDataClass, panel: Control) -> void:
+	if not item_interaction_enabled:
+		return
 	if event is InputEventMouseButton:
 		if event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
 			_start_drag(item, panel)
 		elif event.button_index == MOUSE_BUTTON_LEFT and not event.pressed:
-			_end_drag(item.slot_index)
+			_end_drag_at_mouse()
 		elif event.button_index == MOUSE_BUTTON_RIGHT and event.pressed:
 			# 右键点击显示物品详情
 			hover_timer.stop()
@@ -555,6 +747,32 @@ func _show_hover_tooltip(item: ItemDataClass) -> void:
 	hover_tooltip.move_to_front()
 	_position_hover_tooltip()
 
+func set_item_interaction_enabled(enabled: bool) -> void:
+	item_interaction_enabled = enabled
+	mouse_filter = Control.MOUSE_FILTER_STOP
+	if enabled:
+		return
+
+	hover_timer.stop()
+	if is_dragging and dragging_item != null:
+		_cancel_drag()
+
+func is_item_interaction_enabled() -> bool:
+	return item_interaction_enabled
+
+func _cancel_drag() -> void:
+	_clear_drag_overlays()
+	_clear_drag_visual()
+	for panel in item_panels:
+		if is_instance_valid(panel):
+			panel.visible = true
+	is_dragging = false
+	dragging_item = null
+	dragging_panel = null
+	drag_start_slot = -1
+	drag_pointer_offset = Vector2.ZERO
+	_refresh_display()
+
 func _hide_hover_tooltip() -> void:
 	if hover_tooltip != null:
 		hover_tooltip.queue_free()
@@ -593,6 +811,7 @@ func _start_drag(item: ItemDataClass, panel: Control) -> void:
 	dragging_item = item
 	dragging_panel = panel
 	drag_start_slot = item.slot_index
+	drag_pointer_offset = get_global_mouse_position() - panel.global_position
 
 	# 隐藏原始面板
 	panel.visible = false
@@ -602,7 +821,13 @@ func _start_drag(item: ItemDataClass, panel: Control) -> void:
 	drag_ghost.name = "DragGhost"
 	drag_ghost.visible = true
 	drag_ghost.modulate.a = 0.8
-	item_display_layer.add_child(drag_ghost)
+	drag_ghost.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	drag_canvas_layer = CanvasLayer.new()
+	drag_canvas_layer.name = "InventoryDragCanvasLayer"
+	drag_canvas_layer.layer = 128
+	get_tree().root.add_child(drag_canvas_layer)
+	drag_canvas_layer.add_child(drag_ghost)
+	_update_drag_ghost_position()
 
 	# 隐藏原始 item_panels 中的对应面板
 	for p in item_panels:
@@ -624,28 +849,22 @@ func _update_drag_overlays() -> void:
 	if not is_dragging or dragging_item == null:
 		return
 
-	var item_slot_count = dragging_item.get_slot_count()
-
-	# 检查每个槽位
-	for slot_idx in range(TOTAL_SLOTS):
-		# 跳过原物品占据的槽位
-		if slot_idx >= drag_start_slot and slot_idx < drag_start_slot + dragging_item.get_slot_count():
-			continue
-
-		var can_place = inventory.can_place_item(dragging_item, slot_idx)
-		_create_slot_overlay(slot_idx, can_place, item_slot_count)
+	var drop_target: Dictionary = _find_drop_target_at(_get_drag_drop_probe_position())
+	var target_ui: InventoryUI = drop_target.get("ui", null) as InventoryUI
+	var target_slot: int = int(drop_target.get("slot", -1))
+	if target_ui == self and target_slot >= 0:
+		var can_drop: bool = inventory.can_move_item_to_inventory(dragging_item, inventory, target_slot)
+		_create_slot_overlay(target_slot, can_drop, dragging_item.get_slot_count())
 
 ## 创建槽位高亮覆盖层
 func _create_slot_overlay(slot_idx: int, is_valid: bool, item_slot_count: int) -> void:
 	var overlay = Panel.new()
 	overlay.name = "SlotOverlay_%d" % slot_idx
 
-	# 计算位置(跨越多个槽位)
-	var start_pos = slot_panels[slot_idx].global_position
-	var width = item_slot_count * SLOT_SIZE + (item_slot_count - 1) * SLOT_SPACING - 8
+	var slot_rect: Rect2 = _get_slot_span_global_rect(slot_idx, item_slot_count)
 
-	overlay.custom_minimum_size = Vector2(width, SLOT_SIZE - 8)
-	overlay.global_position = start_pos + Vector2(4, 4)
+	overlay.custom_minimum_size = slot_rect.size
+	overlay.global_position = slot_rect.position
 	overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 	# 设置样式
@@ -682,60 +901,42 @@ func _clear_drag_overlays() -> void:
 	invalid_slot_overlays.clear()
 
 ## 结束拖拽
-func _end_drag(target_slot: int) -> void:
+func _end_drag_at_mouse() -> void:
+	var drop_target: Dictionary = _find_drop_target_at(_get_drag_drop_probe_position())
+	var target_ui: InventoryUI = drop_target.get("ui", null) as InventoryUI
+	var target_slot: int = int(drop_target.get("slot", -1))
+	_end_drag(target_ui, target_slot)
+
+func _end_drag(target_ui: InventoryUI, target_slot: int) -> void:
 	if not is_dragging or dragging_item == null:
 		return
 	var emitted_item: ItemDataClass = dragging_item
-	var source_slot: int = drag_start_slot
 
 	# 清除高亮
 	_clear_drag_overlays()
 
 	# 移除拖拽面板
-	if drag_ghost != null:
-		drag_ghost.queue_free()
-		drag_ghost = null
+	_clear_drag_visual()
 
 	# 重置拖拽状态
 	is_dragging = false
 	dragging_item = null
 	dragging_panel = null
 	drag_start_slot = -1
+	drag_pointer_offset = Vector2.ZERO
 
-	# 检查目标槽位情况
-	var target_item: ItemDataClass = inventory._get_item_at_slot(target_slot)
-	var final_slot: int = target_slot
+	var moved: bool = false
+	if target_ui != null and target_slot >= 0:
+		var target_inventory: LinearInventoryClass = target_ui.get_inventory()
+		moved = inventory.move_item_to_inventory(emitted_item, target_inventory, target_slot)
 
-	if target_item != null and source_slot != target_slot:
-		# 目标槽位有物品 → 交换
-		# 检查交换后两边槽位是否都合法
-		var source_size: int = emitted_item.get_slot_count()
-		var target_size: int = target_item.get_slot_count()
-
-		# 粗略检查：两边起始位置不同且目标物品能放入源位置
-		if target_item.get_slot_count() <= emitted_item.get_slot_count():
-			# 目标物品更小/相等，可以交换
-			inventory.swap_items(source_slot, target_slot)
-			_ani_swap_items(emitted_item, target_item, source_slot, target_slot)
-		else:
-			# 放回原位（目标物品更大放不下）
-			_ani_return_to_source(emitted_item)
-	elif target_slot == source_slot:
-		# 放回同槽位，刷新显示
-		_refresh_display()
-		item_drag_ended.emit(emitted_item)
+	if moved:
+		item_placed.emit(emitted_item, emitted_item.slot_index)
+		if target_ui != self:
+			target_ui._refresh_display()
+		_ani_place_item(emitted_item, emitted_item.slot_index)
 	else:
-		# 目标槽位空，放置物品
-		inventory.remove_item(emitted_item)
-		if inventory.can_place_item(emitted_item, target_slot):
-			inventory.place_item(emitted_item, target_slot)
-			final_slot = target_slot
-			item_placed.emit(emitted_item, final_slot)
-		else:
-			# 放回原位
-			inventory.place_item(emitted_item, source_slot)
-			final_slot = source_slot
-		_ani_place_item(emitted_item, final_slot)
+		_ani_return_to_source(emitted_item)
 
 	item_drag_ended.emit(emitted_item)
 
@@ -782,6 +983,56 @@ func _ani_place_item(item: ItemDataClass, slot: int) -> void:
 func _on_slot_clicked_for_place(slot_index: int) -> void:
 	# 这个方法可以用于从商店拖入物品到背包
 	pass
+
+func _update_drag_ghost_position() -> void:
+	if drag_ghost == null or not is_instance_valid(drag_ghost):
+		return
+	drag_ghost.global_position = _get_drag_visual_position()
+
+func _get_drag_visual_position() -> Vector2:
+	return get_global_mouse_position() - drag_pointer_offset
+
+func _get_drag_drop_probe_position() -> Vector2:
+	var visual_pos: Vector2 = _get_drag_visual_position()
+	var probe_height: float = float(SLOT_HEIGHT) * 0.5
+	if drag_ghost != null and is_instance_valid(drag_ghost):
+		probe_height = maxf(drag_ghost.size.y * 0.5, 1.0)
+	return Vector2(visual_pos.x + 1.0, visual_pos.y + probe_height)
+
+func _clear_drag_visual() -> void:
+	if drag_canvas_layer != null and is_instance_valid(drag_canvas_layer):
+		drag_canvas_layer.queue_free()
+		drag_canvas_layer = null
+		drag_ghost = null
+		return
+	if drag_ghost != null and is_instance_valid(drag_ghost):
+		drag_ghost.queue_free()
+	drag_ghost = null
+
+func _find_drop_target_at(global_pos: Vector2) -> Dictionary:
+	var best_target: InventoryUI = null
+	var best_slot: int = -1
+	for node in get_tree().get_nodes_in_group("inventory_drop_targets"):
+		var candidate: InventoryUI = node as InventoryUI
+		if candidate == null or not candidate.is_inside_tree() or not candidate.is_visible_in_tree():
+			continue
+		if not candidate.is_item_interaction_enabled():
+			continue
+		var slot_index: int = candidate.get_slot_index_at_global_position(global_pos)
+		if slot_index >= 0:
+			best_target = candidate
+			best_slot = slot_index
+	return {"ui": best_target, "slot": best_slot}
+
+func get_slot_index_at_global_position(global_pos: Vector2) -> int:
+	for index in range(slot_panels.size()):
+		var slot_panel: Panel = slot_panels[index]
+		if slot_panel == null or not is_instance_valid(slot_panel):
+			continue
+		var slot_rect: Rect2 = Rect2(slot_panel.global_position, slot_panel.size)
+		if slot_rect.has_point(global_pos):
+			return index
+	return -1
 
 ## ========== 物品详情面板 ==========
 
@@ -949,11 +1200,12 @@ func _position_detail_panel(item: ItemDataClass) -> void:
 	if detail_panel == null:
 		return
 
-	var item_pos = slot_panels[item.slot_index].global_position
+	var item_slot: Panel = slot_panels[item.slot_index]
+	var item_pos: Vector2 = item_slot.global_position
 	var panel_size = detail_panel.custom_minimum_size
 
 	# 计算位置(避免超出屏幕)
-	var target_pos = item_pos + Vector2(SLOT_SIZE + 15, 0)
+	var target_pos = item_pos + Vector2(item_slot.size.x + 15, 0)
 
 	# 如果右侧空间不足,放到左边
 	if target_pos.x + panel_size.x > get_viewport_rect().size.x:
@@ -1025,19 +1277,24 @@ func _add_synergy_effect(item1: ItemDataClass, item2: ItemDataClass) -> void:
 	# 在两个物品之间添加连线效果
 	var start_slot = item1.slot_index + item1.get_slot_count() - 1
 	var end_slot = item2.slot_index
+	if start_slot < 0 or start_slot >= slot_panels.size() or end_slot < 0 or end_slot >= slot_panels.size():
+		return
 
 	# 创建连接线面板
 	var connector = Panel.new()
 	connector.name = "SynergyConnector"
-	connector.custom_minimum_size = Vector2(abs(end_slot - start_slot) * (SLOT_SIZE + SLOT_SPACING), 4)
+	var start_panel: Panel = slot_panels[start_slot]
+	var end_panel: Panel = slot_panels[end_slot]
+	var connector_width: float = absf(end_panel.global_position.x - start_panel.global_position.x)
+	connector.custom_minimum_size = Vector2(maxf(connector_width, 4.0), 4)
 	connector.mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 	# 计算位置
-	var start_pos = slot_panels[start_slot].global_position
-	var end_pos = slot_panels[end_slot].global_position
+	var start_pos = start_panel.global_position
+	var end_pos = end_panel.global_position
 	connector.global_position = Vector2(
-		min(start_pos.x, end_pos.x) + SLOT_SIZE / 2,
-		start_pos.y + SLOT_SIZE / 2 - 2
+		min(start_pos.x, end_pos.x) + start_panel.size.x / 2,
+		start_pos.y + start_panel.size.y / 2 - 2
 	)
 
 	# 金色半透明样式
@@ -1118,9 +1375,14 @@ func _add_test_items() -> void:
 ## 注意:冷却倒计时由 battle_system.update_cooldowns() 统一管理
 ## 这里只负责刷新显示,不修改 cooldown 数据
 func _process(delta: float) -> void:
+	if is_dragging:
+		_update_drag_ghost_position()
+		_update_drag_overlays()
+
 	# 只在战斗中刷新冷却显示
 	var battle_ui_node = get_parent().get_node_or_null("BattleUI")
 	if battle_ui_node and not battle_ui_node.is_battle_active:
+		_update_cooldown_overlays()
 		return
 	_update_cooldown_overlays()
 

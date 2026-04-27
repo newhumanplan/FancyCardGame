@@ -69,6 +69,24 @@ func place_item(item: ItemDataClass, start_slot: int) -> bool:
 	inventory_changed.emit()
 	return true
 
+## 判断物品是否属于当前物品栏
+func has_item(item: ItemDataClass) -> bool:
+	return item != null and items.has(item)
+
+## 预检查将物品移动到目标物品栏/槽位是否可行，不产生实际变更
+func can_move_item_to_inventory(item: ItemDataClass, target_inventory: LinearInventory, target_slot: int) -> bool:
+	return _move_item_to_inventory_internal(item, target_inventory, target_slot, false)
+
+## Bazaar 风格移动物品：
+## 1. 目标区域空则直接放下。
+## 2. 目标区域被占用则尝试把右侧物品整体顺延。
+## 3. 顺延失败时，尝试把目标跨度内的一组物品整体换回源位置。
+func move_item_to_inventory(item: ItemDataClass, target_inventory: LinearInventory, target_slot: int) -> bool:
+	return _move_item_to_inventory_internal(item, target_inventory, target_slot, true)
+
+func move_item_to_slot(item: ItemDataClass, target_slot: int) -> bool:
+	return move_item_to_inventory(item, self, target_slot)
+
 ## ============ 移除相关方法 ============
 
 ## 移除物品
@@ -392,38 +410,218 @@ func swap_items(slot_a: int, slot_b: int) -> bool:
 	if slot_a == slot_b:
 		return true
 
-	# 记录原始物品
 	var item_a: ItemDataClass = _get_item_at_slot(slot_a)
-	var item_b: ItemDataClass = _get_item_at_slot(slot_b)
-
-	# 如果两边都为空，不处理
-	if item_a == null and item_b == null:
+	if item_a == null:
 		return true
+	return move_item_to_slot(item_a, slot_b)
 
-	# 清空两个槽位
-	if item_a != null:
-		var slot_count_a: int = item_a.get_slot_count()
-		for i in range(slot_count_a):
-			slots[slot_a + i] = -1
+func _move_item_to_inventory_internal(item: ItemDataClass, target_inventory: LinearInventory, target_slot: int, commit: bool) -> bool:
+	if item == null or target_inventory == null:
+		return false
+	if not has_item(item):
+		return false
+	if target_slot < 0 or target_slot >= TOTAL_SLOTS:
+		return false
+	if target_slot + item.get_slot_count() > TOTAL_SLOTS:
+		return false
 
-	if item_b != null:
-		var slot_count_b: int = item_b.get_slot_count()
-		for i in range(slot_count_b):
-			slots[slot_b + i] = -1
+	var same_inventory: bool = target_inventory == self
+	var source_snapshot: Dictionary = _capture_state()
+	var target_snapshot: Dictionary = {} if same_inventory else target_inventory._capture_state()
 
-	# 重新放置物品到对方槽位
-	if item_a != null:
-		item_a.slot_index = slot_b
-		var slot_count_a: int = item_a.get_slot_count()
-		for i in range(slot_count_a):
-			slots[slot_b + i] = items.find(item_a)
+	var success: bool = _try_insert_move(item, target_inventory, target_slot)
+	if not success:
+		_restore_state(source_snapshot)
+		if not same_inventory:
+			target_inventory._restore_state(target_snapshot)
+		success = _try_group_swap_move(item, target_inventory, target_slot)
 
-	if item_b != null:
-		item_b.slot_index = slot_a
-		var slot_count_b: int = item_b.get_slot_count()
-		for i in range(slot_count_b):
-			slots[slot_a + i] = items.find(item_b)
+	if not success or not commit:
+		_restore_state(source_snapshot)
+		if not same_inventory:
+			target_inventory._restore_state(target_snapshot)
+		return success
 
-	_rebuild_slot_mapping()
+	_normalize_layout()
+	if not same_inventory:
+		target_inventory._normalize_layout()
+		target_inventory.inventory_changed.emit()
 	inventory_changed.emit()
 	return true
+
+func _try_insert_move(item: ItemDataClass, target_inventory: LinearInventory, target_slot: int) -> bool:
+	if not _remove_existing_item_no_emit(item):
+		return false
+
+	if target_inventory.can_place_item(item, target_slot):
+		return target_inventory._place_existing_item_no_emit(item, target_slot)
+
+	return target_inventory._pack_with_insert_no_emit(item, target_slot)
+
+func _try_group_swap_move(item: ItemDataClass, target_inventory: LinearInventory, target_slot: int) -> bool:
+	var source_slot: int = item.slot_index
+	var dragged_size: int = item.get_slot_count()
+	var target_group: Array[ItemDataClass] = target_inventory._get_items_in_span(target_slot, dragged_size)
+
+	if target_group.is_empty():
+		return false
+	if target_group.has(item):
+		return false
+
+	var group_slot_count: int = _get_total_slot_count(target_group)
+	if group_slot_count > dragged_size:
+		return false
+	if source_slot < 0 or source_slot + group_slot_count > TOTAL_SLOTS:
+		return false
+
+	if not _remove_existing_item_no_emit(item):
+		return false
+	for target_item in target_group:
+		if not target_inventory._remove_existing_item_no_emit(target_item):
+			return false
+
+	if not target_inventory._place_existing_item_no_emit(item, target_slot):
+		return false
+
+	var cursor: int = source_slot
+	for target_item in target_group:
+		if not _place_existing_item_no_emit(target_item, cursor):
+			return false
+		cursor += target_item.get_slot_count()
+
+	return true
+
+func _pack_with_insert_no_emit(item: ItemDataClass, target_slot: int) -> bool:
+	var item_size: int = item.get_slot_count()
+	if target_slot < 0 or target_slot + item_size > TOTAL_SLOTS:
+		return false
+
+	var kept_left: Array[Dictionary] = []
+	var shifted_right: Array[Dictionary] = []
+	for existing in items:
+		if existing == null or existing == item or existing.slot_index < 0:
+			continue
+		var existing_end: int = existing.slot_index + existing.get_slot_count()
+		var entry: Dictionary = {"item": existing, "slot": existing.slot_index}
+		if existing_end <= target_slot:
+			kept_left.append(entry)
+		else:
+			shifted_right.append(entry)
+
+	kept_left.sort_custom(Callable(self, "_sort_item_entries_by_slot"))
+	shifted_right.sort_custom(Callable(self, "_sort_item_entries_by_slot"))
+
+	_clear_slot_mapping_no_emit()
+	for left_entry in kept_left:
+		var left_item: ItemDataClass = left_entry.get("item", null) as ItemDataClass
+		var left_slot: int = int(left_entry.get("slot", -1))
+		if not _place_existing_item_no_emit(left_item, left_slot):
+			return false
+
+	if not _place_existing_item_no_emit(item, target_slot):
+		return false
+
+	var cursor: int = target_slot + item_size
+	for shifted_entry in shifted_right:
+		var shifted_item: ItemDataClass = shifted_entry.get("item", null) as ItemDataClass
+		cursor = _next_free_slot(cursor)
+		if cursor < 0 or cursor + shifted_item.get_slot_count() > TOTAL_SLOTS:
+			return false
+		if not _place_existing_item_no_emit(shifted_item, cursor):
+			return false
+		cursor += shifted_item.get_slot_count()
+
+	return true
+
+func _capture_state() -> Dictionary:
+	var item_slots: Array[Dictionary] = []
+	for item in items:
+		if item != null:
+			item_slots.append({"item": item, "slot": item.slot_index})
+	return {
+		"items": items.duplicate(),
+		"slots": slots.duplicate(),
+		"item_slots": item_slots,
+	}
+
+func _restore_state(snapshot: Dictionary) -> void:
+	items.clear()
+	var snapshot_items: Array = snapshot.get("items", [])
+	for item in snapshot_items:
+		items.append(item)
+
+	slots.clear()
+	var snapshot_slots: Array = snapshot.get("slots", [])
+	for slot_value in snapshot_slots:
+		slots.append(int(slot_value))
+
+	var item_slots: Array = snapshot.get("item_slots", [])
+	for entry in item_slots:
+		var item: ItemDataClass = entry.get("item", null) as ItemDataClass
+		if item != null:
+			item.slot_index = int(entry.get("slot", -1))
+
+func _remove_existing_item_no_emit(item: ItemDataClass) -> bool:
+	if item == null or not items.has(item):
+		return false
+
+	items.erase(item)
+	item.slot_index = -1
+	_rebuild_slot_mapping()
+	return true
+
+func _place_existing_item_no_emit(item: ItemDataClass, start_slot: int) -> bool:
+	if item == null:
+		return false
+	if not can_place_item(item, start_slot):
+		return false
+
+	if not items.has(item):
+		items.append(item)
+	item.slot_index = start_slot
+	_rebuild_slot_mapping()
+	return true
+
+func _clear_slot_mapping_no_emit() -> void:
+	for item in items:
+		if item != null:
+			item.slot_index = -1
+	items.clear()
+	slots.fill(-1)
+
+func _get_items_in_span(start_slot: int, slot_count: int) -> Array[ItemDataClass]:
+	var result: Array[ItemDataClass] = []
+	var end_slot: int = mini(start_slot + slot_count, TOTAL_SLOTS)
+	for slot in range(start_slot, end_slot):
+		var item: ItemDataClass = _get_item_at_slot(slot)
+		if item != null and not result.has(item):
+			result.append(item)
+	result.sort_custom(Callable(self, "_sort_items_by_slot"))
+	return result
+
+func _get_total_slot_count(group: Array[ItemDataClass]) -> int:
+	var total: int = 0
+	for item in group:
+		if item != null:
+			total += item.get_slot_count()
+	return total
+
+func _next_free_slot(start_slot: int) -> int:
+	for slot in range(maxi(start_slot, 0), TOTAL_SLOTS):
+		if slots[slot] == -1:
+			return slot
+	return -1
+
+func _normalize_layout() -> void:
+	items.sort_custom(Callable(self, "_sort_items_by_slot"))
+	_rebuild_slot_mapping()
+
+func _sort_items_by_slot(a: ItemDataClass, b: ItemDataClass) -> bool:
+	if a == null:
+		return false
+	if b == null:
+		return true
+	return a.slot_index < b.slot_index
+
+func _sort_item_entries_by_slot(a: Dictionary, b: Dictionary) -> bool:
+	return int(a.get("slot", 0)) < int(b.get("slot", 0))

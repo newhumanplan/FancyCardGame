@@ -26,7 +26,9 @@ func get_inventory() -> Resource:
 func set_interaction_enabled(enabled: bool) -> void:
 	if _inventory_source == null:
 		return
-	_inventory_source.mouse_filter = Control.MOUSE_FILTER_STOP if enabled else Control.MOUSE_FILTER_IGNORE
+	_inventory_source.mouse_filter = Control.MOUSE_FILTER_STOP
+	if _inventory_source.has_method("set_item_interaction_enabled"):
+		_inventory_source.call("set_item_interaction_enabled", enabled)
 
 func refresh_layout() -> void:
 	var inventory: Resource = get_inventory()
@@ -38,11 +40,15 @@ func refresh_layout() -> void:
 func _create_placeholder_slots() -> void:
 	for child in slot_container.get_children():
 		child.queue_free()
+	slot_container.alignment = BoxContainer.ALIGNMENT_BEGIN
+	slot_container.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	slot_container.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	for index in range(EXPECTED_SLOT_COUNT):
 		var slot: Panel = Panel.new()
 		slot.name = "BoardSlot%d" % index
-		slot.custom_minimum_size = Vector2(48, 70)
+		slot.custom_minimum_size = Vector2(48, 96)
 		slot.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		slot.size_flags_vertical = Control.SIZE_EXPAND_FILL
 		slot.add_theme_stylebox_override("panel", _create_slot_style(index))
 		slot_container.add_child(slot)
 

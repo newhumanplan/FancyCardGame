@@ -12,10 +12,12 @@ const EFFECT_BURN: String = "burn"
 const EFFECT_REGEN: String = "regeneration"
 const EFFECT_STUN: String = "stun"
 const EFFECT_FREEZE: String = "freeze"
+const EFFECT_SLOW: String = "slow"
+const EFFECT_HASTE: String = "haste"
 const EFFECT_SHIELD: String = "shield"
 const EFFECT_LIFESTEAL: String = "lifesteal"
 
-static func _append_effect(effects: Array, effect_type: String, value: float, duration: float, item_name: String, target: String) -> void:
+static func _append_effect(effects: Array[Dictionary], effect_type: String, value: float, duration: float, item_name: String, target: String) -> void:
 	if value <= 0:
 		return
 	effects.append({
@@ -46,18 +48,18 @@ static func calculate_heal(item: ItemDataClass) -> int:
 static func calculate_crit_chance(item: ItemDataClass) -> float:
 	return 0.0 if item == null else clampf(item.crit_chance * item.get_rarity_multiplier(), 0.0, 1.0)
 
-## 构建持续效果数据（供 battle_system.gd 的 active_effects 使用）
+## 构建战斗状态叠层数据（供 battle_system.gd 使用）
 ## 返回 Array[Dictionary]，每个 dict: {type, value, duration, item_name, target}
-static func build_active_effects(item: ItemDataClass, is_crit: bool) -> Array:
-	var effects: Array = []
+static func build_active_effects(item: ItemDataClass, is_crit: bool) -> Array[Dictionary]:
+	var effects: Array[Dictionary] = []
 	if item == null:
 		return effects
 	var rarity_mult: float = item.get_rarity_multiplier()
 	var crit_mult: float = 2.0 if is_crit else 1.0
 
-	_append_effect(effects, EFFECT_POISON, item.poison_damage * rarity_mult * crit_mult, 5.0, item.item_name, "enemy")
-	_append_effect(effects, EFFECT_BURN, item.burn_damage * rarity_mult * crit_mult, 5.0, item.item_name, "enemy")
-	_append_effect(effects, EFFECT_REGEN, item.regeneration * rarity_mult * crit_mult, 5.0, item.item_name, "self")
+	_append_effect(effects, EFFECT_POISON, item.poison_damage * rarity_mult * crit_mult, 0.0, item.item_name, "enemy")
+	_append_effect(effects, EFFECT_BURN, item.burn_damage * rarity_mult * crit_mult, 0.0, item.item_name, "enemy")
+	_append_effect(effects, EFFECT_REGEN, item.regeneration * rarity_mult * crit_mult, 0.0, item.item_name, "self")
 
 	return effects
 

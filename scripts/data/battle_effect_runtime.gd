@@ -3,9 +3,11 @@ extends RefCounted
 
 const ItemEffectsClass = preload("res://scripts/data/item_effects.gd")
 
-static func merge_skill_bonuses(effects: Array[Dictionary], burn_bonus: float, poison_bonus: float) -> Array[Dictionary]:
+static func merge_skill_bonuses(effects: Array, burn_bonus: float, poison_bonus: float) -> Array[Dictionary]:
 	var merged: Array[Dictionary] = []
 	for effect in effects:
+		if not effect is Dictionary:
+			continue
 		var effect_copy: Dictionary = effect.duplicate()
 		var effect_type: String = str(effect_copy.get("type", ""))
 		if effect_type == ItemEffectsClass.EFFECT_BURN and burn_bonus > 0:
@@ -16,14 +18,14 @@ static func merge_skill_bonuses(effects: Array[Dictionary], burn_bonus: float, p
 	return merged
 
 static func describe_effect(effect: Dictionary) -> String:
-	var dps_text: String = "%.1f DPS, %.0fs" % [float(effect.get("value", 0.0)), float(effect.get("duration", 0.0))]
+	var value_text: String = "+%d" % int(round(float(effect.get("value", 0.0))))
 	match str(effect.get("type", "")):
 		ItemEffectsClass.EFFECT_POISON:
-			return "☠️ [%s] 施加中毒 (%s)!" % [effect.get("item_name", "未知"), dps_text]
+			return "☠️ [%s] 施加中毒 %s!" % [effect.get("item_name", "未知"), value_text]
 		ItemEffectsClass.EFFECT_BURN:
-			return "🔥 [%s] 施加燃烧 (%s)!" % [effect.get("item_name", "未知"), dps_text]
+			return "🔥 [%s] 施加燃烧 %s!" % [effect.get("item_name", "未知"), value_text]
 		ItemEffectsClass.EFFECT_REGEN:
-			return "💚 [%s] 施加再生 (%s)!" % [effect.get("item_name", "未知"), dps_text]
+			return "💚 [%s] 获得再生 %s!" % [effect.get("item_name", "未知"), value_text]
 		_:
 			return ""
 

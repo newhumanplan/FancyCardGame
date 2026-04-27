@@ -2,7 +2,7 @@ class_name HeroData
 extends Resource
 
 ## 英雄类型枚举
-enum HeroType { WARRIOR, MAGE }
+enum HeroType { WARRIOR, MAGE, MAK }
 
 ## ============ 基础属性 ============
 
@@ -154,9 +154,9 @@ func get_type_name() -> String:
 	match hero_type:
 		HeroType.WARRIOR: return "战士"
 		HeroType.MAGE: return "法师"
+		HeroType.MAK: return "Mak"
 		_: return "未知"
 
 ## 检查是否暴击
 func roll_crit() -> bool:
 	return randf() < clampf(crit_chance, 0.0, 1.0)
-

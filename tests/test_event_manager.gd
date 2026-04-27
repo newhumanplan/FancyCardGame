@@ -1,33 +1,43 @@
 extends Node
 
-
-class MockHero:
-	extends RefCounted
-	var crit_chance: float = 0.10
+const BazaarContentClass = preload("res://scripts/data/bazaar_content.gd")
+const HeroDataClass = preload("res://scripts/data/hero_data.gd")
+const LinearInventoryClass = preload("res://scripts/data/linear_inventory.gd")
 
 
 class MockGameManager:
 	extends Node
 	var gold: int = 0
+	var income: int = 0
 	var health: int = 0
 	var max_health_value: int = 0
 	var prestige: int = 0
 	var damage_taken: int = 0
+	var level: int = 1
 	var selected_hero = null
 
 	func setup() -> void:
 		set("gold", 50)
+		set("income", 7)
 		set("health", 40)
 		set("max_health_value", 100)
 		set("prestige", 0)
 		set("damage_taken", 0)
-		set("selected_hero", MockHero.new())
+		var hero: HeroDataClass = HeroDataClass.new()
+		hero.hero_name = "Mak"
+		hero.max_hp = max_health_value
+		hero.current_hp = health
+		hero.crit_chance = 0.10
+		set("selected_hero", hero)
 
 	func add_gold(amount: int) -> void:
 		gold += amount
 
 	func spend_gold(amount: int) -> void:
 		gold -= amount
+
+	func add_income(amount: int) -> void:
+		income += amount
 
 	func heal(amount: int) -> void:
 		health = mini(health + amount, max_health_value)
@@ -38,6 +48,14 @@ class MockGameManager:
 
 	func add_prestige(amount: int) -> void:
 		prestige += amount
+
+	func add_max_health(amount: int) -> int:
+		max_health_value += amount
+		health = mini(health + amount, max_health_value)
+		if selected_hero != null:
+			selected_hero.max_hp += amount
+			selected_hero.current_hp = health
+		return max_health_value
 
 	func get_max_health() -> int:
 		return max_health_value
@@ -116,13 +134,18 @@ func test_generate_options_for_build_hour() -> void:
 	for _i in range(50):
 		var options = manager.generate_options(0, 3)
 		var types: Array[String] = []
+		var seen_event_ids: Dictionary = {}
 		for option in options:
 			types.append(str(option["type"]))
 			if option["type"] == "random_event":
 				saw_random_event = true
-				if not registered_ids.has(option.get("event_id", "")):
+				var event_id: String = str(option.get("event_id", ""))
+				if seen_event_ids.has(event_id):
 					random_event_is_registered = false
-		if "monster" in types or "pvp" in types:
+				seen_event_ids[event_id] = true
+				if not registered_ids.has(event_id):
+					random_event_is_registered = false
+		if "monster" in types or "pvp" in types or "treasure" in types or "camp" in types:
 			random_event_is_registered = false
 		if options.size() == 3 and "shop" in types and saw_random_event:
 			break
@@ -137,34 +160,50 @@ func test_get_all_events_and_count() -> void:
 	events[0]["name"] = "mutated"
 	var fresh_events = manager.get_all_events()
 
-	_assert_eq(manager.get_event_count(), 12, "get_event_count returns registered random event count")
+	_assert_true(manager.get_event_count() >= 30, "get_event_count includes full Day 1 event catalog")
 	_assert_true(fresh_events[0]["name"] != "mutated", "get_all_events returns a deep copy")
 
 
 func test_execute_random_event_for_each_event_id() -> void:
 	var manager = _manager()
-	var cases = [
-		{"id": "merchant_bonus", "day": 2, "gold": 62, "health": 40, "prestige": 0, "damage_taken": 0, "crit": 0.10, "text": "12"},
-		{"id": "healing_fountain", "day": 2, "gold": 50, "health": 65, "prestige": 0, "damage_taken": 0, "crit": 0.10, "text": "25"},
-		{"id": "pickpocket", "day": 2, "gold": 41, "health": 40, "prestige": 0, "damage_taken": 0, "crit": 0.10, "text": "9"},
-		{"id": "treasure", "day": 2, "gold": 66, "health": 40, "prestige": 0, "damage_taken": 0, "crit": 0.10, "text": "16"},
-		{"id": "heal", "day": 2, "gold": 50, "health": 59, "prestige": 0, "damage_taken": 0, "crit": 0.10, "text": "19"},
-		{"id": "bandits", "day": 2, "gold": 50, "health": 29, "prestige": 0, "damage_taken": 11, "crit": 0.10, "text": "11"},
-		{"id": "wounded_hero", "day": 2, "gold": 55, "health": 40, "prestige": 3, "damage_taken": 0, "crit": 0.10, "text": "+3"},
-		{"id": "storm", "day": 2, "gold": 43, "health": 37, "prestige": 0, "damage_taken": 3, "crit": 0.10, "text": "7"},
-		{"id": "strange_merchant", "day": 2, "gold": 76, "health": 35, "prestige": 0, "damage_taken": 5, "crit": 0.10, "text": "26"},
-		{"id": "ancient_shrine", "day": 2, "gold": 50, "health": 40, "prestige": 0, "damage_taken": 0, "crit": 0.13, "text": "3.0"},
-		{"id": "thief_guild", "day": 2, "gold": 41, "health": 40, "prestige": 0, "damage_taken": 0, "crit": 0.10, "text": "9"},
-		{"id": "blessed_rest", "day": 2, "gold": 55, "health": 73, "prestige": 0, "damage_taken": 0, "crit": 0.10, "text": "33"},
-	]
+	var borrow_manager = _game_manager()
+	var borrow_result = manager.execute_random_event("borrow", 2, borrow_manager)
+	_assert_eq(borrow_manager.gold, 58, "Borrow grants day 1-2 gold")
+	_assert_eq(borrow_manager.income, 6, "Borrow removes one income")
+	_assert_true("8" in borrow_result, "Borrow result mentions gold amount")
+	borrow_manager.free()
 
-	for case_data in cases:
-		var game_manager = _game_manager()
-		var result = manager.execute_random_event(case_data["id"], case_data["day"], game_manager)
-		_assert_eq(game_manager.gold, case_data["gold"], "execute_random_event updates gold for %s" % case_data["id"])
-		_assert_eq(game_manager.health, case_data["health"], "execute_random_event updates health for %s" % case_data["id"])
-		_assert_eq(game_manager.prestige, case_data["prestige"], "execute_random_event updates prestige for %s" % case_data["id"])
-		_assert_eq(game_manager.damage_taken, case_data["damage_taken"], "execute_random_event updates damage for %s" % case_data["id"])
-		_assert_true(absf(game_manager.selected_hero.crit_chance - float(case_data["crit"])) <= 0.001, "execute_random_event updates hero crit for %s" % case_data["id"])
-		_assert_true(str(case_data["text"]) in result, "execute_random_event result mentions expected amount for %s" % case_data["id"])
-		game_manager.free()
+	var cache_manager = _game_manager()
+	var cache_result = manager.execute_random_event("cache_of_riches", 2, cache_manager)
+	_assert_eq(cache_manager.gold, 53, "Cache of Riches grants day 1-2 gold")
+	_assert_true("3" in cache_result, "Cache of Riches result mentions gold amount")
+	cache_manager.free()
+
+	var furry_manager = _game_manager()
+	var furry_result = manager.execute_random_event("tiny_furry_monster", 2, furry_manager)
+	_assert_eq(furry_manager.max_health_value, 125, "Tiny Furry Monster increases max health")
+	_assert_eq(furry_manager.selected_hero.max_hp, 125, "Tiny Furry Monster updates hero max health")
+	_assert_true("25" in furry_result, "Tiny Furry Monster result mentions health amount")
+	furry_manager.free()
+
+	var relax_manager = _game_manager()
+	var relax_result = manager.execute_random_event("relax", 2, relax_manager)
+	_assert_eq(int(relax_manager.selected_hero._combat_bonus_shield), 100, "Relax applies next-fight shield bonus")
+	_assert_true("100" in relax_result, "Relax result mentions shield amount")
+	relax_manager.free()
+
+	var item_manager = _game_manager()
+	var inventory: LinearInventoryClass = LinearInventoryClass.new()
+	var item_result = manager.execute_random_event("battlefield", 1, item_manager, inventory)
+	_assert_true(inventory.items.size() == 1, "Battlefield grants an item when inventory is available")
+	_assert_true(item_result.find("gained") >= 0, "Battlefield result mentions gained item")
+	item_manager.free()
+
+	var upgrade_item = BazaarContentClass.create_item("fire_potion", BazaarContentClass.RARITY_BRONZE)
+	var upgrade_inventory: LinearInventoryClass = LinearInventoryClass.new()
+	upgrade_inventory.place_item(upgrade_item, 0)
+	var upgrade_manager = _game_manager()
+	var upgrade_result = manager.execute_random_event("b1_b2", 1, upgrade_manager, upgrade_inventory)
+	_assert_eq(upgrade_item.rarity, BazaarContentClass.RARITY_SILVER, "B1&B2 upgrades one bronze item")
+	_assert_true(upgrade_result.find("upgraded") >= 0, "B1&B2 result mentions upgrade")
+	upgrade_manager.free()

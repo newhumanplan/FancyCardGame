@@ -37,6 +37,13 @@
 - special event
 - service vendor
 
+当前 demo 生成规则（2026-04-26）：
+
+- Hour 0/1/3/4 固定生成 3 个 option：1 个商人入口 + 2 个真实 Day 1 event。
+- Day 1 event 从 `BazaarContent.DAY1_EVENT_SPECS` 取，按 day range 与 weight 筛选，且同一轮 option 内不重复。
+- 已清理早期占位 option：不再生成 `treasure` / `camp` 类型，也不再走假宝库、假营地结算。
+- 后续补齐 free reward / service vendor 时，必须新增真实 event/vendor 数据，不要恢复泛用占位类型。
+
 结算后：
 
 - 获得 1 XP。
@@ -86,6 +93,13 @@
 
 主流程布局以 `docs/planning/ui-layout-reference.md` 为准。时间选择、商人、战斗都应共用
 左侧时钟、玩家 Board 和底部 HUD；不要把 EventOptionPanel 或 ShopUI 做成遮挡棋盘的全屏弹窗。
+
+## Board / Stash 操作
+
+- 玩家 Board 与 Stash 都使用 10 格线性物品栏。
+- Board 内拖拽规则：直接放下；目标跨度被占用时右推顺延；顺延失败时尝试把目标跨度内的一组物品整体换回源位置。
+- Board 与 Stash 互拖使用同一套规则；如果既不能顺延也不能整组替换，则移动失败且状态回滚。
+- 点击底部 HUD 左侧宝箱打开/关闭 Stash。Stash 用独立 `LinearInventory`，默认 10 格。
 
 ## 明确不做
 

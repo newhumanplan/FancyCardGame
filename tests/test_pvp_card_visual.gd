@@ -106,7 +106,7 @@ func test_pvp_visual_helpers_are_only_used_in_pvp_paths() -> void:
 		card_slot_funcs,
 		["_update_pvp_player_hand"]
 	)
-	var price_badge_ok: bool = _all_functions_allowed(price_badge_funcs, ["_update_pvp_player_hand", "_update_pvp_opponent_hand", "_create_static_item_card"])
+	var price_badge_ok: bool = _all_functions_allowed(price_badge_funcs, ["_update_pvp_player_hand", "_create_static_item_card"])
 	var illustration_color_usage_ok: bool = _all_functions_allowed(illustration_color_funcs, ["_create_card_front_style", "_create_illustration_block"])
 	var illustration_block_usage_ok: bool = _all_functions_allowed(illustration_block_funcs, ["_update_pvp_player_hand", "_update_pvp_opponent_hand", "_create_static_item_card"])
 

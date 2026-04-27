@@ -37,16 +37,17 @@ func _assert_eq(actual, expected, label: String) -> void:
 
 func _print_summary() -> void:
 	print("SUMMARY: %d/%d passed" % [_passed, _total])
+	get_tree().quit(1 if _passed < _total else 0)
 
 
 func test_create_sets_core_fields() -> void:
 	var game_event = _event_script()
-	var event = game_event.create("treasure", "宝库", "💎", game_event.EventType.TREASURE, 7)
+	var event = game_event.create("borrow", "Borrow", "B", game_event.EventType.RANDOM_EVENT, 7)
 
-	_assert_eq(event.event_id, "treasure", "create assigns event id")
-	_assert_eq(event.event_name, "宝库", "create assigns event name")
-	_assert_eq(event.event_icon, "💎", "create assigns event icon")
-	_assert_eq(event.event_type, game_event.EventType.TREASURE, "create assigns event type")
+	_assert_eq(event.event_id, "borrow", "create assigns event id")
+	_assert_eq(event.event_name, "Borrow", "create assigns event name")
+	_assert_eq(event.event_icon, "B", "create assigns event icon")
+	_assert_eq(event.event_type, game_event.EventType.RANDOM_EVENT, "create assigns event type")
 	_assert_eq(event.weight, 7, "create assigns custom weight")
 
 
@@ -77,5 +78,4 @@ func test_event_type_enum_and_default_value() -> void:
 
 	_assert_true(game_event.EventType.SHOP != game_event.EventType.MONSTER, "EventType enum values are distinct")
 	_assert_true(game_event.EventType.PVP != game_event.EventType.RANDOM_EVENT, "EventType enum includes pvp and random event")
-	_assert_true(game_event.EventType.TREASURE != game_event.EventType.CAMP, "EventType enum includes treasure and camp")
 	_assert_true(game_event.EventType.FUTURA >= 0, "EventType enum includes futura")

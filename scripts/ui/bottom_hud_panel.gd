@@ -24,9 +24,12 @@ var _economy: Node = null
 @onready var stash_button: Button = $HudFrame/StashButtonArea/StashButton
 @onready var passive_skill_area: HBoxContainer = $HudFrame/PassiveSkillArea
 
+var combat_status_label: Label = null
+
 func _ready() -> void:
 	stash_button.pressed.connect(_on_stash_pressed)
 	_setup_chest_icon()
+	_create_combat_status_label()
 	_hide_passive_area_until_icons_exist()
 
 func bind_services(game_manager: Node, hero_state: Node, economy: Node) -> void:
@@ -41,6 +44,18 @@ func refresh_all() -> void:
 	_refresh_hero()
 	_refresh_level()
 	_refresh_wallet()
+
+func set_combat_status(burn_value: float, poison_value: float, regen_value: float = 0.0) -> void:
+	_create_combat_status_label()
+	var parts: Array[String] = []
+	if burn_value > 0.0:
+		parts.append("灼烧 %.0f" % burn_value)
+	if poison_value > 0.0:
+		parts.append("中毒 %.0f" % poison_value)
+	if regen_value > 0.0:
+		parts.append("再生 %.0f" % regen_value)
+	combat_status_label.text = "  ".join(parts)
+	combat_status_label.visible = not parts.is_empty()
 
 func _connect_service_signals() -> void:
 	if _game_manager != null:
@@ -66,6 +81,24 @@ func _refresh_health() -> void:
 	hp_bar.max_value = maxf(float(max_hp), 1.0)
 	hp_bar.value = clampf(float(current_hp), 0.0, hp_bar.max_value)
 	hp_label.text = "%d" % current_hp
+
+func _create_combat_status_label() -> void:
+	if combat_status_label != null:
+		return
+	combat_status_label = Label.new()
+	combat_status_label.name = "CombatStatusLabel"
+	combat_status_label.visible = false
+	combat_status_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	combat_status_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	combat_status_label.add_theme_font_size_override("font_size", 12)
+	combat_status_label.add_theme_color_override("font_color", Color(1.0, 0.76, 0.42, 1.0))
+	combat_status_label.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	combat_status_label.anchor_left = 0.58
+	combat_status_label.anchor_top = 0.0
+	combat_status_label.anchor_right = 0.78
+	combat_status_label.anchor_bottom = 0.06
+	combat_status_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	$HudFrame.add_child(combat_status_label)
 
 func _refresh_hero() -> void:
 	var hero: Object = null

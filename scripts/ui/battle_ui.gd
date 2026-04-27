@@ -3,7 +3,9 @@ extends Control
 const LinearInventoryClass = preload("res://scripts/data/linear_inventory.gd")
 const HeroDataClass = preload("res://scripts/data/hero_data.gd")
 const ItemDataClass = preload("res://scripts/data/item_data.gd")
+const ItemArtCatalogClass = preload("res://scripts/data/item_art_catalog.gd")
 const MonsterDataClass = preload("res://scripts/data/monster_data.gd")
+const BazaarContentClass = preload("res://scripts/data/bazaar_content.gd")
 
 ## 战斗面板 UI - 管理战斗界面和自动战斗循环
 ## 重构：纯物品触发战斗，移除独立攻击逻辑
@@ -15,6 +17,7 @@ const BATTLE_TICK: float = 0.5
 const PVP_BASE_VIEWPORT_SIZE: Vector2 = Vector2(1920.0, 1080.0)
 const PVP_MIN_SCALE: float = 0.5
 const PVP_MAX_SCALE: float = 1.0
+const MIN_ITEM_COOLDOWN: float = 1.0
 const PVP_RESIZE_CHECK_INTERVAL: float = 2.0
 const PVP_LEFT_PANEL_RIGHT: float = 0.15
 const PVP_BOTTOM_PANEL_TOP: float = 0.50
@@ -62,11 +65,13 @@ const PVP_CHEST_ICON: String = "res://assets/art/ui/ui_chest_icon.png"
 const PVP_HAND_SLOT_COUNT: int = 10
 const PVP_OPPONENT_SLOT_COUNT: int = 5
 const SHELL_BOARD_SLOT_SPACING: int = 8
-const SHELL_BOARD_SLOT_SIZE: Vector2 = Vector2(96, 96)
+const SHELL_BOARD_SLOT_SIZE: Vector2 = Vector2(96, 192)
 const PVP_RIVER_COLOR: Color = Color8(26, 92, 110, 235)
 const PVP_SHOP_BORDER_COLOR: Color = Color8(74, 158, 255, 255)
 const PVP_HAND_BORDER_COLOR: Color = Color8(42, 42, 62, 255)
 const PVP_SHIELD_COLOR: Color = Color8(79, 195, 247, 255)
+const PVP_TOOLTIP_WIDTH: float = 390.0
+const PVP_TOOLTIP_GOLD: Color = Color(0.86, 0.64, 0.30, 1.0)
 
 ## GameManager 引用
 var game_manager: Node
@@ -135,6 +140,7 @@ var pvp_opponent_hp_bar: ProgressBar = null
 var pvp_opponent_hp_label: Label = null
 var pvp_opponent_shield_bar: ProgressBar = null
 var pvp_opponent_shield_label: Label = null
+var pvp_opponent_status_label: Label = null
 var pvp_opponent_meta_label: Label = null
 var pvp_opponent_skill_labels: Array[Label] = []
 var pvp_opponent_hand_container: Control = null
@@ -144,6 +150,7 @@ var pvp_player_hp_bar: ProgressBar = null
 var pvp_player_hp_label: Label = null
 var pvp_player_shield_bar: ProgressBar = null
 var pvp_player_shield_label: Label = null
+var pvp_player_status_label: Label = null
 var pvp_player_meta_label: Label = null
 var pvp_player_skill_labels: Array[Label] = []
 var pvp_player_hand_container: Control = null
@@ -160,6 +167,7 @@ var pvp_wins_label: Label = null
 var pvp_clock_label: Label = null
 var pvp_gold_label: Label = null
 var pvp_player_card_panels: Array[Panel] = []
+var pvp_opponent_card_panels: Array[Panel] = []
 var pvp_combat_hand_panels: Array[Panel] = []
 var pvp_selected_card: Panel = null
 var pvp_hover_card: Panel = null
@@ -261,7 +269,7 @@ func start_battle(monster: MonsterDataClass = null, pvp: bool = false, enemy_atk
 		for monster_item in current_monster.monster_items:
 			_log("   → %s (伤害:%d, CD:%.1fs)" % [
 				monster_item["name"],
-				monster_item["damage"],
+				_get_monster_item_effective_damage(monster_item),
 				monster_item["cooldown"]
 			])
 
@@ -281,52 +289,11 @@ func _assign_monster_ai(monster: MonsterDataClass, day: int) -> void:
 	print("👹 [%s] AI模式: %s" % [monster.monster_name, monster.ai.get_mode_name()])
 
 func _generate_random_monster() -> MonsterDataClass:
-	var monster: MonsterDataClass = MonsterDataClass.new()
-	var day: int = game_manager.current_day
-	var tier: MonsterDataClass.MonsterTier = MonsterDataClass.MonsterTier.TIER_1
-
-	if day >= 3:
-		tier = [MonsterDataClass.MonsterTier.TIER_1, MonsterDataClass.MonsterTier.TIER_2].pick_random()
-	if day >= 5:
-		tier = [
-			MonsterDataClass.MonsterTier.TIER_1,
-			MonsterDataClass.MonsterTier.TIER_2,
-			MonsterDataClass.MonsterTier.TIER_3
-		].pick_random()
-
-	match tier:
-		MonsterDataClass.MonsterTier.TIER_1:
-			monster.monster_name = "史莱姆"
-			monster.max_hp = 40 + day * 10
-			monster.gold_reward_min = 5 + day
-			monster.gold_reward_max = 10 + day * 2
-			monster.xp_reward = 1
-			monster.monster_items = [
-				_create_monster_item("酸液喷射", ItemDataClass.Type.WEAPON, 3 + day, 5 + day, 3.0)
-			]
-		MonsterDataClass.MonsterTier.TIER_2:
-			monster.monster_name = "哥布林"
-			monster.max_hp = 80 + day * 15
-			monster.gold_reward_min = 10 + day * 2
-			monster.gold_reward_max = 20 + day * 3
-			monster.xp_reward = 2
-			monster.monster_items = [
-				_create_monster_item("石斧", ItemDataClass.Type.WEAPON, 6 + day, 8 + day * 2, 3.5)
-			]
-		MonsterDataClass.MonsterTier.TIER_3:
-			monster.monster_name = "食人魔"
-			monster.max_hp = 130 + day * 20
-			monster.gold_reward_min = 20 + day * 3
-			monster.gold_reward_max = 40 + day * 5
-			monster.xp_reward = 3
-			monster.monster_items = [
-				_create_monster_item("重锤", ItemDataClass.Type.WEAPON, 10 + day, 12 + day * 2, 4.0),
-				_create_monster_item("碎骨", ItemDataClass.Type.WEAPON, 8 + day, 6 + day, 3.0)
-			]
-
-	monster.tier = tier
-	monster.current_hp = monster.max_hp
-	_assign_monster_ai(monster, day)
+	var monster: MonsterDataClass = BazaarContentClass.create_monster("", game_manager.current_day)
+	if monster == null:
+		push_error("BattleUI: failed to create a monster from BazaarContent.")
+		return MonsterDataClass.new()
+	_assign_monster_ai(monster, game_manager.current_day)
 	return monster
 
 func _create_pvp_enemy(enemy_atk_bonus: int = 0) -> MonsterDataClass:
@@ -365,6 +332,9 @@ func _create_pvp_enemy(enemy_atk_bonus: int = 0) -> MonsterDataClass:
 	return monster
 
 func _create_monster_item(name: String, item_type: int, buy_price: int, damage: int, cooldown: float, shield: int = 0, heal: int = 0) -> Dictionary:
+	var item_cooldown: float = maxf(cooldown, 0.0)
+	if item_cooldown > 0.0:
+		item_cooldown = maxf(item_cooldown, MIN_ITEM_COOLDOWN)
 	return {
 		"name": name,
 		"type": item_type,
@@ -372,8 +342,8 @@ func _create_monster_item(name: String, item_type: int, buy_price: int, damage: 
 		"damage": max(damage, 0),
 		"shield": max(shield, 0),
 		"heal": max(heal, 0),
-		"cooldown": maxf(cooldown, 0.0),
-		"current_cooldown": maxf(cooldown, 0.0)
+		"cooldown": item_cooldown,
+		"current_cooldown": item_cooldown
 	}
 
 ## ============ UI 管理 ============
@@ -401,6 +371,7 @@ func _show_battle_panel() -> void:
 	_setup_mode_specific()
 
 func _hide_battle_panel() -> void:
+	_update_shell_player_status({"burn": 0.0, "poison": 0.0, "regeneration": 0.0})
 	if pvp_root != null:
 		pvp_root.visible = false
 	_destroy_pvp_layout()
@@ -465,7 +436,9 @@ func _create_shell_battle_layout() -> void:
 	pvp_root = Control.new()
 	pvp_root.name = "BattleShellState"
 	pvp_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	pvp_root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(pvp_root)
+	_create_pvp_tooltip()
 
 	var top_context: Control = _shell_layout.get_node_or_null("TopContextPanel") as Control
 	var upper_board: Control = _shell_layout.get_node_or_null("UpperBoardPanel") as Control
@@ -484,45 +457,45 @@ func _create_shell_battle_layout() -> void:
 func _create_shell_opponent_context(parent: Control) -> void:
 	pvp_opponent_bar = PanelContainer.new()
 	pvp_opponent_bar.name = "OpponentContext"
-	pvp_opponent_bar.anchor_left = 0.34
-	pvp_opponent_bar.anchor_top = 0.08
-	pvp_opponent_bar.anchor_right = 0.66
-	pvp_opponent_bar.anchor_bottom = 0.92
-	pvp_opponent_bar.add_theme_stylebox_override("panel", _create_panel_style(Color(0.12, 0.13, 0.20, 0.82), Color(0.46, 0.38, 0.25, 0.88)))
+	pvp_opponent_bar.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	pvp_opponent_bar.add_theme_stylebox_override("panel", _create_panel_style(Color(0.12, 0.13, 0.20, 0.0), Color(0.46, 0.38, 0.25, 0.0)))
 	parent.add_child(pvp_opponent_bar)
 
-	var root_hbox: HBoxContainer = HBoxContainer.new()
-	root_hbox.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	root_hbox.add_theme_constant_override("separation", 12)
-	pvp_opponent_bar.add_child(root_hbox)
+	var root: Control = Control.new()
+	root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	pvp_opponent_bar.add_child(root)
+
+	var portrait_area: Panel = Panel.new()
+	portrait_area.name = "OpponentPortraitArea"
+	portrait_area.add_theme_stylebox_override("panel", _create_panel_style(Color(0.12, 0.13, 0.20, 0.82), Color(0.78, 0.56, 0.22, 0.9)))
+	_set_percent_rect(portrait_area, 0.42, 0.08, 0.58, 0.68)
+	root.add_child(portrait_area)
 
 	pvp_avatar_frame_opponent = TextureRect.new()
 	pvp_avatar_frame_opponent.name = "OpponentAvatar"
 	pvp_avatar_frame_opponent.texture = load(PVP_AVATAR_FRAME)
 	pvp_avatar_frame_opponent.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	pvp_avatar_frame_opponent.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	pvp_avatar_frame_opponent.custom_minimum_size = Vector2(76, 76)
 	pvp_avatar_frame_opponent.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	root_hbox.add_child(pvp_avatar_frame_opponent)
-
-	var info_box: VBoxContainer = VBoxContainer.new()
-	info_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	info_box.alignment = BoxContainer.ALIGNMENT_CENTER
-	info_box.add_theme_constant_override("separation", 6)
-	root_hbox.add_child(info_box)
+	_set_percent_rect(pvp_avatar_frame_opponent, 0.16, 0.04, 0.84, 0.62)
+	portrait_area.add_child(pvp_avatar_frame_opponent)
 
 	pvp_opponent_name_label = Label.new()
-	pvp_opponent_name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-	pvp_opponent_name_label.add_theme_font_size_override("font_size", 22)
-	info_box.add_child(pvp_opponent_name_label)
+	pvp_opponent_name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	pvp_opponent_name_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	pvp_opponent_name_label.clip_text = true
+	pvp_opponent_name_label.add_theme_font_size_override("font_size", 18)
+	_set_percent_rect(pvp_opponent_name_label, 0.04, 0.62, 0.96, 0.88)
+	portrait_area.add_child(pvp_opponent_name_label)
 
 	var hp_stack: Control = _create_pvp_hp_stack()
-	hp_stack.custom_minimum_size = Vector2(250, 48)
-	info_box.add_child(hp_stack)
+	_set_percent_rect(hp_stack, 0.22, 0.72, 0.78, 0.94)
+	root.add_child(hp_stack)
 	pvp_opponent_hp_bar = hp_stack.get_node("HPBar") as ProgressBar
 	pvp_opponent_hp_label = hp_stack.get_node("HPText") as Label
 	pvp_opponent_shield_bar = hp_stack.get_node("ShieldBar") as ProgressBar
 	pvp_opponent_shield_label = hp_stack.get_node("ShieldLabel") as Label
+	pvp_opponent_status_label = hp_stack.get_node("StatusLabel") as Label
 
 	pvp_opponent_meta_label = null
 	pvp_opponent_skill_labels.clear()
@@ -587,6 +560,7 @@ func _destroy_pvp_layout() -> void:
 	pvp_opponent_hp_label = null
 	pvp_opponent_shield_bar = null
 	pvp_opponent_shield_label = null
+	pvp_opponent_status_label = null
 	pvp_opponent_meta_label = null
 	pvp_opponent_skill_labels.clear()
 	pvp_opponent_hand_container = null
@@ -596,6 +570,7 @@ func _destroy_pvp_layout() -> void:
 	pvp_player_hp_label = null
 	pvp_player_shield_bar = null
 	pvp_player_shield_label = null
+	pvp_player_status_label = null
 	pvp_player_meta_label = null
 	pvp_player_skill_labels.clear()
 	pvp_player_hand_container = null
@@ -618,6 +593,7 @@ func _destroy_pvp_layout() -> void:
 	pvp_selected_card = null
 	pvp_hover_card = null
 	pvp_player_card_panels.clear()
+	pvp_opponent_card_panels.clear()
 	pvp_combat_hand_panels.clear()
 	_pvp_content_scale = 1.0
 	_pvp_resize_timer = 0.0
@@ -813,6 +789,7 @@ func _create_pvp_player_bar() -> void:
 	pvp_player_hp_label = hp_stack.get_node("HPText") as Label
 	pvp_player_shield_bar = hp_stack.get_node("ShieldBar") as ProgressBar
 	pvp_player_shield_label = hp_stack.get_node("ShieldLabel") as Label
+	pvp_player_status_label = hp_stack.get_node("StatusLabel") as Label
 
 	pvp_player_name_label = Label.new()
 	pvp_player_name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -933,6 +910,11 @@ func _update_pvp_player_hand() -> void:
 
 		var illustration: ColorRect = _create_illustration_block(item_data.type)
 		card_panel.add_child(illustration)
+		_add_item_art_texture(illustration, _get_battle_item_art_path(item_data))
+
+		var stat_badges: GridContainer = _create_item_stat_badge_grid_from_item(item_data)
+		if stat_badges.get_child_count() > 0:
+			card_panel.add_child(stat_badges)
 
 		var price_badge: Panel = _create_price_badge(item_data.buy_price)
 		card_panel.add_child(price_badge)
@@ -999,6 +981,7 @@ func _update_pvp_player_hand() -> void:
 func _update_pvp_opponent_hand() -> void:
 	if pvp_shop_container == null:
 		return
+	pvp_opponent_card_panels.clear()
 	if _uses_shell_layout:
 		_update_shell_opponent_board()
 		return
@@ -1021,25 +1004,29 @@ func _update_pvp_opponent_hand() -> void:
 		var monster_item: Dictionary = current_monster.monster_items[item_index]
 		var item_name: String = str(monster_item.get("name", "物品"))
 		var item_type: int = _get_monster_item_type(monster_item)
-		var item_buy_price: int = int(monster_item.get("buy_price", 0))
-		var item_damage: int = int(monster_item.get("damage", 0))
-		var item_shield: int = int(monster_item.get("shield", 0))
-		var item_heal: int = int(monster_item.get("heal", 0))
 		var item_cooldown: float = float(monster_item.get("cooldown", 0.0))
 
 		var card_panel: Panel = Panel.new()
-		card_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		card_panel.name = "OpponentItem_%s" % item_name
+		card_panel.clip_contents = true
+		card_panel.mouse_filter = Control.MOUSE_FILTER_PASS
+		card_panel.set_meta("monster_item_index", item_index)
 		card_panel.add_theme_stylebox_override("panel", _create_card_front_style(item_type, true))
+		card_panel.mouse_entered.connect(_on_monster_item_hovered.bind(card_panel))
+		card_panel.mouse_exited.connect(_on_monster_item_unhovered.bind(card_panel))
 		pvp_shop_container.add_child(card_panel)
+		pvp_opponent_card_panels.append(card_panel)
 		card_count += 1
 
 		_add_texture_background(card_panel, PVP_EVENT_CARD_BG, "EventCardBackground", -1)
 
 		var illustration: ColorRect = _create_illustration_block(item_type)
 		card_panel.add_child(illustration)
+		_add_item_art_texture(illustration, _get_monster_item_art_path(monster_item))
 
-		var price_badge: Panel = _create_price_badge(item_buy_price)
-		card_panel.add_child(price_badge)
+		var stat_badges: GridContainer = _create_monster_stat_badge_grid(monster_item)
+		if stat_badges.get_child_count() > 0:
+			card_panel.add_child(stat_badges)
 
 		var content_vbox: VBoxContainer = VBoxContainer.new()
 		content_vbox.name = "ContentVBox"
@@ -1059,24 +1046,26 @@ func _update_pvp_opponent_hand() -> void:
 		name_label.add_theme_color_override("font_color", Color.WHITE)
 		content_vbox.add_child(name_label)
 
-		var damage_label: Label = Label.new()
-		damage_label.text = _get_monster_item_stat_text(item_damage, item_shield, item_heal, item_type)
-		damage_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		damage_label.add_theme_font_size_override("font_size", 10)
-		damage_label.add_theme_color_override("font_color", Color(0.94, 0.82, 0.64, 1.0))
-		content_vbox.add_child(damage_label)
-
 		var cooldown_label: Label = Label.new()
-		cooldown_label.text = "CD %.1fs" % item_cooldown
+		cooldown_label.name = "CooldownLabel"
+		var cooldown_text: String = _get_monster_cooldown_text(monster_item)
+		cooldown_label.text = cooldown_text
+		cooldown_label.visible = not cooldown_text.is_empty()
 		cooldown_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		cooldown_label.add_theme_font_size_override("font_size", 10)
 		cooldown_label.add_theme_color_override("font_color", Color(0.82, 0.90, 1.0, 1.0))
 		content_vbox.add_child(cooldown_label)
 
+		if item_cooldown > 0.0:
+			var cooldown_overlay: ColorRect = _create_monster_cooldown_overlay(monster_item)
+			cooldown_overlay.name = "CooldownOverlay"
+			card_panel.add_child(cooldown_overlay)
+
 	_add_empty_opponent_slots(maxi(PVP_OPPONENT_SLOT_COUNT - card_count, 0))
 	_layout_card_row(pvp_shop_container, PVP_TOP_CARD_WIDTH, PVP_TOP_CARD_HEIGHT, PVP_SHOP_ROW_RIGHT - PVP_SHOP_ROW_LEFT, PVP_SHOP_ROW_BOTTOM - PVP_SHOP_ROW_TOP, true)
 
 func _update_shell_opponent_board() -> void:
+	pvp_opponent_card_panels.clear()
 	for child in pvp_shop_container.get_children():
 		child.queue_free()
 
@@ -1089,11 +1078,27 @@ func _update_shell_opponent_board() -> void:
 	margin.add_theme_constant_override("margin_bottom", 15)
 	pvp_shop_container.add_child(margin)
 
+	var board_root: Control = Control.new()
+	board_root.name = "OpponentBoardRoot"
+	board_root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	board_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	margin.add_child(board_root)
+
 	var row: HBoxContainer = HBoxContainer.new()
 	row.name = "OpponentSlotRow"
-	row.alignment = BoxContainer.ALIGNMENT_BEGIN
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	row.add_theme_constant_override("separation", SHELL_BOARD_SLOT_SPACING)
-	margin.add_child(row)
+	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	row.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	board_root.add_child(row)
+
+	var item_layer: Control = Control.new()
+	item_layer.name = "OpponentItemLayer"
+	item_layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	item_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	item_layer.z_index = 5
+	board_root.add_child(item_layer)
 
 	for slot_index in range(PVP_HAND_SLOT_COUNT):
 		row.add_child(_create_shell_board_slot(slot_index))
@@ -1101,26 +1106,63 @@ func _update_shell_opponent_board() -> void:
 	if current_monster == null:
 		return
 
-	var item_count: int = mini(current_monster.monster_items.size(), PVP_HAND_SLOT_COUNT)
-	for item_index in range(item_count):
-		var slot: Panel = row.get_child(item_index) as Panel
-		if slot == null:
-			continue
-		var monster_item: Dictionary = current_monster.monster_items[item_index]
-		slot.add_child(_create_shell_monster_item_panel(monster_item))
+	call_deferred("_populate_shell_opponent_item_layer", item_layer, row)
 
-func _create_shell_board_slot(slot_index: int) -> Panel:
+func _populate_shell_opponent_item_layer(item_layer: Control, row: HBoxContainer) -> void:
+	if item_layer == null or row == null or not is_instance_valid(item_layer) or not is_instance_valid(row):
+		return
+	for child in item_layer.get_children():
+		child.queue_free()
+	pvp_opponent_card_panels.clear()
+	if current_monster == null:
+		return
+
+	var slot_index: int = 0
+	for item_index in range(current_monster.monster_items.size()):
+		if slot_index >= PVP_HAND_SLOT_COUNT:
+			break
+		var monster_item: Dictionary = current_monster.monster_items[item_index]
+		var slot_count: int = clampi(int(monster_item.get("slot_count", 1)), 1, 3)
+		slot_count = mini(slot_count, PVP_HAND_SLOT_COUNT - slot_index)
+		var item_rect: Rect2 = _get_shell_slot_span_rect(row, slot_index, slot_count)
+		var item_panel: Panel = _create_shell_monster_item_panel(monster_item, item_index)
+		item_panel.position = item_rect.position
+		item_panel.size = item_rect.size
+		item_panel.custom_minimum_size = item_rect.size
+		item_layer.add_child(item_panel)
+		pvp_opponent_card_panels.append(item_panel)
+		slot_index += slot_count
+
+func _get_shell_slot_span_rect(row: HBoxContainer, start_slot: int, slot_count: int, inset: float = 4.0) -> Rect2:
+	if row == null or start_slot < 0 or start_slot >= row.get_child_count():
+		return Rect2(Vector2.ZERO, SHELL_BOARD_SLOT_SIZE - Vector2(inset * 2.0, inset * 2.0))
+	var end_slot: int = mini(start_slot + slot_count - 1, row.get_child_count() - 1)
+	var first_slot: Control = row.get_child(start_slot) as Control
+	var last_slot: Control = row.get_child(end_slot) as Control
+	if first_slot == null or last_slot == null:
+		return Rect2(Vector2.ZERO, SHELL_BOARD_SLOT_SIZE - Vector2(inset * 2.0, inset * 2.0))
+	var parent_global: Vector2 = row.global_position
+	var left: float = first_slot.global_position.x - parent_global.x + inset
+	var top: float = first_slot.global_position.y - parent_global.y + inset
+	var right: float = last_slot.global_position.x - parent_global.x + last_slot.size.x - inset
+	var bottom: float = first_slot.global_position.y - parent_global.y + first_slot.size.y - inset
+	return Rect2(Vector2(left, top), Vector2(maxf(right - left, 1.0), maxf(bottom - top, 1.0)))
+
+func _create_shell_board_slot(slot_index: int, slot_count: int = 1) -> Panel:
 	var slot: Panel = Panel.new()
 	slot.name = "OpponentSlot%d" % slot_index
-	slot.custom_minimum_size = SHELL_BOARD_SLOT_SIZE
-	slot.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
-	slot.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	var clamped_slot_count: int = clampi(slot_count, 1, 3)
+	var slot_width: float = SHELL_BOARD_SLOT_SIZE.x * float(clamped_slot_count) + float(clamped_slot_count - 1) * SHELL_BOARD_SLOT_SPACING
+	slot.custom_minimum_size = Vector2(slot_width, SHELL_BOARD_SLOT_SIZE.y)
+	slot.set_meta("slot_span", clamped_slot_count)
+	slot.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	slot.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	slot.add_theme_stylebox_override("panel", _create_empty_hand_slot_style())
 
 	var label: Label = Label.new()
 	label.name = "SlotLabel"
-	label.text = str(slot_index + 1)
+	label.text = str(slot_index + 1) if clamped_slot_count == 1 else "%d-%d" % [slot_index + 1, slot_index + clamped_slot_count]
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	label.vertical_alignment = VERTICAL_ALIGNMENT_TOP
 	label.add_theme_font_size_override("font_size", 15)
@@ -1132,24 +1174,27 @@ func _create_shell_board_slot(slot_index: int) -> Panel:
 	slot.add_child(label)
 	return slot
 
-func _create_shell_monster_item_panel(monster_item: Dictionary) -> Panel:
+func _create_shell_monster_item_panel(monster_item: Dictionary, item_index: int) -> Panel:
 	var item_type: int = _get_monster_item_type(monster_item)
 	var item_name: String = str(monster_item.get("name", "物品"))
-	var damage: int = int(monster_item.get("damage", 0))
-	var shield: int = int(monster_item.get("shield", 0))
-	var heal: int = int(monster_item.get("heal", 0))
 	var cooldown: float = float(monster_item.get("cooldown", 0.0))
 
 	var card: Panel = Panel.new()
 	card.name = "OpponentItem_%s" % item_name
 	card.clip_contents = true
-	card.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	card.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	card.mouse_filter = Control.MOUSE_FILTER_PASS
+	card.anchor_left = 0.0
+	card.anchor_top = 0.0
+	card.anchor_right = 0.0
+	card.anchor_bottom = 0.0
 	card.offset_left = 4.0
 	card.offset_top = 4.0
 	card.offset_right = -4.0
 	card.offset_bottom = -4.0
+	card.set_meta("monster_item_index", item_index)
 	card.add_theme_stylebox_override("panel", _create_card_front_style(item_type, true))
+	card.mouse_entered.connect(_on_monster_item_hovered.bind(card))
+	card.mouse_exited.connect(_on_monster_item_unhovered.bind(card))
 
 	var art: ColorRect = ColorRect.new()
 	art.name = "OpponentItemArt"
@@ -1161,16 +1206,11 @@ func _create_shell_monster_item_panel(monster_item: Dictionary) -> Panel:
 	art.offset_right = -2.0
 	art.offset_bottom = -2.0
 	card.add_child(art)
+	_add_item_art_texture(art, _get_monster_item_art_path(monster_item))
 
-	var text_backing: ColorRect = ColorRect.new()
-	text_backing.name = "TextBacking"
-	text_backing.color = Color(0.05, 0.05, 0.07, 0.55)
-	text_backing.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	text_backing.anchor_left = 0.0
-	text_backing.anchor_top = 0.62
-	text_backing.anchor_right = 1.0
-	text_backing.anchor_bottom = 1.0
-	card.add_child(text_backing)
+	var stat_badges: GridContainer = _create_monster_stat_badge_grid(monster_item)
+	if stat_badges.get_child_count() > 0:
+		card.add_child(stat_badges)
 
 	var stack: VBoxContainer = VBoxContainer.new()
 	stack.name = "OpponentItemText"
@@ -1195,19 +1235,19 @@ func _create_shell_monster_item_panel(monster_item: Dictionary) -> Panel:
 	name_label.add_theme_constant_override("outline_size", 1)
 	stack.add_child(name_label)
 
-	var stat_label: Label = Label.new()
-	stat_label.text = _get_monster_item_stat_text(damage, shield, heal, item_type)
-	stat_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	stat_label.clip_text = true
-	stat_label.max_lines_visible = 1
-	stat_label.add_theme_font_size_override("font_size", 10)
-	stack.add_child(stat_label)
-
 	var cooldown_label: Label = Label.new()
-	cooldown_label.text = "%.1fs" % cooldown
+	cooldown_label.name = "CooldownLabel"
+	var cooldown_text: String = _get_monster_cooldown_text(monster_item, true)
+	cooldown_label.text = cooldown_text
+	cooldown_label.visible = not cooldown_text.is_empty()
 	cooldown_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	cooldown_label.add_theme_font_size_override("font_size", 10)
 	stack.add_child(cooldown_label)
+
+	if cooldown > 0.0:
+		var cooldown_overlay: ColorRect = _create_monster_cooldown_overlay(monster_item)
+		cooldown_overlay.name = "CooldownOverlay"
+		card.add_child(cooldown_overlay)
 
 	return card
 
@@ -1295,15 +1335,25 @@ func _layout_card_row(container: Control, slot_width: float, slot_height: float,
 
 func _create_static_item_card(item_data: ItemDataClass, opponent: bool) -> Panel:
 	var card_panel: Panel = Panel.new()
-	card_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	card_panel.mouse_filter = Control.MOUSE_FILTER_PASS
+	card_panel.set_meta("item_data", item_data)
+	card_panel.set_meta("is_static_opponent", opponent)
 	card_panel.add_theme_stylebox_override("panel", _create_card_front_style(item_data.type, opponent))
+	card_panel.mouse_entered.connect(_on_static_item_card_hovered.bind(card_panel, item_data, opponent))
+	card_panel.mouse_exited.connect(_on_static_item_card_unhovered.bind(card_panel, item_data, opponent))
 	_add_texture_background(card_panel, PVP_ITEM_CARD_BG, "ItemCardBackground", -1)
 
 	var illustration: ColorRect = _create_illustration_block(item_data.type)
 	card_panel.add_child(illustration)
+	_add_item_art_texture(illustration, _get_battle_item_art_path(item_data))
 
-	var price_badge: Panel = _create_price_badge(item_data.buy_price)
-	card_panel.add_child(price_badge)
+	var stat_badges: GridContainer = _create_item_stat_badge_grid_from_item(item_data)
+	if stat_badges.get_child_count() > 0:
+		card_panel.add_child(stat_badges)
+
+	if not opponent:
+		var price_badge: Panel = _create_price_badge(item_data.buy_price)
+		card_panel.add_child(price_badge)
 
 	var content_vbox: VBoxContainer = VBoxContainer.new()
 	content_vbox.name = "ContentVBox"
@@ -1358,6 +1408,9 @@ func _update_pvp_battle_ui() -> void:
 	if pvp_player_hp_label != null:
 		pvp_player_hp_label.text = "%d" % player_hp
 	_update_pvp_shield_ui(pvp_player_shield_bar, pvp_player_shield_label, max_hp, current_shield)
+	var player_status: Dictionary = _get_battle_status_totals("player")
+	_update_combat_status_label(pvp_player_status_label, player_status)
+	_update_shell_player_status(player_status)
 
 	if pvp_player_meta_label != null:
 		var crit_text: String = "暴击 %.0f%%" % (hero.crit_chance * 100.0) if hero != null else "暴击 0%"
@@ -1394,18 +1447,49 @@ func _update_pvp_battle_ui() -> void:
 		if pvp_opponent_hp_label != null:
 			pvp_opponent_hp_label.text = "%d" % opponent_hp
 		_update_pvp_shield_ui(pvp_opponent_shield_bar, pvp_opponent_shield_label, current_monster.max_hp, opponent_shield)
+		_update_combat_status_label(pvp_opponent_status_label, _get_battle_status_totals("enemy"))
 		if pvp_opponent_meta_label != null:
-			var monster_damage: int = _get_monster_total_damage()
-			pvp_opponent_meta_label.text = "HP/ATK  |  ATK %d  |  🎒 %d" % [
-				monster_damage,
-				current_monster.monster_items.size()
-			]
+			pvp_opponent_meta_label.text = "物品 %d" % current_monster.monster_items.size()
 
 	_update_pvp_opponent_skills()
 	_update_pvp_player_hand_labels()
 
 func _update_pvp_opponent_skills() -> void:
 	_update_skill_labels(pvp_opponent_skill_labels, _get_monster_skill_names(), false)
+
+func _get_battle_status_totals(target: String) -> Dictionary:
+	if battle_system == null or not battle_system.has_method("get_status_totals"):
+		return {"burn": 0.0, "poison": 0.0, "regeneration": 0.0}
+	return battle_system.call("get_status_totals", target)
+
+func _update_combat_status_label(label: Label, status_totals: Dictionary) -> void:
+	if label == null:
+		return
+	var parts: Array[String] = []
+	var burn_value: float = float(status_totals.get("burn", 0.0))
+	var poison_value: float = float(status_totals.get("poison", 0.0))
+	var regen_value: float = float(status_totals.get("regeneration", 0.0))
+	if burn_value > 0.0:
+		parts.append("灼烧 %.0f" % burn_value)
+	if poison_value > 0.0:
+		parts.append("中毒 %.0f" % poison_value)
+	if regen_value > 0.0:
+		parts.append("再生 %.0f" % regen_value)
+	label.text = "  ".join(parts)
+	label.visible = not parts.is_empty()
+
+func _update_shell_player_status(status_totals: Dictionary) -> void:
+	if not _uses_shell_layout or _shell_layout == null:
+		return
+	var bottom_hud: Control = _shell_layout.get_node_or_null("BottomHudPanel") as Control
+	if bottom_hud == null or not bottom_hud.has_method("set_combat_status"):
+		return
+	bottom_hud.call(
+		"set_combat_status",
+		float(status_totals.get("burn", 0.0)),
+		float(status_totals.get("poison", 0.0)),
+		float(status_totals.get("regeneration", 0.0))
+	)
 
 func _update_pvp_cooldown_overlays() -> void:
 	for card_panel in pvp_player_card_panels:
@@ -1423,6 +1507,30 @@ func _update_pvp_cooldown_overlays() -> void:
 		var cooldown_overlay: ColorRect = card_panel.get_node_or_null("CooldownOverlay") as ColorRect
 		if cooldown_overlay != null:
 			_update_card_cooldown_overlay(cooldown_overlay, item_data)
+
+	for card_panel in pvp_opponent_card_panels:
+		if not is_instance_valid(card_panel):
+			continue
+
+		var monster_item: Dictionary = _get_monster_item_for_card(card_panel)
+		if monster_item.is_empty():
+			continue
+
+		var cooldown_label: Label = card_panel.get_node_or_null("ContentVBox/CooldownLabel") as Label
+		if cooldown_label == null:
+			cooldown_label = card_panel.get_node_or_null("OpponentItemText/CooldownLabel") as Label
+		if cooldown_label != null:
+			var monster_cooldown_text: String = _get_monster_cooldown_text(monster_item, _uses_shell_layout)
+			cooldown_label.text = monster_cooldown_text
+			cooldown_label.visible = not monster_cooldown_text.is_empty()
+
+		var monster_overlay: ColorRect = card_panel.get_node_or_null("CooldownOverlay") as ColorRect
+		if monster_overlay == null and float(monster_item.get("cooldown", 0.0)) > 0.0:
+			monster_overlay = _create_monster_cooldown_overlay(monster_item)
+			monster_overlay.name = "CooldownOverlay"
+			card_panel.add_child(monster_overlay)
+		if monster_overlay != null:
+			_update_monster_cooldown_overlay(monster_overlay, monster_item)
 
 func _calculate_pvp_scale() -> float:
 	var viewport_size: Vector2 = get_viewport().get_visible_rect().size
@@ -1669,6 +1777,9 @@ func _on_battle_win() -> void:
 
 	_log("🎉 战斗胜利!")
 	battle_system.end_battle()
+	_update_pvp_cooldown_overlays()
+	if inventory != null:
+		inventory.inventory_changed.emit()
 
 func _on_battle_lose() -> void:
 	is_battle_active = false
@@ -1692,6 +1803,9 @@ func _on_battle_lose() -> void:
 
 	_log("💀 战斗失败!")
 	battle_system.end_battle()
+	_update_pvp_cooldown_overlays()
+	if inventory != null:
+		inventory.inventory_changed.emit()
 
 func _on_continue_pressed() -> void:
 	_hide_battle_panel()
@@ -1715,14 +1829,18 @@ func _create_pvp_tooltip() -> void:
 	pvp_tooltip_panel = PanelContainer.new()
 	pvp_tooltip_panel.name = "PvPTooltip"
 	pvp_tooltip_panel.visible = false
-	pvp_tooltip_panel.z_index = 100
+	pvp_tooltip_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	pvp_tooltip_panel.z_index = 300
 
 	var style: StyleBoxFlat = StyleBoxFlat.new()
-	style.bg_color = Color(0.1, 0.1, 0.15, 0.95)
-	style.border_color = Color(0.4, 0.4, 0.5, 1.0)
-	style.set_border_width_all(2)
-	style.set_corner_radius_all(8)
-	style.set_content_margin_all(8)
+	style.bg_color = Color(0.05, 0.035, 0.02, 0.96)
+	style.border_color = PVP_TOOLTIP_GOLD
+	style.set_border_width_all(3)
+	style.set_corner_radius_all(6)
+	style.content_margin_left = 16.0
+	style.content_margin_top = 14.0
+	style.content_margin_right = 16.0
+	style.content_margin_bottom = 14.0
 	pvp_tooltip_panel.add_theme_stylebox_override("panel", style)
 	pvp_tooltip_panel.set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT)
 
@@ -1731,6 +1849,9 @@ func _create_pvp_tooltip() -> void:
 	pvp_tooltip_label.fit_content = true
 	pvp_tooltip_label.scroll_active = false
 	pvp_tooltip_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	pvp_tooltip_label.custom_minimum_size = Vector2(PVP_TOOLTIP_WIDTH, 0.0)
+	pvp_tooltip_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	pvp_tooltip_label.add_theme_font_size_override("normal_font_size", 18)
 	pvp_tooltip_panel.add_child(pvp_tooltip_label)
 
 	if pvp_root != null:
@@ -1740,39 +1861,153 @@ func _show_pvp_tooltip(card_panel: Panel, item_data: ItemDataClass) -> void:
 	if pvp_tooltip_panel == null or pvp_tooltip_label == null:
 		return
 
-	var text: String = "[b]%s[/b]\n" % item_data.item_name
-	text += "Type: %s\n" % item_data.get_type_name()
-	if item_data.damage > 0:
-		text += "Damage: %d\n" % item_data.get_rarity_adjusted_damage()
-	if item_data.heal > 0:
-		text += "Heal: %d\n" % item_data.get_rarity_adjusted_heal()
-	if item_data.shield > 0:
-		text += "Shield: %d\n" % item_data.get_rarity_adjusted_shield()
-	if item_data.crit_chance_bonus > 0:
-		text += "Crit: +%.0f%%\n" % (item_data.crit_chance_bonus * 100.0)
-	if item_data.cooldown > 0:
-		text += "CD: %.1fs\n" % item_data.cooldown
-	if item_data.poison_damage > 0:
-		text += "Poison: %.1f/tick\n" % item_data.poison_damage
-	if item_data.burn_damage > 0:
-		text += "Burn: %.1f/tick\n" % item_data.burn_damage
-	if item_data.regeneration > 0:
-		text += "Regen: %.1f/tick\n" % item_data.regeneration
-
-	pvp_tooltip_label.text = text
+	pvp_tooltip_label.text = _build_item_tooltip_text(item_data)
 	pvp_tooltip_panel.visible = true
-	pvp_tooltip_panel.reset_size()
+	_position_pvp_tooltip(card_panel)
 
-	var card_rect: Rect2 = card_panel.get_global_rect()
-	var tip_pos: Vector2 = card_rect.position - Vector2(0.0, pvp_tooltip_panel.size.y + 8.0)
-	var vp_size: Vector2 = get_viewport().get_visible_rect().size
-	tip_pos.x = clampf(tip_pos.x, 8.0, vp_size.x - pvp_tooltip_panel.size.x - 8.0)
-	tip_pos.y = maxf(tip_pos.y, 8.0)
-	pvp_tooltip_panel.global_position = tip_pos
+func _show_monster_item_tooltip(card_panel: Panel) -> void:
+	if pvp_tooltip_panel == null or pvp_tooltip_label == null:
+		return
+
+	var monster_item: Dictionary = _get_monster_item_for_card(card_panel)
+	if monster_item.is_empty():
+		return
+
+	pvp_tooltip_label.text = _build_monster_item_tooltip_text(monster_item)
+	pvp_tooltip_panel.visible = true
+	_position_pvp_tooltip(card_panel)
 
 func _hide_pvp_tooltip() -> void:
 	if pvp_tooltip_panel != null:
 		pvp_tooltip_panel.visible = false
+
+func _position_pvp_tooltip(anchor_control: Control) -> void:
+	if pvp_tooltip_panel == null or anchor_control == null:
+		return
+
+	pvp_tooltip_panel.reset_size()
+	var panel_size: Vector2 = pvp_tooltip_panel.size
+	if panel_size.x <= 0.0 or panel_size.y <= 0.0:
+		panel_size = Vector2(PVP_TOOLTIP_WIDTH + 32.0, 260.0)
+
+	var card_rect: Rect2 = anchor_control.get_global_rect()
+	var tip_pos: Vector2 = card_rect.position - Vector2(0.0, panel_size.y + 10.0)
+	if tip_pos.y < 8.0:
+		tip_pos.y = card_rect.position.y + card_rect.size.y + 10.0
+
+	var vp_size: Vector2 = get_viewport().get_visible_rect().size
+	tip_pos.x = clampf(tip_pos.x, 8.0, maxf(vp_size.x - panel_size.x - 8.0, 8.0))
+	tip_pos.y = clampf(tip_pos.y, 8.0, maxf(vp_size.y - panel_size.y - 8.0, 8.0))
+	pvp_tooltip_panel.global_position = tip_pos
+
+func _build_item_tooltip_text(item_data: ItemDataClass) -> String:
+	if item_data == null:
+		return ""
+
+	var lines: Array[String] = []
+	lines.append("[b][color=#f8eddc]%s[/color][/b]" % _bbcode_escape(item_data.item_name))
+	lines.append("[color=#dba34c]%s  %s  %s[/color]" % [
+		item_data.get_size_text(),
+		item_data.get_type_name(),
+		item_data.get_rarity_name()
+	])
+	lines.append("")
+
+	var has_stats: bool = false
+	if item_data.damage > 0:
+		lines.append("[color=#f0e6d2]> 造成 [color=#ff6b5f]%d[/color] 伤害[/color]" % item_data.get_rarity_adjusted_damage())
+		has_stats = true
+	if item_data.shield > 0:
+		lines.append("[color=#f0e6d2]> 获得 [color=#6fc7ff]%d[/color] 护盾[/color]" % item_data.get_rarity_adjusted_shield())
+		has_stats = true
+	if item_data.heal > 0:
+		lines.append("[color=#f0e6d2]> 恢复 [color=#72ef86]%d[/color] 生命[/color]" % item_data.get_rarity_adjusted_heal())
+		has_stats = true
+	if item_data.crit_chance > 0:
+		lines.append("[color=#f0e6d2]> 暴击 [color=#d99cff]%.0f%%[/color][/color]" % (item_data.crit_chance * item_data.get_rarity_multiplier() * 100.0))
+		has_stats = true
+	if item_data.cooldown > 0.0:
+		lines.append("[color=#f0e6d2]> 冷却 [color=#d8e6ff]%.1f 秒[/color][/color]" % maxf(item_data.cooldown, MIN_ITEM_COOLDOWN))
+		has_stats = true
+	if item_data.has_ammo_limit():
+		var ammo_text: String = "%d/%d" % [item_data.get_current_ammo(), item_data.get_max_ammo()] if item_data.current_ammo >= 0 else "%d" % item_data.get_max_ammo()
+		lines.append("[color=#f0e6d2]> 弹药 [color=#ffd36a]%s[/color][/color]" % ammo_text)
+		has_stats = true
+	if item_data.current_cooldown > 0.0:
+		lines.append("[color=#c8d4f0]> 剩余 %.1f 秒[/color]" % item_data.current_cooldown)
+	if not has_stats:
+		lines.append("[color=#b8a88c]> 被动效果[/color]")
+
+	if not item_data.description.is_empty():
+		lines.append("")
+		lines.append("[color=#f0e6d2]%s[/color]" % _bbcode_escape(item_data.description))
+
+	if item_data.has_special_effect():
+		lines.append("")
+		lines.append("[color=#ffd36a]特殊效果: %s[/color]" % _bbcode_escape(item_data.get_special_effect_description()))
+
+	return "\n".join(lines)
+
+func _build_monster_item_tooltip_text(monster_item: Dictionary) -> String:
+	var item_name: String = str(monster_item.get("name", "物品"))
+	var item_type: int = _get_monster_item_type(monster_item)
+	var cooldown: float = maxf(float(monster_item.get("cooldown", 0.0)), 0.0)
+	var current_cooldown: float = maxf(float(monster_item.get("current_cooldown", 0.0)), 0.0)
+
+	var lines: Array[String] = []
+	lines.append("[b][color=#f8eddc]%s[/color][/b]" % _bbcode_escape(item_name))
+	lines.append("[color=#dba34c]敌方道具  %s[/color]" % _get_item_type_name(item_type))
+	lines.append("")
+
+	var has_stats: bool = false
+	var damage: int = _get_monster_item_effective_damage(monster_item)
+	var shield: int = int(monster_item.get("shield", 0))
+	var heal: int = int(monster_item.get("heal", 0))
+	var burn: int = int(monster_item.get("burn", 0))
+	var poison: int = int(monster_item.get("poison", 0))
+	var regen: int = int(monster_item.get("regen", 0))
+	if damage > 0:
+		lines.append("[color=#f0e6d2]> 造成 [color=#ff6b5f]%d[/color] 伤害[/color]" % damage)
+		has_stats = true
+	if shield > 0:
+		lines.append("[color=#f0e6d2]> 获得 [color=#6fc7ff]%d[/color] 护盾[/color]" % shield)
+		has_stats = true
+	if heal > 0:
+		lines.append("[color=#f0e6d2]> 恢复 [color=#72ef86]%d[/color] 生命[/color]" % heal)
+		has_stats = true
+	if burn > 0:
+		lines.append("[color=#f0e6d2]> 施加 [color=#ff9b45]%d[/color] 燃烧[/color]" % burn)
+		has_stats = true
+	if poison > 0:
+		lines.append("[color=#f0e6d2]> 施加 [color=#60d878]%d[/color] 中毒[/color]" % poison)
+		has_stats = true
+	if regen > 0:
+		lines.append("[color=#f0e6d2]> 获得 [color=#72ef86]%d[/color] 再生[/color]" % regen)
+		has_stats = true
+	var source_description: String = str(monster_item.get("description", ""))
+	if not source_description.is_empty():
+		lines.append("")
+		lines.append("[color=#cbb58a]%s[/color]" % _bbcode_escape(source_description))
+	if cooldown > 0.0:
+		lines.append("[color=#f0e6d2]> 冷却 [color=#d8e6ff]%.1f 秒[/color][/color]" % maxf(cooldown, MIN_ITEM_COOLDOWN))
+		has_stats = true
+	if current_cooldown > 0.0:
+		lines.append("[color=#c8d4f0]> 剩余 %.1f 秒[/color]" % current_cooldown)
+	if not has_stats:
+		lines.append("[color=#b8a88c]> 被动效果[/color]")
+
+	return "\n".join(lines)
+
+func _get_item_type_name(item_type: int) -> String:
+	match item_type:
+		ItemDataClass.Type.WEAPON: return "武器"
+		ItemDataClass.Type.SHIELD: return "护盾"
+		ItemDataClass.Type.HEAL: return "治疗"
+		ItemDataClass.Type.UTILITY: return "工具"
+		_: return "物品"
+
+func _bbcode_escape(text: String) -> String:
+	return text.replace("[", "\\[").replace("]", "\\]")
 
 func _on_pvp_card_hovered(card_panel: Panel) -> void:
 	if pvp_hover_card != null and is_instance_valid(pvp_hover_card) and pvp_hover_card != card_panel:
@@ -1795,6 +2030,33 @@ func _on_pvp_card_unhovered(card_panel: Panel = null) -> void:
 			pvp_hover_card.add_theme_stylebox_override("panel", _create_player_card_style(item_data, false, is_selected))
 
 	pvp_hover_card = null
+	_hide_pvp_tooltip()
+
+func _on_static_item_card_hovered(card_panel: Panel, item_data: ItemDataClass, opponent: bool) -> void:
+	if card_panel == null or item_data == null:
+		return
+	card_panel.add_theme_stylebox_override("panel", _create_card_front_style(item_data.type, opponent, true))
+	_show_pvp_tooltip(card_panel, item_data)
+
+func _on_static_item_card_unhovered(card_panel: Panel, item_data: ItemDataClass, opponent: bool) -> void:
+	if card_panel == null or item_data == null:
+		return
+	card_panel.add_theme_stylebox_override("panel", _create_card_front_style(item_data.type, opponent, false))
+	_hide_pvp_tooltip()
+
+func _on_monster_item_hovered(card_panel: Panel) -> void:
+	var monster_item: Dictionary = _get_monster_item_for_card(card_panel)
+	if monster_item.is_empty():
+		return
+	var item_type: int = _get_monster_item_type(monster_item)
+	card_panel.add_theme_stylebox_override("panel", _create_card_front_style(item_type, true, true))
+	_show_monster_item_tooltip(card_panel)
+
+func _on_monster_item_unhovered(card_panel: Panel) -> void:
+	var monster_item: Dictionary = _get_monster_item_for_card(card_panel)
+	if not monster_item.is_empty():
+		var item_type: int = _get_monster_item_type(monster_item)
+		card_panel.add_theme_stylebox_override("panel", _create_card_front_style(item_type, true, false))
 	_hide_pvp_tooltip()
 
 func _on_pvp_card_input(event: InputEvent, card_panel: Panel, item_data: ItemDataClass) -> void:
@@ -1844,12 +2106,12 @@ func _create_card_back_style() -> StyleBoxFlat:
 	style.corner_radius_bottom_left = 6
 	return style
 
-func _create_card_front_style(item_type: int, opponent: bool = false) -> StyleBoxFlat:
+func _create_card_front_style(item_type: int, opponent: bool = false, hovered: bool = false) -> StyleBoxFlat:
 	var style: StyleBoxFlat = StyleBoxFlat.new()
 	var accent: Color = _get_illustration_color(item_type)
 	style.bg_color = Color(0.20, 0.18, 0.14, 0.98) if opponent else Color(0.16, 0.16, 0.22, 0.98)
-	style.border_color = accent.lerp(Color.WHITE, 0.22)
-	style.set_border_width_all(2)
+	style.border_color = accent.lerp(PVP_TOOLTIP_GOLD, 0.65) if hovered else accent.lerp(Color.WHITE, 0.22)
+	style.set_border_width_all(3 if hovered else 2)
 	style.set_corner_radius_all(6)
 	return style
 
@@ -1894,30 +2156,133 @@ func _get_illustration_color(item_type: int) -> Color:
 
 func _create_price_badge(price: int) -> Panel:
 	var badge: Panel = Panel.new()
+	badge.name = "PriceBadge"
 	badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	badge.anchor_left = 0.0
-	badge.anchor_top = 0.0
+	badge.anchor_top = 1.0
 	badge.anchor_right = 0.0
-	badge.anchor_bottom = 0.0
-	badge.offset_left = 2.0
-	badge.offset_top = 2.0
-	badge.offset_right = 22.0
-	badge.offset_bottom = 22.0
+	badge.anchor_bottom = 1.0
+	badge.offset_left = 4.0
+	badge.offset_top = -30.0
+	badge.offset_right = 48.0
+	badge.offset_bottom = -4.0
+	badge.z_index = 21
 
 	var badge_style: StyleBoxFlat = StyleBoxFlat.new()
-	badge_style.bg_color = Color8(74, 158, 255, 255)
-	badge_style.set_corner_radius_all(10)
+	badge_style.bg_color = Color(0.64, 0.36, 0.08, 0.95)
+	badge_style.border_color = Color(1.0, 0.74, 0.30, 0.95)
+	badge_style.set_border_width_all(1)
+	badge_style.set_corner_radius_all(5)
 	badge.add_theme_stylebox_override("panel", badge_style)
 
 	var badge_label: Label = Label.new()
 	badge_label.text = str(price)
 	badge_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	badge_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	badge_label.add_theme_font_size_override("font_size", 10)
+	badge_label.add_theme_font_size_override("font_size", 14)
 	badge_label.add_theme_color_override("font_color", Color.WHITE)
+	badge_label.add_theme_color_override("font_outline_color", Color(0.0, 0.0, 0.0, 0.75))
+	badge_label.add_theme_constant_override("outline_size", 1)
 	badge_label.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	badge_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	badge.add_child(badge_label)
 
+	return badge
+
+func _create_item_stat_badge_grid_from_item(item_data: ItemDataClass) -> GridContainer:
+	var grid: GridContainer = _create_stat_badge_grid()
+	for stat in _collect_item_badge_stats(item_data):
+		grid.add_child(_create_stat_badge(str(stat.get("text", "")), stat.get("color", Color.WHITE)))
+	return grid
+
+func _create_monster_stat_badge_grid(monster_item: Dictionary) -> GridContainer:
+	var grid: GridContainer = _create_stat_badge_grid()
+	for stat in _collect_monster_badge_stats(monster_item):
+		grid.add_child(_create_stat_badge(str(stat.get("text", "")), stat.get("color", Color.WHITE)))
+	return grid
+
+func _create_stat_badge_grid() -> GridContainer:
+	var grid: GridContainer = GridContainer.new()
+	grid.name = "ItemStatBadgeGrid"
+	grid.columns = 3
+	grid.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	grid.z_index = 20
+	grid.anchor_left = 0.0
+	grid.anchor_top = 0.0
+	grid.anchor_right = 1.0
+	grid.anchor_bottom = 0.0
+	grid.offset_left = 4.0
+	grid.offset_top = 4.0
+	grid.offset_right = -4.0
+	grid.offset_bottom = 52.0
+	grid.add_theme_constant_override("h_separation", 3)
+	grid.add_theme_constant_override("v_separation", 3)
+	return grid
+
+func _collect_item_badge_stats(item_data: ItemDataClass) -> Array:
+	var stats: Array = []
+	if item_data == null:
+		return stats
+
+	var damage_value: int = item_data.get_rarity_adjusted_damage() if item_data.damage > 0 else 0
+	var poison_value: int = int(round(item_data.poison_damage * item_data.get_rarity_multiplier())) if item_data.poison_damage > 0.0 else 0
+	var burn_value: int = int(round(item_data.burn_damage * item_data.get_rarity_multiplier())) if item_data.burn_damage > 0.0 else 0
+	var regen_value: int = int(round(item_data.regeneration * item_data.get_rarity_multiplier())) if item_data.regeneration > 0.0 else 0
+	var heal_value: int = item_data.get_rarity_adjusted_heal() if item_data.heal > 0 else 0
+	var shield_value: int = item_data.get_rarity_adjusted_shield() if item_data.shield > 0 else 0
+	return _build_badge_stats(damage_value, poison_value, burn_value, regen_value, heal_value, shield_value)
+
+func _collect_monster_badge_stats(monster_item: Dictionary) -> Array:
+	var damage_value: int = _get_monster_item_effective_damage(monster_item)
+	var poison_value: int = int(monster_item.get("poison", 0))
+	var burn_value: int = int(monster_item.get("burn", 0))
+	var regen_value: int = int(monster_item.get("regen", 0))
+	var heal_value: int = int(monster_item.get("heal", 0))
+	var shield_value: int = int(monster_item.get("shield", 0))
+	return _build_badge_stats(damage_value, poison_value, burn_value, regen_value, heal_value, shield_value)
+
+func _build_badge_stats(damage_value: int, poison_value: int, burn_value: int, regen_value: int, heal_value: int, shield_value: int) -> Array:
+	var stats: Array = []
+	if damage_value > 0:
+		stats.append({"text": str(damage_value), "color": Color(0.86, 0.20, 0.17, 0.94)})
+	if poison_value > 0:
+		stats.append({"text": "毒 %d" % poison_value, "color": Color(0.20, 0.62, 0.30, 0.94)})
+	if burn_value > 0:
+		stats.append({"text": "火 %d" % burn_value, "color": Color(0.93, 0.42, 0.12, 0.94)})
+	if regen_value > 0:
+		stats.append({"text": "再 %d" % regen_value, "color": Color(0.20, 0.58, 0.52, 0.94)})
+	if heal_value > 0:
+		stats.append({"text": "疗 %d" % heal_value, "color": Color(0.26, 0.70, 0.34, 0.94)})
+	if shield_value > 0:
+		stats.append({"text": "盾 %d" % shield_value, "color": Color(0.20, 0.46, 0.78, 0.94)})
+	return stats
+
+func _create_stat_badge(text: String, color: Color) -> Panel:
+	var badge: Panel = Panel.new()
+	badge.name = "ItemStatBadge"
+	badge.custom_minimum_size = Vector2(36, 20)
+	badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	var style: StyleBoxFlat = StyleBoxFlat.new()
+	style.bg_color = color
+	style.border_color = color.lightened(0.28)
+	style.set_border_width_all(1)
+	style.set_corner_radius_all(4)
+	badge.add_theme_stylebox_override("panel", style)
+
+	var label: Label = Label.new()
+	label.name = "BadgeLabel"
+	label.text = text
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	label.clip_text = true
+	label.add_theme_font_size_override("font_size", 12)
+	label.add_theme_color_override("font_color", Color.WHITE)
+	label.add_theme_color_override("font_outline_color", Color(0.0, 0.0, 0.0, 0.75))
+	label.add_theme_constant_override("outline_size", 1)
+	label.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	badge.add_child(label)
 	return badge
 
 func _create_illustration_block(item_type: int) -> ColorRect:
@@ -1933,6 +2298,27 @@ func _create_illustration_block(item_type: int) -> ColorRect:
 	illustration.offset_right = -4.0
 	illustration.offset_bottom = 60.0
 	return illustration
+
+func _add_item_art_texture(parent: Control, texture_path: String) -> void:
+	if parent == null or texture_path.is_empty():
+		return
+	var texture: Texture2D = ItemArtCatalogClass.load_texture(texture_path)
+	if texture == null:
+		return
+	var texture_rect: TextureRect = TextureRect.new()
+	texture_rect.name = "ItemArtTexture"
+	texture_rect.texture = texture
+	texture_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	texture_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	texture_rect.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	texture_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	parent.add_child(texture_rect)
+
+func _get_battle_item_art_path(item_data: ItemDataClass) -> String:
+	return ItemArtCatalogClass.get_item_texture_path(item_data)
+
+func _get_monster_item_art_path(monster_item: Dictionary) -> String:
+	return ItemArtCatalogClass.get_item_texture_path_by_source_id(str(monster_item.get("source_id", "")))
 
 func _create_player_card_style(item_data: ItemDataClass, hovered: bool = false, selected: bool = false) -> StyleBoxFlat:
 	var colors: Dictionary = _get_card_colors_by_rarity(item_data.rarity)
@@ -1994,14 +2380,14 @@ func _get_monster_item_type(monster_item: Dictionary) -> int:
 		return ItemDataClass.Type.WEAPON
 	return ItemDataClass.Type.UTILITY
 
-func _get_monster_item_stat_text(damage: int, shield: int, heal: int, item_type: int) -> String:
-	if damage > 0:
-		return "ATK %d" % damage
-	if shield > 0:
-		return "Shield %d" % shield
-	if heal > 0:
-		return "Heal %d" % heal
-	return ItemDataClass.Type.keys()[item_type]
+func _get_monster_item_effective_damage(monster_item: Dictionary) -> int:
+	var base_damage: int = int(monster_item.get("damage", 0))
+	if base_damage <= 0:
+		return 0
+	var damage_mult: float = 1.0
+	if current_monster != null and current_monster.ai != null:
+		damage_mult = current_monster.ai.get_current_damage_multiplier(current_monster)
+	return maxi(int(float(base_damage) * damage_mult), 0)
 
 func _get_card_colors_by_rarity(rarity: int) -> Dictionary:
 	match rarity:
@@ -2093,6 +2479,17 @@ func _create_pvp_hp_stack() -> Control:
 	shield_label.add_theme_color_override("font_color", PVP_SHIELD_COLOR)
 	shield_label.z_index = 4
 	hp_stack.add_child(shield_label)
+
+	var status_label: Label = Label.new()
+	status_label.name = "StatusLabel"
+	status_label.visible = false
+	status_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	status_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	status_label.add_theme_font_size_override("font_size", _scaled_int(12.0, 9, 15))
+	status_label.add_theme_color_override("font_color", Color(1.0, 0.76, 0.42, 1.0))
+	_set_percent_rect(status_label, 0.32, 0.82, 1.0, 1.0)
+	status_label.z_index = 5
+	hp_stack.add_child(status_label)
 
 	return hp_stack
 
@@ -2213,6 +2610,59 @@ func _update_card_cooldown_overlay(overlay: ColorRect, item_data: ItemDataClass)
 	if timer_label != null:
 		timer_label.text = "%.1f" % item_data.current_cooldown
 
+func _create_monster_cooldown_overlay(monster_item: Dictionary) -> ColorRect:
+	var overlay: ColorRect = ColorRect.new()
+	overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	overlay.color = Color(0.0, 0.0, 0.0, 0.5)
+
+	var timer_label: Label = Label.new()
+	timer_label.name = "CooldownTimerLabel"
+	timer_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	timer_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	timer_label.add_theme_font_size_override("font_size", 15)
+	timer_label.add_theme_color_override("font_color", Color.WHITE)
+	timer_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	timer_label.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	overlay.add_child(timer_label)
+
+	_update_monster_cooldown_overlay(overlay, monster_item)
+	return overlay
+
+func _update_monster_cooldown_overlay(overlay: ColorRect, monster_item: Dictionary) -> void:
+	if overlay == null:
+		return
+
+	var cooldown: float = maxf(float(monster_item.get("cooldown", 0.0)), 0.0)
+	var current_cooldown: float = maxf(float(monster_item.get("current_cooldown", 0.0)), 0.0)
+	var timer_label: Label = overlay.get_node_or_null("CooldownTimerLabel") as Label
+	if current_cooldown <= 0.0 or cooldown <= 0.0:
+		overlay.visible = false
+		if timer_label != null:
+			timer_label.text = ""
+		return
+
+	var ratio: float = clampf(current_cooldown / cooldown, 0.0, 1.0)
+	overlay.anchor_left = 0.0
+	overlay.anchor_top = 1.0 - ratio
+	overlay.anchor_right = 1.0
+	overlay.anchor_bottom = 1.0
+	overlay.offset_left = 0.0
+	overlay.offset_top = 0.0
+	overlay.offset_right = 0.0
+	overlay.offset_bottom = 0.0
+	overlay.visible = true
+
+	if timer_label != null:
+		timer_label.text = "%.1f" % current_cooldown
+
+func _get_monster_item_for_card(card_panel: Panel) -> Dictionary:
+	if card_panel == null or current_monster == null:
+		return {}
+	var item_index: int = int(card_panel.get_meta("monster_item_index", -1))
+	if item_index < 0 or item_index >= current_monster.monster_items.size():
+		return {}
+	return current_monster.monster_items[item_index]
+
 func _update_pvp_player_hand_labels() -> void:
 	for card_panel in pvp_player_card_panels:
 		if not is_instance_valid(card_panel):
@@ -2243,16 +2693,20 @@ func _get_item_cooldown_text(item_data: ItemDataClass) -> String:
 		return ""
 	if item_data.current_cooldown > 0.0:
 		return "CD: %.1fs" % item_data.current_cooldown
+	if item_data.has_ammo_limit() and item_data.get_current_ammo() <= 0:
+		return "Ammo 0"
 	return "Ready" if item_data.cooldown > 0.0 else "Passive"
 
-func _get_monster_total_damage() -> int:
-	if current_monster == null:
-		return 0
-
-	var total_damage: int = 0
-	for monster_item in current_monster.monster_items:
-		total_damage += int(monster_item.get("damage", 0))
-	return total_damage
+func _get_monster_cooldown_text(monster_item: Dictionary, short_text: bool = false) -> String:
+	var cooldown: float = maxf(float(monster_item.get("cooldown", 0.0)), 0.0)
+	var current_cooldown: float = maxf(float(monster_item.get("current_cooldown", 0.0)), 0.0)
+	if cooldown <= 0.0:
+		return ""
+	if current_cooldown > 0.0:
+		if short_text:
+			return "%.1fs" % current_cooldown
+		return "CD: %.1fs" % current_cooldown
+	return ""
 
 func _get_player_skill_names() -> Array[String]:
 	var names: Array[String] = []

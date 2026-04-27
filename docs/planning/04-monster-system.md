@@ -1,6 +1,6 @@
 # 怪物系统策划案
 
-更新时间：2026-04-25
+更新时间：2026-04-27
 
 根目录 `GAME_RULES.md` 和 `DATA_MODEL.md` 是 PvE Encounter 的权威规则。
 
@@ -58,21 +58,32 @@ MVP 可以用简化 board，但不要只保留 `attack + cooldown`。
 | Diamond | 5 | 4 | 高概率 item/skill |
 | Legendary | 6 | 4 | 特殊 item/skill |
 
-## MVP 怪物池
+## 全量 Wiki 怪物目录
 
-可以保留现有 fantasy 名称作为占位，但数据结构要按 Bazaar-like encounter 组织：
+占位怪物已废弃。怪物数据现在从 The Bazaar wiki 生成，详见
+`docs/planning/08-monster-wiki-catalog.md`。
 
-| 名称 | Tier | Board 方向 | 奖励方向 |
-| --- | --- | --- | --- |
-| 史莱姆 | Bronze | Heal/Regeneration 入门 | gold + XP |
-| 蝙蝠 | Bronze | Haste/Small item | XP + 小物品 |
-| 蜘蛛 | Silver | Poison/Slow | poison item/skill |
-| 骷髅法师 | Silver | Burn/Spell-like item | burn item/skill |
-| 狼 | Gold | Weapon/Crit | weapon item/skill |
-| 史莱姆王 | Diamond | Regen/Shield scaling | monster item + skill |
+当前覆盖：
+
+- 101 个 wiki 怪物页面。
+- 332 个怪物相关或怪物 board 引用道具。
+- 133 个怪物相关或怪物 board 引用技能。
+- PvE 选项按 `day == monster.level` 取真实怪物池；Day 1 继续是以下 6 个真实早期怪物。
+
+| 名称 | Tier | HP | 奖励 | Board |
+| --- | --- | --- | --- | --- |
+| Banannabal | Bronze | 100 | 2 Gold + 2 XP | Med Kit, Bluenanas, Duct Tape, Overheal Haste |
+| Fanged Inglet | Bronze | 100 | 2 Gold + 2 XP | Pelt, Fang, Deadly Eye |
+| Haunted Kimono | Bronze | 100 | 2 Gold + 2 XP | Scrap, Silk Scarf, Haunting Flight |
+| Kyver Drone | Bronze | 100 | 2 Gold + 2 XP | Insect Wing, Stinger, Langxian, Eagle Talisman, Trained |
+| Pyro | Bronze | 100 | 2 Gold + 2 XP | Cinders, Lighter, Fiery |
+| Viper | Silver | 75 | 3 Gold + 2 XP | Gland, Fang, Extract, Lash Out |
 
 ## 当前实现差距
 
-当前 `MonsterData` 已有 tier、HP、monster_items、gold reward 和 drop chance，
-但 tier 仍是三档，怪物更像 `attack/cooldown` 敌人。后续应迁移到五档 tier、board
-items、skills 和 reward pool。
+当前 `MonsterData` 已有 tier、HP、monster_items、monster_skills、gold reward 和
+XP reward。怪物目录和基础战斗数值已迁移到 wiki 数据，但以下内容还需要继续补齐：
+
+- tier enum 仍是三档，应迁移到 Bronze/Silver/Gold/Diamond/Legendary 五档。
+- 怪物技能只有通用字段生效：start Poison/Burn/Shield，以及基础 Damage/Shield/Poison/Burn 加成；复杂条件、Flying、Overheal、防死亡、公式型效果仍需要逐条实现。
+- 胜利奖励尚未做 item/skill reward 选择 UI。

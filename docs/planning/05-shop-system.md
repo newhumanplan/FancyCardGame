@@ -23,6 +23,12 @@ Hour 0/1/3/4 不一定总是同一个商店，应从以下 option 中生成：
 
 玩家选择 1 个 option 后进入对应 UI 或直接结算奖励。
 
+当前 demo 先实现最小真实子集：
+
+- 每个构筑 Hour 生成 1 个 item vendor 和 2 个真实 Day 1 event。
+- 不再使用 `treasure` / `camp` 这类泛用占位事件；奖励、休息、服务商人必须以真实事件或真实 vendor 数据进入池子。
+- 真实事件池见 `docs/planning/07-day1-real-content.md`。
+
 ## Item Vendor
 
 - 展示 3-5 个物品。
@@ -31,6 +37,7 @@ Hour 0/1/3/4 不一定总是同一个商店，应从以下 option 中生成：
 - 支持锁定。
 - 支持查看详情。
 - 支持购买后放入 stash 或 board。
+- 购买得到的道具先进入 Board 的第一个可用连续槽位；玩家可通过拖拽在 Board / Stash 间整理。
 - UI 必须使用 `docs/planning/ui-layout-reference.md` 的商人布局：商人头像在顶部中心，
   商品货架位于玩家 Board 上方，底部 HUD 和钱包常驻。
 

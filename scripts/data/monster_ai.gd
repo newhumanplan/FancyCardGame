@@ -1,6 +1,7 @@
 class_name MonsterAI
 extends RefCounted
 const MonsterDataClass = preload("res://scripts/data/monster_data.gd")
+const MIN_ITEM_COOLDOWN: float = 1.0
 
 ## 怪物 AI 系统 — 定义怪物行为模式
 ## 不同怪物有不同的 AI 策略，影响战斗中的行为
@@ -162,4 +163,8 @@ func apply_to_monster_items(monster: MonsterDataClass) -> void:
 		if item.has("cooldown"):
 			var base_cooldown: float = float(item.get("base_cooldown", item["cooldown"]))
 			item["base_cooldown"] = base_cooldown
-			item["cooldown"] = maxf(base_cooldown * modifier, 0.1)
+			if base_cooldown <= 0.0:
+				item["cooldown"] = 0.0
+				item["current_cooldown"] = 0.0
+				continue
+			item["cooldown"] = maxf(base_cooldown * modifier, MIN_ITEM_COOLDOWN)

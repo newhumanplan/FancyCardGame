@@ -11,6 +11,8 @@ const EndingManagerClass = preload("res://scripts/data/ending_manager.gd")
 const HeroFactory = preload("res://scripts/data/hero_factory.gd")
 const LinearInventoryClass = preload("res://scripts/data/linear_inventory.gd")
 const ItemDataClass = preload("res://scripts/data/item_data.gd")
+const ItemAcquisitionClass = preload("res://scripts/data/item_acquisition.gd")
+const BazaarContentClass = preload("res://scripts/data/bazaar_content.gd")
 
 ## 玩家背包引用（指向 InventoryUI 的 inventory，避免两套独立系统）
 var player_inventory: LinearInventoryClass = null  # 已废弃，改用 $InventoryUI.get_inventory()
@@ -52,6 +54,7 @@ var hero_label: Label = null
 @onready var hero_select_panel: PanelContainer = $HeroSelectPanel
 @onready var warrior_button: Button = $HeroSelectPanel/HeroSelectVBox/Heroes/WarriorButton
 @onready var mage_button: Button = $HeroSelectPanel/HeroSelectVBox/Heroes/MageButton
+@onready var mak_button: Button = $HeroSelectPanel/HeroSelectVBox/Heroes/MakButton
 
 ## 主界面区域
 @onready var title_label: Label = $VBox/Title
@@ -139,12 +142,20 @@ func _get_player_inventory() -> LinearInventoryClass:
 		return inventory_ui.get_inventory()
 	return null
 
+func _get_stash_inventory() -> LinearInventoryClass:
+	if bazaar_shell != null and bazaar_shell.has_method("get_stash_inventory"):
+		var stash_inventory: Resource = bazaar_shell.get_stash_inventory()
+		if stash_inventory is LinearInventoryClass:
+			return stash_inventory as LinearInventoryClass
+	return null
+
 ## ============ 按钮设置 ============
 
 func _setup_buttons() -> void:
 	# 英雄选择按钮
 	warrior_button.pressed.connect(_on_warrior_selected)
 	mage_button.pressed.connect(_on_mage_selected)
+	mak_button.pressed.connect(_on_mak_selected)
 
 	# 游戏按钮
 	shop_button.pressed.connect(_on_shop_pressed)
@@ -182,6 +193,12 @@ func _on_mage_selected() -> void:
 	var mage = HeroFactoryService.create_hero(HeroDataClass.HeroType.MAGE)
 	GameManager.select_hero(mage)
 	_apply_passive_skills(mage)
+	_on_game_started()
+
+func _on_mak_selected() -> void:
+	var mak = HeroFactoryService.create_hero(HeroDataClass.HeroType.MAK)
+	GameManager.select_hero(mak)
+	_apply_passive_skills(mak)
 	_on_game_started()
 
 ## 应用被动技能（统一使用 PassiveSkillDataClass 新版）
@@ -276,10 +293,6 @@ func _handle_event_selection_by_index(index: int) -> void:
 			_execute_monster_event()
 		"pvp":
 			_execute_pvp_event()
-		"treasure":
-			_execute_treasure_event()
-		"camp":
-			_execute_camp_event()
 		"random_event":
 			_execute_random_event()
 		_:
@@ -305,7 +318,7 @@ func _open_shop_ui() -> void:
 		_write_debug("inventory: " + str(inventory))
 		bazaar_shell.show_run_shell()
 		shop_ui.visible = false
-		active_merchant_view = bazaar_shell.show_merchant(inventory)
+		active_merchant_view = bazaar_shell.show_merchant(inventory, GameFlowService.get_selected_option())
 		_connect_merchant_signals(active_merchant_view)
 		_write_debug("商人货架已打开")
 	else:
@@ -359,8 +372,8 @@ func _on_merchant_purchase_requested(item: ItemDataClass, index: int) -> void:
 		_show_merchant_feedback("金币不足", true)
 		_update_active_merchant_buttons()
 		return
-	var empty_slots: Array[int] = inventory.find_empty_slots(item.get_slot_count())
-	if empty_slots.is_empty():
+	var stash_inventory: LinearInventoryClass = _get_stash_inventory()
+	if not ItemAcquisitionClass.can_accept_item(item, inventory, stash_inventory, false):
 		_show_merchant_feedback("背包空间不足", true)
 		_update_active_merchant_buttons()
 		return
@@ -371,7 +384,8 @@ func _on_merchant_purchase_requested(item: ItemDataClass, index: int) -> void:
 
 	var item_copy: ItemDataClass = item.duplicate() as ItemDataClass
 	item_copy.slot_index = -1
-	if not inventory.place_item(item_copy, empty_slots[0]):
+	var grant_result: Dictionary = ItemAcquisitionClass.grant_item(item_copy, inventory, stash_inventory, false)
+	if not bool(grant_result.get("success", false)):
 		GameManager.add_gold(item.buy_price)
 		_show_merchant_feedback("背包放置失败", true)
 		_update_active_merchant_buttons()
@@ -435,24 +449,8 @@ func _execute_random_event() -> void:
 		else:
 			event_id = str(evt.get("id", ""))
 
-	var result = event_manager.execute_random_event(event_id, day, GameManager)
+	var result = event_manager.execute_random_event(event_id, day, GameManager, _get_player_inventory(), _get_stash_inventory())
 	print("随机事件: %s" % result)
-	_auto_advance_hour()
-
-## 执行宝库事件（使用 EventManager）
-func _execute_treasure_event() -> void:
-	print("执行宝库事件")
-	var day = GameManager.current_day
-	var result = event_manager.execute_treasure_event(day, GameManager)
-	print("宝库事件: %s" % result)
-	_auto_advance_hour()
-
-## 执行营地事件（使用 EventManager）
-func _execute_camp_event() -> void:
-	print("执行营地事件")
-	var day = GameManager.current_day
-	var result = event_manager.execute_camp_event(day, GameManager)
-	print("营地事件: %s" % result)
 	_auto_advance_hour()
 
 ## ============ 战斗系统 ============
@@ -467,7 +465,12 @@ func _start_battle() -> void:
 	# 确保底部常驻层在进入战斗时可见
 	if hero_bar_layer:
 		hero_bar_layer.visible = true
-	battle_ui.start_battle(null, false, 0)
+	var selected_option: Dictionary = GameFlowService.get_selected_option()
+	var monster_id: String = str(selected_option.get("monster_id", ""))
+	var monster = null
+	if not monster_id.is_empty():
+		monster = BazaarContentClass.create_monster(monster_id, GameManager.current_day)
+	battle_ui.start_battle(monster, false, 0)
 
 	if not battle_ui.battle_ended.is_connected(_on_battle_ended):
 		battle_ui.battle_ended.connect(_on_battle_ended)
@@ -635,6 +638,17 @@ func _update_level_labels() -> void:
 func _on_day_changed(day: int) -> void:
 	if day_label != null:
 		day_label.text = "Day %d" % day
+	_apply_start_of_day_item_effects(day)
+
+func _apply_start_of_day_item_effects(day: int) -> void:
+	if day <= 1:
+		return
+	var summary: Dictionary = ItemAcquisitionClass.grant_start_of_day_items(_get_player_inventory(), _get_stash_inventory())
+	var catalyst_count: int = int(summary.get("catalysts", 0))
+	if catalyst_count > 0:
+		print("新的一天: 获得 %d 个 Catalyst" % catalyst_count)
+		bazaar_shell.refresh_static_panels()
+		_update_ui()
 
 func _on_hour_changed(hour: int, phase_name: String) -> void:
 	if hour_label != null:

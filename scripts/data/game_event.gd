@@ -33,8 +33,6 @@ enum EventType {
 	MONSTER,        ## 怪物战斗
 	PVP,            ## PvP 对战
 	RANDOM_EVENT,   ## 随机事件
-	TREASURE,       ## 宝库
-	CAMP,           ## 营地
 	FUTURA,         ## Futura 事件（声望归零触发）
 }
 

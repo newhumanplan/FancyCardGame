@@ -18,8 +18,10 @@ func _run_tests() -> void:
 	test_hero_factory_autoload_exists()
 	test_create_warrior()
 	test_create_mage()
+	test_create_mak()
 	test_warrior_has_correct_stats()
 	test_mage_has_correct_stats()
+	test_mak_has_real_item_pool()
 	test_warrior_passive_skills_count()
 	test_mage_passive_skills_count()
 	test_warrior_passive_skill_types()
@@ -47,6 +49,13 @@ func test_create_mage() -> void:
 	_assert_eq(hero.hero_name, "法师", "mage hero_name")
 	_assert_eq(hero.hero_type, HeroDataClass.HeroType.MAGE, "mage hero_type")
 
+func test_create_mak() -> void:
+	var hf = get_node("/root/HeroFactoryService")
+	var hero = hf.create_hero(HeroDataClass.HeroType.MAK)
+	_assert_not_null(hero, "create_hero(MAK) should return a HeroData")
+	_assert_eq(hero.hero_name, "Mak", "mak hero_name")
+	_assert_eq(hero.hero_type, HeroDataClass.HeroType.MAK, "mak hero_type")
+
 
 func test_warrior_has_correct_stats() -> void:
 	var hf = get_node("/root/HeroFactoryService")
@@ -60,6 +69,13 @@ func test_mage_has_correct_stats() -> void:
 	var hero = hf.create_hero(HeroDataClass.HeroType.MAGE)
 	_assert_eq(hero.max_hp, 80, "mage max_hp")
 	_assert_eq(hero.crit_chance, 0.15, "mage crit_chance")
+
+func test_mak_has_real_item_pool() -> void:
+	var hf = get_node("/root/HeroFactoryService")
+	var hero = hf.create_hero(HeroDataClass.HeroType.MAK)
+	_assert_eq(hero.max_hp, 100, "mak max_hp")
+	_assert_true(hero.available_items.has("fire_potion"), "mak available_items include real Mak item")
+	_assert_true(hero.available_items.has("magic_carpet"), "mak available_items include Magic Carpet")
 
 
 func test_warrior_passive_skills_count() -> void:

@@ -11,6 +11,7 @@ var event_manager
 ## 当前事件选项（供handle_event_selection使用）
 var _current_event_options: Array[Dictionary] = []
 var _current_random_event_id: String = ""
+var _current_selected_option: Dictionary = {}
 
 ## 信号：通知主UI刷新
 signal event_options_generated(options: Array[Dictionary])
@@ -27,6 +28,7 @@ func generate_event_options() -> Array[Dictionary]:
 	var options: Array[Dictionary] = event_manager.generate_options(hour, day)
 	_current_event_options = options
 	_current_random_event_id = ""
+	_current_selected_option = {}
 	event_options_generated.emit(options)
 	return options
 
@@ -39,12 +41,16 @@ func handle_event_selection(index: int) -> Dictionary:
 		return {}
 	var option: Dictionary = _current_event_options[index]
 	_current_random_event_id = str(option.get("event_id", ""))
+	_current_selected_option = option.duplicate(true)
 	print("GameFlow: selected event %s" % option.get("text", ""))
 	event_selected.emit(option)
 	return option
 
 func get_selected_event_id() -> String:
 	return _current_random_event_id
+
+func get_selected_option() -> Dictionary:
+	return _current_selected_option.duplicate(true)
 
 func get_event_type_at(index: int) -> String:
 	if index < 0 or index >= _current_event_options.size():

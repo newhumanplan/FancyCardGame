@@ -2,6 +2,7 @@ extends Node
 
 const HeroDataClass = preload("res://scripts/data/hero_data.gd")
 const PassiveSkillDataClass = preload("res://scripts/data/passive_skill.gd")
+const BazaarContentClass = preload("res://scripts/data/bazaar_content.gd")
 
 ## 英雄工厂 - 统一管理战士/法师的创建
 ## 从 main.gd _on_warrior_selected / _on_mage_selected 提取
@@ -12,6 +13,8 @@ func create_hero(hero_type: HeroDataClass.HeroType) -> HeroDataClass:
 			return _create_warrior()
 		HeroDataClass.HeroType.MAGE:
 			return _create_mage()
+		HeroDataClass.HeroType.MAK:
+			return BazaarContentClass.create_mak_hero()
 	return _create_warrior()
 
 func _create_warrior() -> HeroDataClass:

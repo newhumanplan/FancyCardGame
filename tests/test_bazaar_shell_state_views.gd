@@ -1,6 +1,7 @@
 extends Node
 
 const LinearInventoryClass = preload("res://scripts/data/linear_inventory.gd")
+const BazaarContentClass = preload("res://scripts/data/bazaar_content.gd")
 
 var _total: int = 0
 var _passed: int = 0
@@ -14,15 +15,17 @@ func _ready() -> void:
 func _run_tests() -> void:
 	test_time_select_view_in_shell_emits_selection()
 	test_merchant_view_emits_purchase_without_spending()
+	test_merchant_uses_slot_board_layout_and_wiki_art()
 	test_merchant_refresh_reports_free_then_paid_cost()
 	test_shell_merchant_uses_upper_board_and_right_actions()
+	test_shell_stash_toggles_inventory_overlay()
 
 func test_time_select_view_in_shell_emits_selection() -> void:
 	var shell: Control = _create_shell()
 	var options: Array[Dictionary] = [
 		{"text": "商人", "type": "shop"},
-		{"text": "宝库", "type": "treasure"},
-		{"text": "营地", "type": "camp"},
+		{"text": "Borrow", "type": "random_event", "event_id": "borrow"},
+		{"text": "Armory", "type": "random_event", "event_id": "armory"},
 	]
 	var selected: Dictionary = {"index": -1}
 	shell.connect("option_selected", func(index: int) -> void:
@@ -66,6 +69,34 @@ func test_merchant_view_emits_purchase_without_spending() -> void:
 	_assert_equal(int(game_manager.get("gold")), before_gold, "merchant view does not spend gold")
 	merchant.queue_free()
 
+func test_merchant_uses_slot_board_layout_and_wiki_art() -> void:
+	var game_manager: Node = _game_manager()
+	game_manager.call("reset_stats")
+	game_manager.set("gold", 500)
+	var merchant: Control = _create_merchant_view()
+	var inventory: LinearInventoryClass = LinearInventoryClass.new()
+	var silk_scarf = BazaarContentClass.create_item("silk_scarf")
+
+	merchant.call("show_merchant", inventory)
+	merchant.set("shop_items", [silk_scarf])
+	merchant.call("_refresh_shelf")
+
+	var board: Control = _find_node(merchant, "MerchantShopBoard") as Control
+	var slot_row: Control = _find_node(merchant, "MerchantShopSlotRow") as Control
+	var item_card: Control = _find_node(merchant, "MerchantItemCard0") as Control
+	var art: TextureRect = _find_node(item_card, "ItemArt") as TextureRect
+
+	_assert_not_null(board, "merchant shelf uses a slot board container")
+	_assert_not_null(slot_row, "merchant shelf has a shop slot row")
+	_assert_equal(slot_row.get_child_count(), 10, "merchant shelf renders ten shop slots")
+	_assert_not_null(item_card, "merchant slot board renders item card")
+	_assert_not_null(art, "merchant item card uses source art")
+	_assert_true(art.texture != null, "merchant source art texture is loaded")
+	_assert_not_null(_find_node(item_card, "ItemStatBadgeGrid"), "merchant item card shows top effect badges")
+	_assert_not_null(_find_node(item_card, "BuyButton0"), "merchant item value badge is the buy button")
+	_assert_true(_find_node(item_card, "LockButton0") == null, "merchant item card does not show placeholder lock button")
+	merchant.queue_free()
+
 func test_merchant_refresh_reports_free_then_paid_cost() -> void:
 	var game_manager: Node = _game_manager()
 	game_manager.call("reset_stats")
@@ -98,6 +129,26 @@ func test_shell_merchant_uses_upper_board_and_right_actions() -> void:
 	_assert_not_null(_find_node(shell.get_node("TopContextPanel"), "MerchantPortrait"), "merchant portrait is placed in TopContextPanel")
 	_assert_not_null(_find_node(shell.get_node("RightActionArea"), "Action_merchant_refresh"), "merchant refresh action is in RightActionArea")
 	_assert_not_null(_find_node(shell.get_node("RightActionArea"), "Action_merchant_leave"), "merchant leave action is in RightActionArea")
+	shell.queue_free()
+	inventory_ui.queue_free()
+
+func test_shell_stash_toggles_inventory_overlay() -> void:
+	var shell: Control = _create_shell()
+	var inventory_ui: Control = _create_inventory_ui()
+	shell.call("setup", _game_manager(), inventory_ui)
+
+	shell.call("toggle_stash")
+	var overlay: Control = _find_node(shell, "StashOverlay") as Control
+	var stash_ui: Control = _find_node(shell, "StashInventoryUI") as Control
+	var stash_inventory: Resource = shell.call("get_stash_inventory")
+
+	_assert_not_null(overlay, "shell creates stash overlay")
+	_assert_true(overlay.visible, "stash overlay is visible after toggle")
+	_assert_not_null(stash_ui, "stash overlay contains InventoryUI")
+	_assert_true(stash_inventory != null and int(stash_inventory.call("get_total_slots")) == 10, "stash defaults to ten slots")
+
+	shell.call("toggle_stash")
+	_assert_true(not overlay.visible, "second toggle hides stash overlay")
 	shell.queue_free()
 	inventory_ui.queue_free()
 

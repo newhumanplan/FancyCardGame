@@ -28,7 +28,7 @@ func _run_tests() -> void:
 	test_total_5s_variable_fps()
 	test_cd_reduction_on_trigger()
 	test_cd_reduction_clamped_80pct()
-	test_cd_reduction_minimum_01s()
+	test_cd_reduction_minimum_1s()
 	test_negative_delta_ignored()
 	test_zero_delta_ignored()
 	test_multiple_items_independent()
@@ -103,7 +103,7 @@ func test_cd_reduction_on_trigger() -> void:
 	_total += 1
 	var base_cd: float = 5.0
 	var reduction: float = 0.3
-	var new_cd: float = maxf(base_cd * (1.0 - reduction), 0.1)
+	var new_cd: float = maxf(base_cd * (1.0 - reduction), 1.0)
 	_assert("5.0 * (1-0.3) = 3.5", is_equal_approx(new_cd, 3.5))
 
 
@@ -112,17 +112,17 @@ func test_cd_reduction_clamped_80pct() -> void:
 	var reduction: float = 0.9
 	reduction = clampf(reduction, 0.0, 0.8)
 	var base_cd: float = 3.0
-	var new_cd: float = maxf(base_cd * (1.0 - reduction), 0.1)
-	_assert("90%% reduction clamped to 80%%: 3.0*0.2=0.6", is_equal_approx(new_cd, 0.6))
+	var new_cd: float = maxf(base_cd * (1.0 - reduction), 1.0)
+	_assert("90%% reduction clamped to 80%% but min cooldown stays 1.0s", is_equal_approx(new_cd, 1.0))
 
 
-func test_cd_reduction_minimum_01s() -> void:
+func test_cd_reduction_minimum_1s() -> void:
 	_total += 1
 	var base_cd: float = 1.0
 	var reduction: float = 0.99
 	reduction = clampf(reduction, 0.0, 0.8)
-	var new_cd: float = maxf(base_cd * (1.0 - reduction), 0.1)
-	_assert("Minimum cooldown after reduction: 0.1s", is_equal_approx(new_cd, 0.1))
+	var new_cd: float = maxf(base_cd * (1.0 - reduction), 1.0)
+	_assert("Minimum cooldown after reduction: 1.0s", is_equal_approx(new_cd, 1.0))
 
 
 func test_negative_delta_ignored() -> void:

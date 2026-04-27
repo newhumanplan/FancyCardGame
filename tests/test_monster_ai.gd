@@ -16,6 +16,7 @@ func _run_tests() -> void:
 	test_is_low_hp_and_damage_multiplier_follow_threshold()
 	test_should_heal_uses_base_and_low_hp_bonus()
 	test_get_mode_name_returns_expected_labels()
+	test_apply_to_monster_items_preserves_passive_items()
 
 
 func _ai_script():
@@ -102,3 +103,19 @@ func test_get_mode_name_returns_expected_labels() -> void:
 	_assert_eq(ai_script.create_technical().get_mode_name(), "技术", "get_mode_name returns technical label")
 	_assert_eq(ai_script.create_boss().get_mode_name(), "Boss", "get_mode_name returns boss label")
 	_assert_eq(ai_script.create_swarm().get_mode_name(), "蜂群", "get_mode_name returns swarm label")
+
+
+func test_apply_to_monster_items_preserves_passive_items() -> void:
+	var ai_script = _ai_script()
+	var swarm = ai_script.create_swarm()
+	var monster = _monster(100, 100)
+	monster.monster_items = [
+		{"name": "Passive Loot", "cooldown": 0.0, "current_cooldown": 0.0},
+		{"name": "Active Weapon", "cooldown": 6.0, "current_cooldown": 6.0},
+	]
+
+	swarm.apply_to_monster_items(monster)
+
+	_assert_float_eq(float(monster.monster_items[0].get("cooldown", -1.0)), 0.0, "AI keeps passive monster item cooldown at zero")
+	_assert_float_eq(float(monster.monster_items[0].get("current_cooldown", -1.0)), 0.0, "AI keeps passive monster item current cooldown at zero")
+	_assert_float_eq(float(monster.monster_items[1].get("cooldown", 0.0)), 3.0, "AI applies speed modifier to active monster item")

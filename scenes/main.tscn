@@ -104,6 +104,12 @@ size_flags_horizontal = 3
 text = "🔮 法师
 HP: 80 | 暴击: 15% | 奥术被动"
 
+[node name="MakButton" type="Button" parent="HeroSelectPanel/HeroSelectVBox/Heroes"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "⚗️ Mak
+HP: 100 | 暴击: 5% | 炼金道具"
+
 [node name="VBox" type="VBoxContainer" parent="."]
 visible = false
 layout_mode = 1

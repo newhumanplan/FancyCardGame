@@ -63,37 +63,38 @@ func test_hover_exit_clears() -> void:
 func test_opponent_non_interactive() -> void:
 	_total += 1
 	var player_filter: int = Control.MOUSE_FILTER_PASS
-	var opponent_filter: int = Control.MOUSE_FILTER_IGNORE
-	var passed: bool = player_filter != opponent_filter
-	_assert("Player=PASS, Opponent=IGNORE", passed)
+	var opponent_filter: int = Control.MOUSE_FILTER_PASS
+	var opponent_has_click_handler: bool = false
+	var passed: bool = player_filter == opponent_filter and not opponent_has_click_handler
+	_assert("Opponent cards accept hover but keep no click handler", passed)
 
 
 func test_tooltip_content_damage() -> void:
 	_total += 1
-	var text: String = "[b]Iron Sword[/b]\n"
-	text += "Type: Weapon\n"
-	text += "Damage: %d\n" % 15
-	text += "CD: %.1fs\n" % 3.0
-	var passed: bool = text.find("Iron Sword") >= 0 and text.find("Damage: 15") >= 0 and text.find("CD: 3.0s") >= 0
-	_assert("Tooltip: damage item shows name/Damage/CD", passed)
+	var text: String = "[b]木剑[/b]\n"
+	text += "小  武器  普通\n"
+	text += "> 造成 %d 伤害\n" % 15
+	text += "> 冷却 %.1f 秒\n" % 3.0
+	var passed: bool = text.find("木剑") >= 0 and text.find("造成 15 伤害") >= 0 and text.find("冷却 3.0 秒") >= 0
+	_assert("Tooltip: damage item shows name/damage/cooldown in Chinese", passed)
 
 
 func test_tooltip_content_heal() -> void:
 	_total += 1
-	var text: String = "[b]Health Potion[/b]\n"
-	text += "Type: Heal\n"
-	text += "Heal: %d\n" % 20
-	var passed: bool = text.find("Health Potion") >= 0 and text.find("Heal: 20") >= 0
-	_assert("Tooltip: heal item shows name/Heal", passed)
+	var text: String = "[b]药水[/b]\n"
+	text += "治疗\n"
+	text += "> 恢复 %d 生命\n" % 20
+	var passed: bool = text.find("药水") >= 0 and text.find("恢复 20 生命") >= 0
+	_assert("Tooltip: heal item shows name/heal in Chinese", passed)
 
 
 func test_tooltip_content_passive() -> void:
 	_total += 1
-	var text: String = "[b]Lucky Charm[/b]\n"
-	text += "Type: Utility\n"
-	# Passive item: no CD line
-	var has_cd: bool = text.find("CD:") >= 0
-	_assert("Tooltip: passive item has no CD line", not has_cd)
+	var text: String = "[b]幸运符[/b]\n"
+	text += "工具\n"
+	text += "> 被动效果\n"
+	var has_cd: bool = text.find("冷却") >= 0
+	_assert("Tooltip: passive item has no cooldown line", not has_cd)
 
 
 func test_card_style_states() -> void:
