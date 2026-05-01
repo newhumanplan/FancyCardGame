@@ -6,6 +6,7 @@ const ItemDataClass = preload("res://scripts/data/item_data.gd")
 const ItemArtCatalogClass = preload("res://scripts/data/item_art_catalog.gd")
 const MonsterDataClass = preload("res://scripts/data/monster_data.gd")
 const BazaarContentClass = preload("res://scripts/data/bazaar_content.gd")
+const PlayerSkillCatalogClass = preload("res://scripts/data/player_skill_catalog.gd")
 
 ## 战斗面板 UI - 管理战斗界面和自动战斗循环
 ## 重构：纯物品触发战斗，移除独立攻击逻辑
@@ -2710,6 +2711,7 @@ func _get_monster_cooldown_text(monster_item: Dictionary, short_text: bool = fal
 
 func _get_player_skill_names() -> Array[String]:
 	var names: Array[String] = []
+	var seen: Dictionary = {}
 
 	if battle_system != null and "skill_manager" in battle_system:
 		var skill_manager: Variant = battle_system.skill_manager
@@ -2718,13 +2720,16 @@ func _get_player_skill_names() -> Array[String]:
 			for skill_entry in equipped_skills:
 				var skill_data: SkillDataClass = skill_entry as SkillDataClass
 				if skill_data != null and not skill_data.skill_name.is_empty():
-					names.append(skill_data.skill_name)
+					if not seen.has(skill_data.skill_name):
+						seen[skill_data.skill_name] = true
+						names.append(skill_data.skill_name)
 
-	if names.is_empty() and game_manager.selected_hero != null:
+	if game_manager.selected_hero != null:
 		for hero_skill in game_manager.selected_hero.skills:
-			var skill_data: SkillDataClass = hero_skill as SkillDataClass
-			if skill_data != null and not skill_data.skill_name.is_empty():
-				names.append(skill_data.skill_name)
+			var skill_name: String = PlayerSkillCatalogClass.get_skill_display_name(hero_skill)
+			if not skill_name.is_empty() and not seen.has(skill_name):
+				seen[skill_name] = true
+				names.append(skill_name)
 
 	if names.is_empty() and game_manager.selected_hero != null and game_manager.selected_hero.has_passive_skill():
 		names.append(game_manager.selected_hero.passive_skill_name)

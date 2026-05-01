@@ -5,9 +5,11 @@ extends Panel
 ## 鼠标悬停物品时显示 Bazaar 风格的黑金 tips。
 
 signal close_requested()
+signal sell_requested(item: ItemDataClass, sell_price: int)
 
 const ItemDataClass = preload("res://scripts/data/item_data.gd")
 const LinearInventoryClass = preload("res://scripts/data/linear_inventory.gd")
+const SellServiceClass = preload("res://scripts/services/sell_service.gd")
 
 const PANEL_SIZE: Vector2 = Vector2(420, 300)
 const COLOR_GOLD: Color = Color(0.86, 0.64, 0.30, 1.0)
@@ -24,6 +26,7 @@ var stats_vbox: VBoxContainer
 var special_effects_label: Label
 var description_label: Label
 var synergy_label: Label
+var sell_button: Button
 
 var item: ItemDataClass = null
 var inventory: LinearInventoryClass = null
@@ -32,7 +35,7 @@ func _ready() -> void:
 	custom_minimum_size = PANEL_SIZE
 	size = PANEL_SIZE
 	z_index = 300
-	mouse_filter = Control.MOUSE_FILTER_IGNORE
+	mouse_filter = Control.MOUSE_FILTER_STOP
 	_update_style()
 	_create_ui()
 	gui_input.connect(_on_panel_input)
@@ -97,6 +100,21 @@ func _create_ui() -> void:
 	synergy_label.visible = false
 	main_vbox.add_child(synergy_label)
 
+	sell_button = Button.new()
+	sell_button.name = "SellButton"
+	sell_button.custom_minimum_size = Vector2(0, 38)
+	sell_button.mouse_filter = Control.MOUSE_FILTER_STOP
+	sell_button.text = "出售"
+	sell_button.pressed.connect(_on_sell_pressed)
+	var sell_style: StyleBoxFlat = StyleBoxFlat.new()
+	sell_style.bg_color = Color(0.16, 0.35, 0.16, 0.96)
+	sell_style.border_color = Color(0.72, 0.90, 0.52, 0.90)
+	sell_style.set_border_width_all(1)
+	sell_style.set_corner_radius_all(6)
+	sell_button.add_theme_stylebox_override("normal", sell_style)
+	sell_button.add_theme_font_size_override("font_size", 18)
+	main_vbox.add_child(sell_button)
+
 func set_item(item_data: ItemDataClass, inv: LinearInventoryClass = null) -> void:
 	item = item_data
 	inventory = inv
@@ -120,6 +138,7 @@ func set_item(item_data: ItemDataClass, inv: LinearInventoryClass = null) -> voi
 	_refresh_description()
 	_refresh_special_effects()
 	_refresh_synergy()
+	_refresh_sell_button()
 
 func _set_tags(tags: Array[String]) -> void:
 	for child in tag_row.get_children():
@@ -182,6 +201,18 @@ func _refresh_synergy() -> void:
 	if synergy_label.visible:
 		synergy_label.text = "相邻加成: %s" % " / ".join(bonus_parts)
 
+func _refresh_sell_button() -> void:
+	if sell_button == null:
+		return
+	if item == null:
+		sell_button.visible = false
+		sell_button.disabled = true
+		return
+	var sell_price: int = SellServiceClass.calculate_sell_price(item)
+	sell_button.visible = true
+	sell_button.disabled = inventory == null
+	sell_button.text = "出售 (%d金币)" % sell_price
+
 func _add_stat_row(text: String, color: Color) -> void:
 	var row: HBoxContainer = HBoxContainer.new()
 	row.name = "StatRow"
@@ -243,3 +274,8 @@ func _create_body_label(node_name: String, color: Color, font_size: int) -> Labe
 
 func _on_panel_input(_event: InputEvent) -> void:
 	pass
+
+func _on_sell_pressed() -> void:
+	if item == null:
+		return
+	sell_requested.emit(item, SellServiceClass.calculate_sell_price(item))

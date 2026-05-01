@@ -8,6 +8,7 @@ extends Control
 const LinearInventoryClass = preload("res://scripts/data/linear_inventory.gd")
 const ItemDataClass = preload("res://scripts/data/item_data.gd")
 const ItemArtCatalogClass = preload("res://scripts/data/item_art_catalog.gd")
+const SellServiceClass = preload("res://scripts/services/sell_service.gd")
 const ItemDetailPanelClass = preload("res://scenes/ui/item_detail_panel.tscn")
 
 ## 常量
@@ -67,6 +68,7 @@ signal item_placed(item: ItemDataClass, slot: int)
 signal item_removed(item: ItemDataClass)
 signal item_drag_started(item: ItemDataClass)
 signal item_drag_ended(item: ItemDataClass)
+signal item_sold(result: Dictionary)
 
 ## 初始化物品图片映射
 func _init_item_texture_map() -> void:
@@ -1051,6 +1053,8 @@ func _show_item_detail(item: ItemDataClass) -> void:
 		# 连接关闭信号
 		if detail_panel.has_signal("close_requested"):
 			detail_panel.close_requested.connect(_close_detail_panel)
+		if detail_panel.has_signal("sell_requested"):
+			detail_panel.sell_requested.connect(_on_sell_pressed)
 
 		add_child(detail_panel)
 		detail_panel.move_to_front()
@@ -1181,6 +1185,7 @@ func _create_inline_detail_panel(item: ItemDataClass) -> void:
 	# 出售按钮
 	var sell_price: int = _calculate_sell_price(item)
 	var sell_btn = Button.new()
+	sell_btn.name = "SellButton"
 	sell_btn.text = "出售 (%d金币)" % sell_price
 	sell_btn.custom_minimum_size = Vector2(130, 36)
 	sell_btn.position = Vector2(15, 230)
@@ -1217,22 +1222,22 @@ func _position_detail_panel(item: ItemDataClass) -> void:
 
 	detail_panel.global_position = target_pos
 
-## 计算出售价格(购买价的 60%)
+## 计算出售价格
 func _calculate_sell_price(item: ItemDataClass) -> int:
-	if item == null or item.buy_price <= 0:
-		return 0
-	return maxi(int(float(item.buy_price) * 0.6), 1)
+	return SellServiceClass.calculate_sell_price(item)
 
 ## 出售物品
 func _on_sell_pressed(item: ItemDataClass, sell_price: int) -> void:
 	if item == null or inventory == null:
 		return
-	var slot_idx = item.slot_index
-	inventory.remove_item(item)
-	GameManager.add_gold(sell_price)
+	var result: Dictionary = SellServiceClass.sell_item(item, inventory)
+	if not bool(result.get("success", false)):
+		push_warning("出售失败: %s" % str(result.get("unsupported", [])))
+		return
 	_close_detail_panel()
 	_refresh_display()
-	print("出售 %s 获得 %d 金币" % [item.item_name, sell_price])
+	item_sold.emit(result)
+	print("出售 %s 获得 %d 金币" % [item.item_name, int(result.get("sell_price", sell_price))])
 
 ## 关闭详情面板
 func _close_detail_panel() -> void:

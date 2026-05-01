@@ -3,6 +3,8 @@ extends Control
 
 ## Persistent bottom HUD for the Bazaar shell.
 
+const PlayerSkillCatalogClass = preload("res://scripts/data/player_skill_catalog.gd")
+
 signal stash_requested()
 
 const WARRIOR_AVATAR_PATH: String = "res://assets/art/ui/ui_avatar_warrior.png"
@@ -44,6 +46,7 @@ func refresh_all() -> void:
 	_refresh_hero()
 	_refresh_level()
 	_refresh_wallet()
+	_refresh_skills()
 
 func set_combat_status(burn_value: float, poison_value: float, regen_value: float = 0.0) -> void:
 	_create_combat_status_label()
@@ -140,6 +143,50 @@ func _hide_passive_area_until_icons_exist() -> void:
 	for child in passive_skill_area.get_children():
 		child.queue_free()
 	passive_skill_area.visible = false
+
+func _refresh_skills() -> void:
+	for child in passive_skill_area.get_children():
+		child.queue_free()
+	var hero: Object = null
+	if _game_manager != null:
+		hero = _game_manager.get("selected_hero")
+	if hero == null:
+		passive_skill_area.visible = false
+		return
+
+	var skill_names: Array[String] = []
+	for passive_skill in hero.get("passive_skills"):
+		if passive_skill != null and not str(passive_skill.skill_name).is_empty() and not skill_names.has(passive_skill.skill_name):
+			skill_names.append(passive_skill.skill_name)
+	for hero_skill in hero.get("skills"):
+		var skill_name: String = PlayerSkillCatalogClass.get_skill_display_name(hero_skill)
+		if not skill_name.is_empty() and not skill_names.has(skill_name):
+			skill_names.append(skill_name)
+
+	passive_skill_area.visible = not skill_names.is_empty()
+	for skill_name in skill_names:
+		passive_skill_area.add_child(_create_skill_badge(skill_name))
+
+func _create_skill_badge(skill_name: String) -> Control:
+	var badge: Panel = Panel.new()
+	badge.name = "SkillBadge_%s" % skill_name.replace(" ", "_")
+	badge.custom_minimum_size = Vector2(88, 24)
+	var style: StyleBoxFlat = StyleBoxFlat.new()
+	style.bg_color = Color(0.20, 0.17, 0.09, 0.95)
+	style.border_color = Color(0.92, 0.76, 0.32, 0.90)
+	style.set_border_width_all(1)
+	style.set_corner_radius_all(5)
+	badge.add_theme_stylebox_override("panel", style)
+
+	var label: Label = Label.new()
+	label.text = skill_name
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	label.add_theme_font_size_override("font_size", 11)
+	label.add_theme_color_override("font_color", Color(1.0, 0.94, 0.80, 1.0))
+	label.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	badge.add_child(label)
+	return badge
 
 func _get_int(source: Object, property_name: String, fallback: int) -> int:
 	if source == null:

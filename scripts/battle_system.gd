@@ -1,6 +1,7 @@
 extends Node
 
 const PassiveSkillDataClass = preload("res://scripts/data/passive_skill.gd")
+const PlayerSkillCatalogClass = preload("res://scripts/data/player_skill_catalog.gd")
 const SkillManagerClass = preload("res://scripts/data/skill_manager.gd")
 const SkillEffectsClass = preload("res://scripts/data/skill_effects.gd")
 const ItemEffectsClass = preload("res://scripts/data/item_effects.gd")
@@ -10,6 +11,9 @@ const BazaarContentClass = preload("res://scripts/data/bazaar_content.gd")
 var game_manager: Node
 var skill_manager: RefCounted = null
 var skill_modifiers: Dictionary = {}
+var player_skill_refs: Array[Dictionary] = []
+var player_skill_map: Dictionary = {}
+var player_skill_counters: Dictionary = {}
 var is_battle_active: bool = false
 const BATTLE_TICK: float = 0.5
 const MIN_ITEM_COOLDOWN: float = 1.0
@@ -37,18 +41,27 @@ func _ensure_game_manager() -> void:
 
 func _init_skill_manager() -> void:
 	skill_manager = SkillManagerClass.new()
-	var available_skills = SkillManagerClass.new().load_skills_from_config()
-	for i in range(mini(available_skills.size(), 3)):
-		skill_manager.equip_skill(available_skills[i])
 	_refresh_skill_modifiers()
 
 func _refresh_skill_modifiers() -> void:
 	skill_modifiers = {}
+	player_skill_refs.clear()
+	player_skill_map.clear()
 	if game_manager == null or game_manager.selected_hero == null or skill_manager == null:
 		return
+	skill_manager.clear()
 	if _skill_target_hero != game_manager.selected_hero:
 		game_manager.selected_hero.refresh_skill_base_stats()
 		_skill_target_hero = game_manager.selected_hero
+	player_skill_refs = PlayerSkillCatalogClass.resolve_skill_refs(game_manager.selected_hero.skills)
+	for skill_ref in player_skill_refs:
+		var skill_id: String = str(skill_ref.get("id", ""))
+		if skill_id.is_empty():
+			continue
+		player_skill_map[skill_id] = skill_ref
+		var skill_data: SkillData = PlayerSkillCatalogClass.build_skill_data(skill_ref)
+		if skill_data != null:
+			skill_manager.equip_skill(skill_data)
 	skill_modifiers = skill_manager.apply_passive_skills(game_manager.selected_hero)
 
 func start_battle(monster: MonsterData, inv: LinearInventory) -> void:
@@ -61,6 +74,7 @@ func start_battle(monster: MonsterData, inv: LinearInventory) -> void:
 	item_runtime_bonuses.clear()
 	transformed_items.clear()
 	_refresh_skill_modifiers()
+	player_skill_counters.clear()
 	_reset_player_item_cooldowns(true)
 	_apply_player_start_item_effects()
 	if current_monster != null:
@@ -196,7 +210,6 @@ func _trigger_player_items() -> void:
 	hero_crit_rate = clampf(hero_crit_rate, 0.0, 1.0)
 	var passive_stats: Dictionary = _get_passive_combat_stats()
 	var lifesteal_rate: float = float(passive_stats.get("lifesteal", 0.0))
-	var cd_reduction: float = float(passive_stats.get("cd_reduction", 0.0))
 	var burn_bonus: float = 0.0 if hero == null else hero.skill_burn_bonus
 	var poison_bonus: float = 0.0 if hero == null else hero.skill_poison_bonus
 	for item in inventory.items.duplicate():
@@ -208,7 +221,7 @@ func _trigger_player_items() -> void:
 			continue
 		if _try_transform_potion_potion(item):
 			item.consume_ammo()
-			item.current_cooldown = _get_effective_cooldown(_get_player_item_effective_cooldown(item) * (1.0 - cd_reduction))
+			item.current_cooldown = _get_effective_cooldown(_get_player_item_effective_cooldown(item))
 			continue
 		var total_context: Dictionary = _new_use_context()
 		var multicast_count: int = _get_player_item_multicast_count(item)
@@ -220,7 +233,7 @@ func _trigger_player_items() -> void:
 			if _check_battle_end():
 				break
 		item.consume_ammo()
-		item.current_cooldown = _get_effective_cooldown(_get_player_item_effective_cooldown(item) * (1.0 - cd_reduction))
+		item.current_cooldown = _get_effective_cooldown(_get_player_item_effective_cooldown(item))
 		_after_player_item_used(item, total_context)
 
 func _trigger_monster_items() -> void:
@@ -338,7 +351,7 @@ func _trigger_player_item_once(item: ItemData, is_crit: bool, passive_lifesteal_
 	var lifesteal_rate: float = clampf(passive_lifesteal_rate + item_lifesteal_rate, 0.0, 1.0)
 
 	if item.damage > 0 and current_monster != null and current_monster.is_alive():
-		var base_damage: int = maxi(item.get_rarity_adjusted_damage() + runtime_damage, 0)
+		var base_damage: int = maxi(item.get_rarity_adjusted_damage() + runtime_damage + _get_player_item_skill_damage_bonus(item), 0)
 		var total_damage: int = base_damage * (2 if is_crit else 1)
 		current_monster.take_damage(total_damage)
 		context["damage"] = total_damage
@@ -351,7 +364,7 @@ func _trigger_player_item_once(item: ItemData, is_crit: bool, passive_lifesteal_
 				print("💚 [%s] 生命偷取恢复 %d 生命" % [item.item_name, stolen])
 
 	if item.shield > 0 and item.source_id != "duct_tape":
-		var total_shield: int = ItemEffectsClass.calculate_shield(item)
+		var total_shield: int = ItemEffectsClass.calculate_shield(item) + _get_player_item_skill_shield_bonus(item)
 		if is_crit:
 			total_shield *= 2
 		if hero != null:
@@ -497,6 +510,7 @@ func _after_player_item_used(item: ItemData, context: Dictionary) -> void:
 		_handle_player_status_reference(ItemEffectsClass.EFFECT_HASTE, haste_events)
 	if slow_events > 0:
 		_apply_smelling_salts_haste(item, slow_events)
+	_apply_player_skill_item_use_triggers(item, context)
 
 func _after_monster_item_used(item_index: int) -> void:
 	if current_monster == null:
@@ -528,6 +542,8 @@ func _get_player_item_effective_cooldown(item: ItemData) -> float:
 	for adjacent in _get_adjacent_player_items(item):
 		if adjacent != null and adjacent.source_id == "hourglass":
 			cooldown *= 1.0 - _get_rarity_value(adjacent, [0.03, 0.06, 0.09, 0.12], 0.0)
+	var passive_reduction: float = float(_get_passive_combat_stats().get("cd_reduction", 0.0))
+	cooldown *= 1.0 - passive_reduction
 	cooldown -= _get_item_runtime_bonus(item, "cooldown_flat_reduction")
 	return maxf(cooldown, 0.0)
 
@@ -540,12 +556,15 @@ func _get_player_item_effective_max_ammo(item: ItemData) -> int:
 	var right_item: ItemData = inventory.get_right_adjacent_item(item)
 	if right_item != null and right_item.source_id == "tazidian_dagger":
 		max_ammo += int(_get_rarity_value(right_item, [1, 2, 3, 4], 1.0))
+	max_ammo += int(round(_get_player_skill_value("gunner")))
 	return max_ammo
 
 func _get_player_item_crit_rate(item: ItemData, hero_crit_rate: float) -> float:
 	if item == null:
 		return clampf(hero_crit_rate, 0.0, 1.0)
 	var crit_rate: float = hero_crit_rate + item.crit_chance
+	crit_rate += float(_get_player_item_skill_crit_bonus(item)) / 100.0
+	crit_rate += _get_item_runtime_bonus(item, "crit_rate") / 100.0
 	var right_item: ItemData = null if inventory == null else inventory.get_right_adjacent_item(item)
 	if right_item != null and right_item.source_id == "optical_augment":
 		crit_rate += float(player_status_state.get("poison", 0.0)) / 100.0
@@ -683,6 +702,7 @@ func _handle_player_status_reference(status_type: String, trigger_count: int) ->
 		elif status_type == ItemEffectsClass.EFFECT_HASTE:
 			if candidate.source_id == "earrings":
 				_charge_player_item(candidate, 1.0 * float(trigger_count))
+	_apply_player_skill_status_triggers(status_type, trigger_count)
 
 func _apply_smelling_salts_haste(source_item: ItemData, trigger_count: int) -> void:
 	if inventory == null or source_item == null or trigger_count <= 0:
@@ -734,6 +754,108 @@ func _apply_player_start_item_effects() -> void:
 			"target": "self",
 		})
 		print("☠️ [%s] 开战时对自己施加中毒 +%d" % [item.item_name, int(poison_amount)])
+
+func _apply_player_skill_item_use_triggers(item: ItemData, context: Dictionary) -> void:
+	if item == null:
+		return
+	var use_count: int = int(context.get("use_count", 0))
+	if use_count <= 0:
+		return
+	if _has_player_skill("heated_shells") and item.has_ammo_limit():
+		var burn_amount: float = _get_player_skill_value("heated_shells")
+		if burn_amount > 0.0:
+			_apply_status_effect({
+				"type": ItemEffectsClass.EFFECT_BURN,
+				"value": burn_amount * float(use_count),
+				"duration": 0.0,
+				"item_name": _get_player_skill_name("heated_shells"),
+				"target": "enemy",
+			})
+			print("🔥 [%s] 响应 Ammo 使用，施加 %.0f 燃烧" % [_get_player_skill_name("heated_shells"), burn_amount * float(use_count)])
+
+func _apply_player_skill_status_triggers(status_type: String, trigger_count: int) -> void:
+	if trigger_count <= 0:
+		return
+	match status_type:
+		ItemEffectsClass.EFFECT_POISON:
+			if _has_player_skill("paralytic_poison") and _increment_skill_counter("paralytic_poison", 0) == 0:
+				var freeze_duration: float = _get_player_skill_value("paralytic_poison")
+				if freeze_duration > 0.0 and _slow_monster_items(1, freeze_duration) > 0:
+					_increment_skill_counter("paralytic_poison", 1)
+					effect_applied.emit(_get_player_skill_name("paralytic_poison"), ItemEffectsClass.EFFECT_FREEZE, int(round(freeze_duration)), "enemy")
+					print("❄️ [%s] 第一次 Poison 时冻结敌方物品 %.1f 秒" % [_get_player_skill_name("paralytic_poison"), freeze_duration])
+		ItemEffectsClass.EFFECT_SLOW:
+			if _has_player_skill("slow_burn"):
+				var limit: int = int(round(_get_player_skill_value("slow_burn", "limits")))
+				var charge_seconds: float = _get_player_skill_value("slow_burn", "charge_seconds")
+				if limit > 0 and charge_seconds > 0.0:
+					for _index in range(trigger_count):
+						if _increment_skill_counter("slow_burn", 0) >= limit:
+							break
+						if _charge_matching_player_item("burn", charge_seconds):
+							_increment_skill_counter("slow_burn", 1)
+							print("⚡ [%s] 响应 Slow，急速一个 Burn 物品 %.1f 秒" % [_get_player_skill_name("slow_burn"), charge_seconds])
+
+func _charge_matching_player_item(selector: String, seconds: float) -> bool:
+	if inventory == null or seconds <= 0.0:
+		return false
+	var candidates: Array[ItemData] = []
+	for candidate in inventory.items:
+		if candidate != null and _matches_player_item_selector(candidate, selector) and candidate.current_cooldown > 0.0:
+			candidates.append(candidate)
+	candidates.sort_custom(func(a: ItemData, b: ItemData) -> bool:
+		return a.current_cooldown > b.current_cooldown
+	)
+	if candidates.is_empty():
+		return false
+	_charge_player_item(candidates[0], seconds)
+	return true
+
+func _matches_player_item_selector(item: ItemData, selector: String) -> bool:
+	match selector:
+		"burn":
+			return _is_burn_item(item)
+		"weapon":
+			return _is_weapon_item(item)
+		_:
+			return false
+
+func _has_player_skill(skill_id: String) -> bool:
+	return player_skill_map.has(skill_id)
+
+func _get_player_skill_name(skill_id: String) -> String:
+	if not _has_player_skill(skill_id):
+		return skill_id
+	return PlayerSkillCatalogClass.get_skill_display_name(player_skill_map[skill_id])
+
+func _get_player_skill_value(skill_id: String, field: String = "values") -> float:
+	if not _has_player_skill(skill_id):
+		return 0.0
+	return PlayerSkillCatalogClass.get_tier_value(player_skill_map[skill_id], field, 0.0)
+
+func _increment_skill_counter(skill_id: String, amount: int = 1) -> int:
+	var current_value: int = int(player_skill_counters.get(skill_id, 0))
+	if amount != 0:
+		player_skill_counters[skill_id] = current_value + amount
+	return int(player_skill_counters.get(skill_id, current_value))
+
+func _get_player_item_skill_damage_bonus(item: ItemData) -> int:
+	if item == null:
+		return 0
+	return 0
+
+func _get_player_item_skill_shield_bonus(item: ItemData) -> int:
+	if item == null or item.shield <= 0:
+		return 0
+	var hero: HeroData = null if game_manager == null else game_manager.selected_hero
+	return 0 if hero == null else int(round(hero.skill_shield_bonus))
+
+func _get_player_item_skill_crit_bonus(item: ItemData) -> int:
+	if item == null:
+		return 0
+	if _has_player_skill("deadly_eye") and _is_weapon_item(item):
+		return int(round(_get_player_skill_value("deadly_eye")))
+	return 0
 
 func _get_other_emerald_poison_bonus(item: ItemData) -> float:
 	if inventory == null or item == null:
