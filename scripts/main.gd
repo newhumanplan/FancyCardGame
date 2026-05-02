@@ -197,7 +197,7 @@ func _on_mage_selected() -> void:
 
 func _on_mak_selected() -> void:
 	var mak = HeroFactoryService.create_hero(HeroDataClass.HeroType.MAK)
-	BazaarContentClass.apply_phase1_demo_player_skills(mak)
+	BazaarContentClass.apply_phase1_player_skill_loadout(mak)
 	GameManager.select_hero(mak)
 	_apply_passive_skills(mak)
 	_on_game_started()

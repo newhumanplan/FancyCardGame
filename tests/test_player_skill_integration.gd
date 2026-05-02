@@ -16,6 +16,7 @@ func _ready() -> void:
 
 func _run_tests() -> void:
 	test_battle_system_uses_selected_hero_skill_set()
+	test_deadly_eye_adds_weapon_crit_bonus()
 	test_heated_shells_adds_burn_when_ammo_item_is_used()
 	test_paralytic_poison_freezes_enemy_item_on_first_poison()
 	test_slow_burn_charges_a_burn_item_when_you_slow()
@@ -69,6 +70,25 @@ func test_battle_system_uses_selected_hero_skill_set() -> void:
 	_start_battle([], inv)
 	var skill_manager = _battle_system().get("skill_manager")
 	_assert_eq(skill_manager.get_skill_count(), 0, "battle system no longer auto-equips config skills when hero has none")
+	_battle_system().call("end_battle")
+
+func test_deadly_eye_adds_weapon_crit_bonus() -> void:
+	var inv: LinearInventoryClass = LinearInventoryClass.new()
+	var fang: ItemDataClass = _create_item("fang")
+	var med_kit: ItemDataClass = _create_item("med_kit")
+	_assert_true(inv.place_item(fang, 0), "places Fang")
+	_assert_true(inv.place_item(med_kit, 1), "places Med Kit")
+	_start_battle([{"id": "deadly_eye", "tier": "Bronze"}], inv)
+
+	var weapon_bonus: int = _battle_system().call("_get_player_item_skill_crit_bonus", fang)
+	var support_bonus: int = _battle_system().call("_get_player_item_skill_crit_bonus", med_kit)
+	var weapon_crit_rate: float = _battle_system().call("_get_player_item_crit_rate", fang, 0.05)
+	var support_crit_rate: float = _battle_system().call("_get_player_item_crit_rate", med_kit, 0.05)
+
+	_assert_eq(weapon_bonus, 5, "Deadly Eye grants a non-zero crit bonus to weapons")
+	_assert_eq(support_bonus, 0, "Deadly Eye does not buff non-weapon crit rate")
+	_assert_float_eq(weapon_crit_rate, 0.10, "Deadly Eye weapon crit rate stacks from the Bronze tier value")
+	_assert_float_eq(support_crit_rate, 0.05, "Deadly Eye leaves non-weapon crit rate unchanged")
 	_battle_system().call("end_battle")
 
 func test_heated_shells_adds_burn_when_ammo_item_is_used() -> void:

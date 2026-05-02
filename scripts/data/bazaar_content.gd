@@ -213,12 +213,12 @@ static func create_mak_hero() -> HeroDataClass:
 	hero.available_items = get_mak_item_ids()
 	return hero
 
-static func apply_phase1_demo_player_skills(hero: HeroDataClass) -> void:
+static func apply_phase1_player_skill_loadout(hero: HeroDataClass) -> void:
 	if hero == null:
 		return
 	if hero.hero_type == HeroDataClass.HeroType.MAK:
-		# Phase 1 demo hook: expose confirmed Mak-compatible skill behavior without claiming
-		# this is the final seven-hero progression data set.
+		# Phase 1 currently exposes the validated Mak-compatible skill loadout while the
+		# broader hero progression import remains a separate content step.
 		hero.skills = ["fiery", "improved_toxins", "heated_shells", "paralytic_poison", "slow_burn"]
 
 static func get_mak_item_ids() -> Array[String]:

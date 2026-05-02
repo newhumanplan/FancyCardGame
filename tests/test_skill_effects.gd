@@ -63,6 +63,7 @@ func _assert_float_eq(actual: float, expected: float, label: String, tolerance: 
 
 func _print_summary() -> void:
 	print("SUMMARY: %d/%d passed" % [_passed, _total])
+	get_tree().quit(1 if _passed < _total else 0)
 
 
 func test_apply_passive_skills_updates_crit_health_and_shield() -> void:
