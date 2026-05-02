@@ -66,7 +66,7 @@ func test_all_confirmed_hero_item_collections() -> void:
 		HeroDataClass.HeroType.MAK: 100,
 		HeroDataClass.HeroType.STELLE: 15,
 		HeroDataClass.HeroType.JULES: 8,
-		HeroDataClass.HeroType.KARNOK: 10,
+		HeroDataClass.HeroType.KARNOK: 20,
 	}
 	for hero_type in minimums.keys():
 		var ids: Array[String] = BazaarContentClass.get_hero_item_ids(hero_type)
@@ -74,6 +74,8 @@ func test_all_confirmed_hero_item_collections() -> void:
 		var item: ItemDataClass = BazaarContentClass.create_random_hero_shop_item(hero_type, BazaarContentClass.RARITY_DIAMOND, [], "", "")
 		_assert_true(item != null, "hero shop can generate item: %s" % str(hero_type))
 	_assert_true(BazaarContentClass.get_hero_item_ids(HeroDataClass.HeroType.KARNOK).has("hunters_axe"), "Karnok BazaarDB subset includes Hunter's Axe")
+	_assert_true(BazaarContentClass.get_hero_item_ids(HeroDataClass.HeroType.KARNOK).has("adrenaline_shot"), "Karnok Mobalytics list includes Adrenaline Shot")
+	_assert_true(BazaarContentClass.get_hero_item_ids(HeroDataClass.HeroType.KARNOK).has("bear_trap"), "Karnok Mobalytics list includes Bear Trap")
 
 func test_day1_monster_values_match_wiki() -> void:
 	var viper = BazaarContentClass.create_day1_monster("viper")

@@ -83,9 +83,10 @@ func test_bazaar_hero_content_loaded() -> void:
 		_assert_true(hero.skills.size() > 0, "hero %s has skill loadout" % hero.get_type_name())
 
 func test_confirmed_hero_art_paths() -> void:
-	for hero_type in [HeroDataClass.HeroType.VANESSA, HeroDataClass.HeroType.PYGMALIEN, HeroDataClass.HeroType.DOOLEY, HeroDataClass.HeroType.MAK, HeroDataClass.HeroType.STELLE, HeroDataClass.HeroType.JULES]:
+	for hero_type in [HeroDataClass.HeroType.VANESSA, HeroDataClass.HeroType.PYGMALIEN, HeroDataClass.HeroType.DOOLEY, HeroDataClass.HeroType.MAK, HeroDataClass.HeroType.STELLE, HeroDataClass.HeroType.JULES, HeroDataClass.HeroType.KARNOK]:
 		var art_path: String = BazaarContentClass.get_hero_art_path(hero_type)
-		_assert_true(not art_path.is_empty(), "confirmed hero art exists for %s" % str(hero_type))
+		_assert_true(not art_path.is_empty(), "confirmed hero art path exists for %s" % str(hero_type))
+		_assert_true(FileAccess.file_exists(art_path), "confirmed hero art file exists for %s" % str(hero_type))
 
 
 func test_warrior_has_correct_stats() -> void:
