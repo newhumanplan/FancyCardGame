@@ -4,6 +4,7 @@ extends RefCounted
 const BazaarContentClass = preload("res://scripts/data/bazaar_content.gd")
 const ItemDataClass = preload("res://scripts/data/item_data.gd")
 const LinearInventoryClass = preload("res://scripts/data/linear_inventory.gd")
+const HeroDataClass = preload("res://scripts/data/hero_data.gd")
 const PassiveSkillDataClass = preload("res://scripts/data/passive_skill.gd")
 const ItemAcquisitionClass = preload("res://scripts/data/item_acquisition.gd")
 
@@ -135,19 +136,20 @@ func _pick_random_event(day: int, excluded_ids: Dictionary = {}) -> Dictionary:
 func execute_random_event(event_id: String, day: int, game_manager: Node, inventory: LinearInventoryClass = null, stash_inventory: LinearInventoryClass = null) -> String:
 	if game_manager == null:
 		return "事件执行失败: GameManager 不存在"
+	var hero_type: HeroDataClass.HeroType = game_manager.selected_hero.hero_type if game_manager.selected_hero != null else HeroDataClass.HeroType.MAK
 	match event_id:
 		"a_strange_mushroom":
-			var potion: ItemDataClass = BazaarContentClass.create_random_mak_day1_item(BazaarContentClass.RARITY_SILVER, "Small", "Potion", true)
+			var potion: ItemDataClass = BazaarContentClass.create_random_hero_item(hero_type, BazaarContentClass.RARITY_SILVER, "Small", "Potion", true)
 			return _grant_item_or_gold(potion, inventory, stash_inventory, game_manager, 4, "A Strange Mushroom: Mak brew a small Silver-tier Potion")
 		"armory":
-			var weapon: ItemDataClass = BazaarContentClass.create_random_mak_day1_item(BazaarContentClass.RARITY_BRONZE, "", "Weapon", true)
+			var weapon: ItemDataClass = BazaarContentClass.create_random_hero_item(hero_type, BazaarContentClass.RARITY_BRONZE, "", "Weapon", true)
 			return _grant_item_or_gold(weapon, inventory, stash_inventory, game_manager, 0, "Armory: get a free Weapon")
 		"b1_b2":
 			if _upgrade_first_bronze_item(inventory):
 				return "B1&B2: upgraded 1 Bronze-tier item."
 			return "B1&B2: no Bronze item to upgrade."
 		"battlefield":
-			var small_weapon: ItemDataClass = BazaarContentClass.create_random_mak_day1_item(BazaarContentClass.RARITY_BRONZE, "Small", "Weapon", true)
+			var small_weapon: ItemDataClass = BazaarContentClass.create_random_hero_item(hero_type, BazaarContentClass.RARITY_BRONZE, "Small", "Weapon", true)
 			return _grant_item_or_gold(small_weapon, inventory, stash_inventory, game_manager, 0, "Battlefield: get a free small Weapon")
 		"borrow":
 			game_manager.add_income(-1)
@@ -155,7 +157,7 @@ func execute_random_event(event_id: String, day: int, game_manager: Node, invent
 			game_manager.add_gold(borrow_gold)
 			return "Borrow: lost 1 Income and gained %d Gold." % borrow_gold
 		"botanical_gardens":
-			var poison_item: ItemDataClass = BazaarContentClass.create_random_mak_day1_item(BazaarContentClass.RARITY_BRONZE, "", "Poison", true)
+			var poison_item: ItemDataClass = BazaarContentClass.create_random_hero_item(hero_type, BazaarContentClass.RARITY_BRONZE, "", "Poison", true)
 			return _grant_item_or_gold(poison_item, inventory, stash_inventory, game_manager, 0, "Botanical Gardens: get a free Poison item")
 		"cache_of_riches":
 			var cache_gold: int = 3 if day <= 2 else (4 if day <= 4 else 5)
@@ -176,20 +178,20 @@ func execute_random_event(event_id: String, day: int, game_manager: Node, invent
 			game_manager.add_max_health(bite_health)
 			return "Finn's Big Bite: gained %d Max Health." % bite_health
 		"furnace":
-			var burn_item: ItemDataClass = BazaarContentClass.create_random_mak_day1_item(BazaarContentClass.RARITY_BRONZE, "Small", "Burn", true)
+			var burn_item: ItemDataClass = BazaarContentClass.create_random_hero_item(hero_type, BazaarContentClass.RARITY_BRONZE, "Small", "Burn", true)
 			return _grant_item_or_gold(burn_item, inventory, stash_inventory, game_manager, 0, "Furnace: get a small Burn item")
 		"guard_locker":
-			var shield_item: ItemDataClass = BazaarContentClass.create_random_mak_day1_item(BazaarContentClass.RARITY_BRONZE, "Small", "Shield", true)
+			var shield_item: ItemDataClass = BazaarContentClass.create_random_hero_item(hero_type, BazaarContentClass.RARITY_BRONZE, "Small", "Shield", true)
 			return _grant_item_or_gold(shield_item, inventory, stash_inventory, game_manager, 0, "Guard Locker: get a small Shield item")
 		"house_party":
-			var friend_item: ItemDataClass = BazaarContentClass.create_random_mak_day1_item(BazaarContentClass.RARITY_BRONZE, "Small", "Friend", true)
+			var friend_item: ItemDataClass = BazaarContentClass.create_random_hero_item(hero_type, BazaarContentClass.RARITY_BRONZE, "Small", "Friend", true)
 			return _grant_item_or_gold(friend_item, inventory, stash_inventory, game_manager, 0, "House Party: get a small Friend")
 		"invest_in_yourself":
 			var income_gain: int = 1 if day <= 3 else 2
 			game_manager.add_income(income_gain)
 			return "Invest in Yourself: gained %d Income." % income_gain
 		"jungle_ruins":
-			var reagent: ItemDataClass = BazaarContentClass.create_random_mak_day1_item(BazaarContentClass.RARITY_SILVER, "", "Reagent", true)
+			var reagent: ItemDataClass = BazaarContentClass.create_random_hero_item(hero_type, BazaarContentClass.RARITY_SILVER, "", "Reagent", true)
 			return _grant_item_or_gold(reagent, inventory, stash_inventory, game_manager, 0, "Jungle Ruins: hunted for a Silver Reagent")
 		"look_for_spare_change":
 			game_manager.add_gold(3)
@@ -201,7 +203,7 @@ func execute_random_event(event_id: String, day: int, game_manager: Node, invent
 			var medicine: ItemDataClass = _create_random_tag_item(["Heal", "Regen"], BazaarContentClass.RARITY_BRONZE, "Small")
 			return _grant_item_or_gold(medicine, inventory, stash_inventory, game_manager, 0, "Medicine Cabinet: get a small Heal or Regen item")
 		"obstacle_course":
-			var slow_item: ItemDataClass = BazaarContentClass.create_random_mak_day1_item(BazaarContentClass.RARITY_BRONZE, "", "Slow", true)
+			var slow_item: ItemDataClass = BazaarContentClass.create_random_hero_item(hero_type, BazaarContentClass.RARITY_BRONZE, "", "Slow", true)
 			return _grant_item_or_gold(slow_item, inventory, stash_inventory, game_manager, 0, "Obstacle Course: get a Slow item")
 		"procure_medkit":
 			return _grant_item_or_gold(BazaarContentClass.create_item("med_kit", BazaarContentClass.RARITY_BRONZE), inventory, stash_inventory, game_manager, 0, "Procure Medkit: get Med Kit")
@@ -209,7 +211,7 @@ func execute_random_event(event_id: String, day: int, game_manager: Node, invent
 			var haste_item: ItemDataClass = BazaarContentClass.create_item("smelling_salts", BazaarContentClass.RARITY_BRONZE)
 			return _grant_item_or_gold(haste_item, inventory, stash_inventory, game_manager, 0, "Racetrack: get a Haste item")
 		"regenerative_tincture":
-			var regen_item: ItemDataClass = BazaarContentClass.create_random_mak_day1_item(BazaarContentClass.RARITY_BRONZE, "Small", "Regen", true)
+			var regen_item: ItemDataClass = BazaarContentClass.create_random_hero_item(hero_type, BazaarContentClass.RARITY_BRONZE, "Small", "Regen", true)
 			return _grant_item_or_gold(regen_item, inventory, stash_inventory, game_manager, 0, "Regenerative Tincture: get a Regen item")
 		"relax":
 			var shield_value: int = 100 * maxi(int(game_manager.level), 1)
@@ -221,20 +223,20 @@ func execute_random_event(event_id: String, day: int, game_manager: Node, invent
 		"scrap_salvage":
 			return _grant_item_or_gold(BazaarContentClass.create_item("scrap", BazaarContentClass.RARITY_BRONZE), inventory, stash_inventory, game_manager, 0, "Scrap Salvage: get Scrap")
 		"sharpening_kit":
-			var damage_item: ItemDataClass = BazaarContentClass.create_random_mak_day1_item(BazaarContentClass.RARITY_BRONZE, "Small", "Damage", true)
+			var damage_item: ItemDataClass = BazaarContentClass.create_random_hero_item(hero_type, BazaarContentClass.RARITY_BRONZE, "Small", "Damage", true)
 			return _grant_item_or_gold(damage_item, inventory, stash_inventory, game_manager, 0, "Sharpening Kit: get a small Damage item")
 		"snack_time":
 			var snack_health: int = 20 * maxi(int(game_manager.level), 1)
 			game_manager.add_max_health(snack_health)
 			return "Snack Time: gained %d Max Health." % snack_health
 		"the_lost_crate":
-			var medium_item: ItemDataClass = BazaarContentClass.create_random_mak_day1_item(BazaarContentClass.RARITY_BRONZE, "Medium", "", true)
+			var medium_item: ItemDataClass = BazaarContentClass.create_random_hero_item(hero_type, BazaarContentClass.RARITY_BRONZE, "Medium", "", true)
 			return _grant_item_or_gold(medium_item, inventory, stash_inventory, game_manager, 0, "The Lost Crate: opened for a Medium item")
 		"tiny_furry_monster":
 			game_manager.add_max_health(25)
 			return "Tiny Furry Monster: gained 25 Max Health."
 		"treasure_chest":
-			var treasure_item: ItemDataClass = BazaarContentClass.create_random_mak_day1_item(BazaarContentClass.RARITY_BRONZE, "", "", true)
+			var treasure_item: ItemDataClass = BazaarContentClass.create_random_hero_item(hero_type, BazaarContentClass.RARITY_BRONZE, "", "", true)
 			return _grant_item_or_gold(treasure_item, inventory, stash_inventory, game_manager, 0, "Treasure Chest: get an item")
 
 		_:

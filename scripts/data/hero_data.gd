@@ -2,7 +2,7 @@ class_name HeroData
 extends Resource
 
 ## 英雄类型枚举
-enum HeroType { WARRIOR, MAGE, MAK }
+enum HeroType { WARRIOR, MAGE, VANESSA, PYGMALIEN, DOOLEY, MAK, STELLE, JULES, KARNOK }
 
 ## ============ 基础属性 ============
 
@@ -154,7 +154,13 @@ func get_type_name() -> String:
 	match hero_type:
 		HeroType.WARRIOR: return "战士"
 		HeroType.MAGE: return "法师"
+		HeroType.VANESSA: return "Vanessa"
+		HeroType.PYGMALIEN: return "Pygmalien"
+		HeroType.DOOLEY: return "Dooley"
 		HeroType.MAK: return "Mak"
+		HeroType.STELLE: return "Stelle"
+		HeroType.JULES: return "Jules"
+		HeroType.KARNOK: return "Karnok"
 		_: return "未知"
 
 ## 检查是否暴击

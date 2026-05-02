@@ -55,6 +55,8 @@ var hero_label: Label = null
 @onready var warrior_button: Button = $HeroSelectPanel/HeroSelectVBox/Heroes/WarriorButton
 @onready var mage_button: Button = $HeroSelectPanel/HeroSelectVBox/Heroes/MageButton
 @onready var mak_button: Button = $HeroSelectPanel/HeroSelectVBox/Heroes/MakButton
+@onready var heroes_button_container: Container = $HeroSelectPanel/HeroSelectVBox/Heroes
+var bazaar_hero_buttons: Dictionary = {}
 
 ## 主界面区域
 @onready var title_label: Label = $VBox/Title
@@ -156,6 +158,7 @@ func _setup_buttons() -> void:
 	warrior_button.pressed.connect(_on_warrior_selected)
 	mage_button.pressed.connect(_on_mage_selected)
 	mak_button.pressed.connect(_on_mak_selected)
+	_setup_bazaar_hero_buttons()
 
 	# 游戏按钮
 	shop_button.pressed.connect(_on_shop_pressed)
@@ -196,10 +199,42 @@ func _on_mage_selected() -> void:
 	_on_game_started()
 
 func _on_mak_selected() -> void:
-	var mak = HeroFactoryService.create_hero(HeroDataClass.HeroType.MAK)
-	BazaarContentClass.apply_phase1_player_skill_loadout(mak)
-	GameManager.select_hero(mak)
-	_apply_passive_skills(mak)
+	_on_bazaar_hero_selected(HeroDataClass.HeroType.MAK)
+
+func _setup_bazaar_hero_buttons() -> void:
+	var specs: Array[Dictionary] = BazaarContentClass.get_hero_profile_specs()
+	for spec in specs:
+		var hero_type: HeroDataClass.HeroType = spec.get("type", HeroDataClass.HeroType.MAK)
+		if hero_type == HeroDataClass.HeroType.MAK:
+			mak_button.text = _format_bazaar_hero_button(spec)
+			continue
+		var button: Button = bazaar_hero_buttons.get(hero_type, null)
+		if button == null:
+			button = Button.new()
+			button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			heroes_button_container.add_child(button)
+			bazaar_hero_buttons[hero_type] = button
+		button.text = _format_bazaar_hero_button(spec)
+		if not button.pressed.is_connected(_on_bazaar_hero_selected.bind(hero_type)):
+			button.pressed.connect(_on_bazaar_hero_selected.bind(hero_type))
+
+func _format_bazaar_hero_button(spec: Dictionary) -> String:
+	var item_count: int = BazaarContentClass.get_hero_item_ids(spec.get("type", HeroDataClass.HeroType.MAK)).size()
+	return "%s\nHP: %d | 暴击: %.0f%% | %d wiki items" % [
+		str(spec.get("name", "Hero")),
+		int(spec.get("max_hp", 100)),
+		float(spec.get("crit", 0.05)) * 100.0,
+		item_count,
+	]
+
+func _on_bazaar_hero_selected(hero_type: HeroDataClass.HeroType) -> void:
+	var hero = HeroFactoryService.create_hero(hero_type)
+	if hero == null:
+		push_error("Unable to create Bazaar hero: %s" % str(hero_type))
+		return
+	BazaarContentClass.apply_phase1_player_skill_loadout(hero)
+	GameManager.select_hero(hero)
+	_apply_passive_skills(hero)
 	_on_game_started()
 
 ## 应用被动技能（统一使用 PassiveSkillDataClass 新版）

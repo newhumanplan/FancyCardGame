@@ -71,10 +71,10 @@ anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -300.0
-offset_top = -225.0
-offset_right = 300.0
-offset_bottom = 225.0
+offset_left = -420.0
+offset_top = -300.0
+offset_right = 420.0
+offset_bottom = 300.0
 grow_horizontal = 2
 grow_vertical = 2
 
@@ -87,10 +87,11 @@ layout_mode = 2
 text = "选择你的英雄"
 horizontal_alignment = 1
 
-[node name="Heroes" type="HBoxContainer" parent="HeroSelectPanel/HeroSelectVBox"]
+[node name="Heroes" type="GridContainer" parent="HeroSelectPanel/HeroSelectVBox"]
 layout_mode = 2
-alignment = 1
-theme_override_constants/separation = 45
+theme_override_constants/h_separation = 16
+theme_override_constants/v_separation = 16
+columns = 3
 
 [node name="WarriorButton" type="Button" parent="HeroSelectPanel/HeroSelectVBox/Heroes"]
 layout_mode = 2

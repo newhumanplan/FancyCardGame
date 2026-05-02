@@ -7,6 +7,7 @@ extends Control
 const EconomyManagerClass = preload("res://scripts/data/economy_manager.gd")
 const ItemDataClass = preload("res://scripts/data/item_data.gd")
 const LinearInventoryClass = preload("res://scripts/data/linear_inventory.gd")
+const HeroDataClass = preload("res://scripts/data/hero_data.gd")
 const BazaarContentClass = preload("res://scripts/data/bazaar_content.gd")
 const ItemAcquisitionClass = preload("res://scripts/data/item_acquisition.gd")
 const ItemArtCatalogClass = preload("res://scripts/data/item_art_catalog.gd")
@@ -661,18 +662,19 @@ func _create_random_item(day: int, max_rarity: int) -> ItemDataClass:
 
 func _create_random_shop_item_with_fallback(max_rarity: int, required_size: String, required_tag: String) -> ItemDataClass:
 	var owned_items: Array[ItemDataClass] = _get_owned_items_for_shop()
-	var generated_item: ItemDataClass = BazaarContentClass.create_random_mak_day1_shop_item(max_rarity, owned_items, required_size, required_tag)
+	var hero_type: HeroDataClass.HeroType = GameManager.selected_hero.hero_type if GameManager.selected_hero != null else HeroDataClass.HeroType.MAK
+	var generated_item: ItemDataClass = BazaarContentClass.create_random_hero_shop_item(hero_type, max_rarity, owned_items, required_size, required_tag)
 	if generated_item != null:
 		return generated_item
 	if not required_tag.is_empty():
-		generated_item = BazaarContentClass.create_random_mak_day1_shop_item(max_rarity, owned_items, required_size, "")
+		generated_item = BazaarContentClass.create_random_hero_shop_item(hero_type, max_rarity, owned_items, required_size, "")
 		if generated_item != null:
 			return generated_item
 	if not required_size.is_empty():
-		generated_item = BazaarContentClass.create_random_mak_day1_shop_item(max_rarity, owned_items, "", required_tag)
+		generated_item = BazaarContentClass.create_random_hero_shop_item(hero_type, max_rarity, owned_items, "", required_tag)
 		if generated_item != null:
 			return generated_item
-	return BazaarContentClass.create_random_mak_day1_shop_item(max_rarity, owned_items, "", "")
+	return BazaarContentClass.create_random_hero_shop_item(hero_type, max_rarity, owned_items, "", "")
 
 func _get_owned_items_for_shop() -> Array[ItemDataClass]:
 	return ItemAcquisitionClass.collect_owned_items(inventory, stash_inventory)

@@ -13,8 +13,20 @@ func create_hero(hero_type: HeroDataClass.HeroType) -> HeroDataClass:
 			return _create_warrior()
 		HeroDataClass.HeroType.MAGE:
 			return _create_mage()
+		HeroDataClass.HeroType.VANESSA:
+			return BazaarContentClass.create_bazaar_hero(hero_type)
+		HeroDataClass.HeroType.PYGMALIEN:
+			return BazaarContentClass.create_bazaar_hero(hero_type)
+		HeroDataClass.HeroType.DOOLEY:
+			return BazaarContentClass.create_bazaar_hero(hero_type)
 		HeroDataClass.HeroType.MAK:
-			return BazaarContentClass.create_mak_hero()
+			return BazaarContentClass.create_bazaar_hero(hero_type)
+		HeroDataClass.HeroType.STELLE:
+			return BazaarContentClass.create_bazaar_hero(hero_type)
+		HeroDataClass.HeroType.JULES:
+			return BazaarContentClass.create_bazaar_hero(hero_type)
+		HeroDataClass.HeroType.KARNOK:
+			return BazaarContentClass.create_bazaar_hero(hero_type)
 	return _create_warrior()
 
 func _create_warrior() -> HeroDataClass:

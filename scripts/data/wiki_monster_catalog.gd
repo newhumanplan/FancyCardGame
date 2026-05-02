@@ -590,6 +590,12 @@ static func get_item_specs() -> Array[Dictionary]:
 static func get_skill_specs() -> Array[Dictionary]:
 	return MONSTER_SKILL_SPECS.duplicate(true)
 
+static func get_item_specs_for_collection(collection_name: String) -> Array[Dictionary]:
+	return _get_specs_for_collection(MONSTER_ITEM_SPECS, collection_name)
+
+static func get_skill_specs_for_collection(collection_name: String) -> Array[Dictionary]:
+	return _get_specs_for_collection(MONSTER_SKILL_SPECS, collection_name)
+
 static func find_item_spec(item_id: String) -> Dictionary:
 	for spec in MONSTER_ITEM_SPECS:
 		if str(spec.get("id", "")) == item_id:
@@ -607,6 +613,19 @@ static func find_monster_spec(monster_id: String) -> Dictionary:
 		if str(spec.get("id", "")) == monster_id:
 			return spec.duplicate(true)
 	return {}
+
+static func _get_specs_for_collection(source_specs: Array[Dictionary], collection_name: String) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	var needle: String = collection_name.strip_edges().to_lower()
+	if needle.is_empty():
+		return result
+	for spec in source_specs:
+		var raw_collection: String = str(spec.get("collection", ""))
+		for part in raw_collection.split(","):
+			if part.strip_edges().to_lower() == needle:
+				result.append(spec.duplicate(true))
+				break
+	return result
 
 static func get_monster_specs_for_level(level: int) -> Array[Dictionary]:
 	var specs: Array[Dictionary] = []

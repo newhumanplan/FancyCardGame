@@ -10,6 +10,7 @@ extends Control
 const EconomyManagerClass = preload("res://scripts/data/economy_manager.gd")
 const ItemDataClass = preload("res://scripts/data/item_data.gd")
 const LinearInventoryClass = preload("res://scripts/data/linear_inventory.gd")
+const HeroDataClass = preload("res://scripts/data/hero_data.gd")
 const BazaarContentClass = preload("res://scripts/data/bazaar_content.gd")
 const ItemArtCatalogClass = preload("res://scripts/data/item_art_catalog.gd")
 
@@ -114,7 +115,8 @@ func _get_max_rarity_for_day(day: int) -> int:
 
 ## 创建随机物品
 func _create_random_item(day: int, max_rarity: int) -> ItemDataClass:
-	var bazaar_item: ItemDataClass = BazaarContentClass.create_random_mak_day1_item(mini(max_rarity, BazaarContentClass.RARITY_BRONZE), "", "", true)
+	var hero_type: HeroDataClass.HeroType = GameManager.selected_hero.hero_type if GameManager.selected_hero != null else HeroDataClass.HeroType.MAK
+	var bazaar_item: ItemDataClass = BazaarContentClass.create_random_hero_item(hero_type, mini(max_rarity, BazaarContentClass.RARITY_BRONZE), "", "", true)
 	if bazaar_item != null:
 		return bazaar_item
 

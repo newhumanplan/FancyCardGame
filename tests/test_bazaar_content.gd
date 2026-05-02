@@ -14,6 +14,7 @@ func _ready() -> void:
 		test_mak_hero_factory_data()
 		test_mak_bronze_item_values_match_wiki()
 		test_full_mak_item_catalog_and_starting_tiers()
+		test_all_confirmed_hero_item_collections()
 		test_day1_monster_values_match_wiki()
 		test_full_monster_catalog_values_match_wiki()
 		test_day1_event_catalog()
@@ -56,6 +57,23 @@ func test_full_mak_item_catalog_and_starting_tiers() -> void:
 	var regeneration_potion: ItemDataClass = BazaarContentClass.create_item("regeneration_potion", BazaarContentClass.RARITY_GOLD)
 	_assert_eq(regeneration_potion.buy_price, 8, "Gold Regeneration Potion uses second wiki cost tier")
 	_assert_eq(int(regeneration_potion.regeneration), 16, "Gold Regeneration Potion regen value")
+
+func test_all_confirmed_hero_item_collections() -> void:
+	var minimums: Dictionary = {
+		HeroDataClass.HeroType.VANESSA: 50,
+		HeroDataClass.HeroType.PYGMALIEN: 30,
+		HeroDataClass.HeroType.DOOLEY: 30,
+		HeroDataClass.HeroType.MAK: 100,
+		HeroDataClass.HeroType.STELLE: 15,
+		HeroDataClass.HeroType.JULES: 8,
+		HeroDataClass.HeroType.KARNOK: 10,
+	}
+	for hero_type in minimums.keys():
+		var ids: Array[String] = BazaarContentClass.get_hero_item_ids(hero_type)
+		_assert_true(ids.size() >= int(minimums[hero_type]), "confirmed hero collection has enough items: %s" % str(hero_type))
+		var item: ItemDataClass = BazaarContentClass.create_random_hero_shop_item(hero_type, BazaarContentClass.RARITY_DIAMOND, [], "", "")
+		_assert_true(item != null, "hero shop can generate item: %s" % str(hero_type))
+	_assert_true(BazaarContentClass.get_hero_item_ids(HeroDataClass.HeroType.KARNOK).has("hunters_axe"), "Karnok BazaarDB subset includes Hunter's Axe")
 
 func test_day1_monster_values_match_wiki() -> void:
 	var viper = BazaarContentClass.create_day1_monster("viper")

@@ -2,6 +2,7 @@ extends Node
 
 const HeroDataClass = preload("res://scripts/data/hero_data.gd")
 const PassiveSkillDataClass = preload("res://scripts/data/passive_skill.gd")
+const BazaarContentClass = preload("res://scripts/data/bazaar_content.gd")
 
 var _total: int = 0
 var _passed: int = 0
@@ -19,6 +20,9 @@ func _run_tests() -> void:
 	test_create_warrior()
 	test_create_mage()
 	test_create_mak()
+	test_create_all_bazaar_heroes()
+	test_bazaar_hero_content_loaded()
+	test_confirmed_hero_art_paths()
 	test_warrior_has_correct_stats()
 	test_mage_has_correct_stats()
 	test_mak_has_real_item_pool()
@@ -55,6 +59,33 @@ func test_create_mak() -> void:
 	_assert_not_null(hero, "create_hero(MAK) should return a HeroData")
 	_assert_eq(hero.hero_name, "Mak", "mak hero_name")
 	_assert_eq(hero.hero_type, HeroDataClass.HeroType.MAK, "mak hero_type")
+
+func test_create_all_bazaar_heroes() -> void:
+	var hf = get_node("/root/HeroFactoryService")
+	for hero_type in [HeroDataClass.HeroType.VANESSA, HeroDataClass.HeroType.PYGMALIEN, HeroDataClass.HeroType.DOOLEY, HeroDataClass.HeroType.MAK, HeroDataClass.HeroType.STELLE, HeroDataClass.HeroType.JULES, HeroDataClass.HeroType.KARNOK]:
+		var hero = hf.create_hero(hero_type)
+		_assert_not_null(hero, "create_hero(%s) should return a HeroData" % str(hero_type))
+		_assert_eq(hero.hero_type, hero_type, "bazaar hero_type %s" % str(hero_type))
+
+func test_bazaar_hero_content_loaded() -> void:
+	var expected_minimums: Dictionary = {
+		HeroDataClass.HeroType.VANESSA: 50,
+		HeroDataClass.HeroType.PYGMALIEN: 30,
+		HeroDataClass.HeroType.DOOLEY: 30,
+		HeroDataClass.HeroType.MAK: 100,
+		HeroDataClass.HeroType.STELLE: 15,
+		HeroDataClass.HeroType.JULES: 8,
+		HeroDataClass.HeroType.KARNOK: 10,
+	}
+	for hero_type in expected_minimums.keys():
+		var hero = get_node("/root/HeroFactoryService").create_hero(hero_type)
+		_assert_true(hero.available_items.size() >= int(expected_minimums[hero_type]), "hero %s item pool is loaded" % hero.get_type_name())
+		_assert_true(hero.skills.size() > 0, "hero %s has skill loadout" % hero.get_type_name())
+
+func test_confirmed_hero_art_paths() -> void:
+	for hero_type in [HeroDataClass.HeroType.VANESSA, HeroDataClass.HeroType.PYGMALIEN, HeroDataClass.HeroType.DOOLEY, HeroDataClass.HeroType.MAK, HeroDataClass.HeroType.STELLE, HeroDataClass.HeroType.JULES]:
+		var art_path: String = BazaarContentClass.get_hero_art_path(hero_type)
+		_assert_true(not art_path.is_empty(), "confirmed hero art exists for %s" % str(hero_type))
 
 
 func test_warrior_has_correct_stats() -> void:

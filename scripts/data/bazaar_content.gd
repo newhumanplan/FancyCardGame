@@ -4,12 +4,40 @@ extends RefCounted
 const ItemDataClass = preload("res://scripts/data/item_data.gd")
 const MonsterDataClass = preload("res://scripts/data/monster_data.gd")
 const HeroDataClass = preload("res://scripts/data/hero_data.gd")
+const PassiveSkillDataClass = preload("res://scripts/data/passive_skill.gd")
 const WikiMonsterCatalogClass = preload("res://scripts/data/wiki_monster_catalog.gd")
 
 const RARITY_BRONZE: int = 1
 const RARITY_SILVER: int = 2
 const RARITY_GOLD: int = 3
 const RARITY_DIAMOND: int = 4
+
+const HERO_PROFILE_SPECS: Array[Dictionary] = [
+	{"type": HeroDataClass.HeroType.VANESSA, "id": "vanessa", "name": "Vanessa", "max_hp": 100, "crit": 0.08, "collection": "Vanessa", "skills": ["deadly_eye", "gunner", "flashy_reload", "crashing_waves", "improved_toxins"], "passives": [{"name": "Aggressive Arsenal", "description": "Wiki gameplay profile: Weapons, Ammo, and Aquatic control define Vanessa's core plans.", "type": "crit", "value": 3.0}, {"name": "Control/Aquatic", "description": "Vanessa supports slowing opponents while building Poison and heavy Aquatic payoffs.", "type": "cooldown", "value": 3.0}]},
+	{"type": HeroDataClass.HeroType.PYGMALIEN, "id": "pygmalien", "name": "Pygmalien", "max_hp": 125, "crit": 0.04, "collection": "Pygmalien", "skills": ["toughness", "overheal_haste", "critical_aid", "frontal_shielding", "strength"], "passives": [{"name": "Immovable Object", "description": "Wiki gameplay profile: Healing, Shielding, Max Health, and economy scaling.", "type": "health", "value": 25.0}, {"name": "Jaballian Value", "description": "Pygmalien's item set converts economy and value into combat pressure.", "type": "shield", "value": 15.0}]},
+	{"type": HeroDataClass.HeroType.DOOLEY, "id": "dooley", "name": "Dooley", "max_hp": 105, "crit": 0.05, "collection": "Dooley", "skills": ["flashy_mechanic", "electrified_hull", "beautiful_friendship", "time_to_tinker", "distributed_systems"], "passives": [{"name": "Core Chain Reaction", "description": "Wiki gameplay profile: Cores trigger and buff items around them for chain reactions.", "type": "cooldown", "value": 5.0}, {"name": "Robot Friends", "description": "Dooley has access to many robot Friend items and Companion Core-style boards.", "type": "shield", "value": 10.0}]},
+	{"type": HeroDataClass.HeroType.MAK, "id": "mak", "name": "Mak", "max_hp": 100, "crit": 0.05, "collection": "Mak", "skills": ["fiery", "improved_toxins", "heated_shells", "paralytic_poison", "slow_burn"], "passives": [{"name": "Alchemy", "description": "Wiki gameplay profile: Potions, Reagents, Burn, Poison, Regeneration, and Catalyst transformations.", "type": "cooldown", "value": 3.0}, {"name": "Regenerative Formula", "description": "Mak can stack Regeneration while transforming Reagents into enchanted items.", "type": "health", "value": 10.0}]},
+	{"type": HeroDataClass.HeroType.STELLE, "id": "stelle", "name": "Stelle", "max_hp": 95, "crit": 0.07, "collection": "Stelle", "skills": ["expert_pilot", "command_ship", "flashy_mechanic", "slow_and_steady", "slowed_targets"], "passives": [{"name": "Aeronaut", "description": "Wiki item collection profile: Vehicles, Flying, Tools, and Ammo define Stelle content.", "type": "cooldown", "value": 4.0}, {"name": "Precision Pilot", "description": "Stelle boards reward Vehicle/Flying timing and repeated technical activations.", "type": "crit", "value": 2.0}]},
+	{"type": HeroDataClass.HeroType.JULES, "id": "jules", "name": "Jules", "max_hp": 110, "crit": 0.05, "collection": "Jules", "skills": ["fiery", "tools_of_the_trade", "strength", "tracer_fire", "flashy_mechanic"], "passives": [{"name": "Joyful Kitchen", "description": "Wiki profile: Jules is upcoming and uses Joy plus Food/Cooking item support.", "type": "health", "value": 10.0}, {"name": "Seasoned Heat", "description": "Jules' confirmed item collection is food/kitchen heavy with Burn and Charge hooks.", "type": "crit", "value": 2.0}]},
+	{"type": HeroDataClass.HeroType.KARNOK, "id": "karnok", "name": "Karnok", "max_hp": 110, "crit": 0.05, "collection": "Karnok", "skills": ["initial_rage"], "passives": [{"name": "Monstrous Hunter", "description": "BazaarDB profile: Karnok builds Rage, then Enrages to trigger hunter and creature payoffs.", "type": "lifesteal", "value": 4.0}, {"name": "Rage Cycle", "description": "Karnok's confirmed item pool is centered on Rage gain, Enrage triggers, Food, Tool, Friend, and Weapon boards.", "type": "cooldown", "value": 3.0}]},
+]
+
+const KARNOK_BAZAARDB_ITEMS: Array[Dictionary] = [
+	{"id": "bagpipes", "name": "Bagpipes", "size": "Medium", "starting_tier": "Bronze", "cost": [4, 8, 16, 32], "cooldown": [5.0], "tags": ["Tool", "Heal", "RageReference"], "heal": [30, 60, 90, 120], "effect": "Heal 30/60/90/120. Gain 10 Rage. When you Enrage, reduce this item's Cooldown by half for the fight.", "source_url": "https://bazaardb.gg/card/63mc0bxld6ng0mg6g3wjj8p37w/Bagpipes"},
+	{"id": "bandoleer", "name": "Bandoleer", "size": "Medium", "starting_tier": "Silver", "cost": [8, 16, 32], "cooldown": [], "tags": ["Apparel", "AmmoReference", "Rage", "RageReference"], "effect": "When you use an Ammo item, gain 9/12/15 Rage. When you Enrage and stop being Enraged, Reload all your items.", "source_url": "https://bazaardb.gg/card/8qgz7jysczzz7pwnhp3mb4q5k1/Bandoleer"},
+	{"id": "bear_claws", "name": "Bear Claws", "size": "Small", "starting_tier": "Bronze", "cost": [2, 4, 8, 16], "cooldown": [6.0, 5.0, 4.0, 3.0], "tags": ["Weapon", "Damage", "Rage"], "damage": [10, 10, 10, 10], "effect": "Deal 10 Damage. Gain 10 Rage.", "source_url": "https://bazaardb.gg/card/1352swl02hw2jdg7zb1x926szby/Bear-Claws"},
+	{"id": "black_mamba", "name": "Black Mamba", "size": "Small", "starting_tier": "Bronze", "cost": [2, 4, 8, 16], "cooldown": [5.0], "tags": ["Friend", "Poison", "RageReference"], "poison": [1, 1, 1, 1], "effect": "Poison 1. When you Enrage, your Poison items gain +5/10/15/20 Poison for the fight.", "source_url": "https://bazaardb.gg/card/3p58cjqg4f689hcxknb08f1dpg/Black-Mamba"},
+	{"id": "campfire", "name": "Campfire", "size": "Medium", "starting_tier": "Silver", "cost": [8, 16, 32], "cooldown": [5.0], "tags": ["Heal", "BurnReference", "RageReference"], "effect": "Heal equal to 1/2/3 times the Rage you have gained this fight. For each adjacent Tool, Food or Burn item, this has +1 Multicast.", "source_url": "https://bazaardb.gg/card/193lnch558c38h35lqsyf9g3mln/Campfire"},
+	{"id": "enervating_sigil", "name": "Enervating Sigil", "size": "Medium", "starting_tier": "Silver", "cost": [8, 16, 32], "cooldown": [], "tags": ["SlowReference", "Rage", "RageReference", "Slow"], "effect": "When you Slow, gain 4/6/8 Rage. When you Enrage, Slow ALL items 3 seconds.", "source_url": "https://bazaardb.gg/card/776yfcy5lkgg3fw0kbp9spkmj4/Enervating-Sigil"},
+	{"id": "flame_sigil", "name": "Flame Sigil", "size": "Medium", "starting_tier": "Gold", "cost": [16, 32], "cooldown": [], "tags": ["Burn", "Rage", "RageReference", "HealthReference"], "effect": "When you Burn, gain 5 Rage. When you Enrage, Burn equal to 3/6% of your Max Health.", "source_url": "https://bazaardb.gg/card/qm5shwbzddydf09wy0vlmgbb62/Flame-Sigil"},
+	{"id": "honey_jar", "name": "Honey Jar", "size": "Small", "starting_tier": "Bronze", "cost": [2, 4, 8, 16], "cooldown": [6.0, 5.0, 4.0, 3.0], "tags": ["Food", "Heal", "Slow"], "heal": [30, 30, 30, 30], "slow": [1, 1, 1, 1], "slow_duration": [2.0, 2.0, 2.0, 2.0], "effect": "Heal 30. Slow an item for 2 seconds.", "source_url": "https://bazaardb.gg/card/q8tsclsy2f3nlb938g4vmyqwl5/Honey-Jar"},
+	{"id": "hunters_axe", "name": "Hunter's Axe", "size": "Small", "starting_tier": "Bronze", "cost": [2, 4, 8, 16], "cooldown": [5.0], "tags": ["Weapon", "Tool", "Damage", "Rage"], "damage": [10, 20, 40, 80], "effect": "Deal 10/20/40/80 Damage. When you use an adjacent Tool or Friend, gain 4 Rage.", "source_url": "https://bazaardb.gg/card/8xnw25wskczp7bx357dq048hs1/Hunter%27s-Axe"},
+	{"id": "karst", "name": "Karst", "size": "Large", "starting_tier": "Silver", "cost": [12, 24, 48], "cooldown": [], "tags": ["Property", "Shield", "RageReference"], "shield": [15, 30, 45], "effect": "When you use a Friend or non-Weapon item, gain 6/8/10 Rage and Shield 15/30/45. Your Enrage lasts half as long.", "source_url": "https://bazaardb.gg/card/4cq3d5p9jh6b47ckysg322nnvj/Karst"},
+	{"id": "lichen", "name": "Lichen", "size": "Small", "starting_tier": "Silver", "cost": [4, 8, 16], "cooldown": [], "tags": ["Food", "Heal", "RageReference"], "heal": [500, 1000, 1500], "effect": "You need twice as much Rage to Enrage. When you stop being Enraged, Heal 500/1000/1500 and remove half your Poison and Burn.", "source_url": "https://bazaardb.gg/card/mdpv7d1spm58123pn0jkh40b3t/Lichen"},
+	{"id": "machete", "name": "Machete", "size": "Small", "starting_tier": "Silver", "cost": [4, 8, 16], "cooldown": [4.0, 3.0, 2.0], "tags": ["Weapon", "Tool", "Damage", "Rage"], "damage": [10, 20, 30], "effect": "Deal 10/20/30 Damage. If this is your only item with a Cooldown, gain 50 Rage.", "source_url": "https://bazaardb.gg/card/wlq3bg9xd371vychl8c4f1y0m/Machete"},
+	{"id": "night_vision", "name": "Night Vision", "size": "Small", "starting_tier": "Gold", "cost": [8, 16], "cooldown": [3.0], "tags": ["Apparel", "Slow", "Haste"], "slow": [1, 1], "slow_duration": [2.0, 1.0], "haste": [1, 1], "haste_duration": [1.0, 2.0], "effect": "Slow adjacent items for 2/1 seconds. When an adjacent item is Slowed, Haste an item 1/2 seconds.", "source_url": "https://bazaardb.gg/card/9f2nf833fhwjkjf93zqssqkvvq/Night-Vision"},
+	{"id": "steel_bramble", "name": "Steel Bramble", "size": "Small", "starting_tier": "Silver", "cost": [4, 8, 16], "cooldown": [], "tags": ["Tool", "Rage"], "effect": "When your enemy uses an item, gain 1/2/3 Rage.", "source_url": "https://bazaardb.gg/card/153116qd98x9gvjvq0flg2xst4s/Steel-Bramble"},
+]
 
 const DAY1_EVENT_SPECS: Array[Dictionary] = [
 	{"id": "a_strange_mushroom", "name": "A Strange Mushroom", "icon": "*", "day": "1-2", "min_day": 1, "max_day": 2, "rarity": "Bronze", "weight": 10, "summary": "Mak can brew a small Silver-tier Potion."},
@@ -204,34 +232,96 @@ const DAY1_MONSTER_SPECS: Array[Dictionary] = [
 ]
 
 static func create_mak_hero() -> HeroDataClass:
+	return create_bazaar_hero(HeroDataClass.HeroType.MAK)
+
+static func create_bazaar_hero(hero_type: HeroDataClass.HeroType) -> HeroDataClass:
+	var profile: Dictionary = get_hero_profile_spec(hero_type)
+	if profile.is_empty():
+		return null
 	var hero: HeroDataClass = HeroDataClass.new()
-	hero.hero_name = "Mak"
-	hero.hero_type = HeroDataClass.HeroType.MAK
-	hero.max_hp = 100
+	hero.hero_name = str(profile.get("name", "Hero"))
+	hero.hero_type = hero_type
+	hero.max_hp = int(profile.get("max_hp", 100))
 	hero.current_hp = hero.max_hp
-	hero.crit_chance = 0.05
-	hero.available_items = get_mak_item_ids()
+	hero.crit_chance = float(profile.get("crit", 0.05))
+	hero.available_items = get_hero_item_ids(hero_type)
+	hero.skills = _string_array(profile.get("skills", []))
+	for passive_spec in profile.get("passives", []):
+		if passive_spec is Dictionary:
+			hero.passive_skills.append(_create_passive_skill(passive_spec as Dictionary))
 	return hero
+
+static func get_hero_profile_specs() -> Array[Dictionary]:
+	return HERO_PROFILE_SPECS.duplicate(true)
+
+static func get_hero_profile_spec(hero_type: HeroDataClass.HeroType) -> Dictionary:
+	for profile in HERO_PROFILE_SPECS:
+		if int(profile.get("type", -1)) == int(hero_type):
+			return profile.duplicate(true)
+	return {}
+
+static func get_hero_art_path(hero_type: HeroDataClass.HeroType) -> String:
+	var profile: Dictionary = get_hero_profile_spec(hero_type)
+	return _get_wiki_art_path("heroes", str(profile.get("id", "")))
 
 static func apply_phase1_player_skill_loadout(hero: HeroDataClass) -> void:
 	if hero == null:
 		return
-	if hero.hero_type == HeroDataClass.HeroType.MAK:
-		# Phase 1 currently exposes the validated Mak-compatible skill loadout while the
-		# broader hero progression import remains a separate content step.
-		hero.skills = ["fiery", "improved_toxins", "heated_shells", "paralytic_poison", "slow_burn"]
+	var profile: Dictionary = get_hero_profile_spec(hero.hero_type)
+	if not profile.is_empty():
+		hero.skills = _string_array(profile.get("skills", []))
 
 static func get_mak_item_ids() -> Array[String]:
-	var ids: Array[String] = []
-	for spec in get_mak_item_specs():
-		ids.append(str(spec.get("id", "")))
-	return ids
+	return get_hero_item_ids(HeroDataClass.HeroType.MAK)
 
 static func get_mak_item_specs() -> Array[Dictionary]:
 	var specs: Array[Dictionary] = []
 	specs.append_array(MAK_BRONZE_ITEMS)
 	specs.append_array(MAK_ADDITIONAL_ITEMS)
 	return specs
+
+static func get_hero_item_ids(hero_type: HeroDataClass.HeroType) -> Array[String]:
+	var ids: Array[String] = []
+	for spec in get_hero_item_specs(hero_type):
+		var item_id: String = str(spec.get("id", ""))
+		if not item_id.is_empty() and not ids.has(item_id):
+			ids.append(item_id)
+	return ids
+
+static func get_hero_item_specs(hero_type: HeroDataClass.HeroType) -> Array[Dictionary]:
+	var profile: Dictionary = get_hero_profile_spec(hero_type)
+	if profile.is_empty():
+		return []
+	var collection_name: String = str(profile.get("collection", ""))
+	var specs: Array[Dictionary] = []
+	if hero_type == HeroDataClass.HeroType.MAK:
+		specs.append_array(get_mak_item_specs())
+	if hero_type == HeroDataClass.HeroType.KARNOK:
+		specs.append_array(KARNOK_BAZAARDB_ITEMS)
+	for spec in WikiMonsterCatalogClass.get_item_specs_for_collection(collection_name):
+		var item_id: String = str(spec.get("id", ""))
+		var duplicate: bool = false
+		for existing in specs:
+			if str(existing.get("id", "")) == item_id:
+				duplicate = true
+				break
+		if not duplicate:
+			specs.append(spec)
+	return specs
+
+static func get_hero_skill_ids(hero_type: HeroDataClass.HeroType) -> Array[String]:
+	var ids: Array[String] = []
+	for spec in get_hero_skill_specs(hero_type):
+		var skill_id: String = str(spec.get("id", ""))
+		if not skill_id.is_empty() and not ids.has(skill_id):
+			ids.append(skill_id)
+	return ids
+
+static func get_hero_skill_specs(hero_type: HeroDataClass.HeroType) -> Array[Dictionary]:
+	var profile: Dictionary = get_hero_profile_spec(hero_type)
+	if profile.is_empty():
+		return []
+	return WikiMonsterCatalogClass.get_skill_specs_for_collection(str(profile.get("collection", "")))
 
 static func get_day1_events() -> Array[Dictionary]:
 	return DAY1_EVENT_SPECS.duplicate(true)
@@ -263,9 +353,12 @@ static func get_monster_specs_for_day(day: int) -> Array[Dictionary]:
 	return get_monster_specs_for_level(maxi(day, 1))
 
 static func create_random_mak_day1_item(rarity: int = RARITY_BRONZE, required_size: String = "", required_tag: String = "", buyable_only: bool = true) -> ItemDataClass:
+	return create_random_hero_item(HeroDataClass.HeroType.MAK, rarity, required_size, required_tag, buyable_only)
+
+static func create_random_hero_item(hero_type: HeroDataClass.HeroType, rarity: int = RARITY_BRONZE, required_size: String = "", required_tag: String = "", buyable_only: bool = true) -> ItemDataClass:
 	var candidates: Array[Dictionary] = []
 	var target_rarity: int = clampi(rarity, RARITY_BRONZE, RARITY_DIAMOND)
-	for spec in get_mak_item_specs():
+	for spec in get_hero_item_specs(hero_type):
 		if _get_spec_start_rarity(spec) > target_rarity:
 			continue
 		if buyable_only and (spec.get("cost", []) as Array).is_empty():
@@ -280,9 +373,12 @@ static func create_random_mak_day1_item(rarity: int = RARITY_BRONZE, required_si
 	return create_item_from_spec(candidates.pick_random(), target_rarity)
 
 static func create_random_mak_day1_shop_item(max_rarity: int = RARITY_BRONZE, owned_items: Array = [], required_size: String = "", required_tag: String = "") -> ItemDataClass:
+	return create_random_hero_shop_item(HeroDataClass.HeroType.MAK, max_rarity, owned_items, required_size, required_tag)
+
+static func create_random_hero_shop_item(hero_type: HeroDataClass.HeroType, max_rarity: int = RARITY_BRONZE, owned_items: Array = [], required_size: String = "", required_tag: String = "") -> ItemDataClass:
 	var candidates: Array[Dictionary] = []
 	var safe_max_rarity: int = clampi(max_rarity, RARITY_BRONZE, RARITY_DIAMOND)
-	for spec in get_mak_item_specs():
+	for spec in get_hero_item_specs(hero_type):
 		if (spec.get("cost", []) as Array).is_empty():
 			continue
 		var start_rarity: int = _get_spec_start_rarity(spec)
@@ -476,6 +572,26 @@ static func _find_item_spec(item_id: String) -> Dictionary:
 	if not wiki_spec.is_empty():
 		return wiki_spec
 	return {}
+
+static func _create_passive_skill(spec: Dictionary) -> PassiveSkillDataClass:
+	var skill: PassiveSkillDataClass = PassiveSkillDataClass.new()
+	skill.skill_name = str(spec.get("name", "Hero Mechanic"))
+	skill.description = str(spec.get("description", ""))
+	match str(spec.get("type", "health")):
+		"crit":
+			skill.effect_type = PassiveSkillDataClass.EffectType.CRIT_BONUS
+		"shield":
+			skill.effect_type = PassiveSkillDataClass.EffectType.SHIELD_BONUS
+		"cooldown":
+			skill.effect_type = PassiveSkillDataClass.EffectType.COOLDOWN_REDUCTION
+		"reflect":
+			skill.effect_type = PassiveSkillDataClass.EffectType.DAMAGE_REFLECTION
+		"lifesteal":
+			skill.effect_type = PassiveSkillDataClass.EffectType.LIFESTEAL
+		_:
+			skill.effect_type = PassiveSkillDataClass.EffectType.HEALTH_BONUS
+	skill.effect_value = float(spec.get("value", 0.0))
+	return skill
 
 static func _get_monster_item_entries(spec: Dictionary) -> Array[Dictionary]:
 	var entries: Array[Dictionary] = []
