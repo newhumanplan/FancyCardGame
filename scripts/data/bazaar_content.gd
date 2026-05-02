@@ -7,6 +7,7 @@ const HeroDataClass = preload("res://scripts/data/hero_data.gd")
 const PassiveSkillDataClass = preload("res://scripts/data/passive_skill.gd")
 const WikiMonsterCatalogClass = preload("res://scripts/data/wiki_monster_catalog.gd")
 const WikiEventCatalogClass = preload("res://scripts/data/wiki_event_catalog.gd")
+const EffectDefinitionClass = preload("res://scripts/data/effect_definition.gd")
 
 const RARITY_BRONZE: int = 1
 const RARITY_SILVER: int = 2
@@ -487,6 +488,8 @@ static func _apply_spec_to_item(item: ItemDataClass, spec: Dictionary, rarity: i
 	item.haste_count = _get_int_for_rarity(spec.get("haste", []), item_rarity, 0, start_rarity)
 	item.haste_duration = _get_float_for_rarity(spec.get("haste_duration", []), item_rarity, _default_tempo_duration(item.haste_count), start_rarity)
 	item.crit_chance = float(_get_int_for_rarity(spec.get("crit", []), item_rarity, 0, start_rarity)) / 100.0
+	item.effects = EffectDefinitionClass.build_item_effects(item)
+	item.effect_warnings = EffectDefinitionClass.collect_item_warnings(item, item.effects)
 	item.current_cooldown = 0.0
 
 static func create_day1_monster(monster_id: String = "") -> MonsterDataClass:
@@ -578,6 +581,8 @@ static func item_to_monster_item(item_data: ItemDataClass) -> Dictionary:
 		"slot_count": item_data.get_slot_count(),
 		"source_id": item_data.source_id,
 		"description": item_data.source_effect_text,
+		"effects": item_data.effects.duplicate(true),
+		"effect_warnings": item_data.effect_warnings.duplicate(),
 	}
 
 static func _find_item_spec(item_id: String) -> Dictionary:

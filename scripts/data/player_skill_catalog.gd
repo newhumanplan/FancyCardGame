@@ -3,6 +3,7 @@ extends RefCounted
 
 const SkillDataClass = preload("res://scripts/data/skill_data.gd")
 const WikiMonsterCatalogClass = preload("res://scripts/data/wiki_monster_catalog.gd")
+const EffectDefinitionClass = preload("res://scripts/data/effect_definition.gd")
 
 const SUPPORT_IMPLEMENTED := "implemented"
 const SUPPORT_UNSUPPORTED := "unsupported"
@@ -177,6 +178,68 @@ static func get_tier_value(skill_ref: Variant, field: String = "values", fallbac
 		return fallback
 	var offset: int = clampi(tier_index - start_tier, 0, values.size() - 1)
 	return float(values[offset])
+
+static func get_effect_definitions(skill_ref: Variant) -> Array[Dictionary]:
+	var resolved: Dictionary = _resolve_catalog_entry(skill_ref)
+	if resolved.is_empty():
+		return []
+	if str(resolved.get("support_status", SUPPORT_UNKNOWN)) != SUPPORT_IMPLEMENTED:
+		return []
+
+	var skill_id: String = str(resolved.get("id", ""))
+	match skill_id:
+		"heated_shells":
+			return [{
+				"id": "heated_shells_on_ammo_burn",
+				"trigger": EffectDefinitionClass.TRIGGER_ON_ITEM_USED,
+				"condition": {"event_source_has_ammo": true},
+				"target": {"side": "enemy", "selector": "hero"},
+				"effect": {
+					"type": EffectDefinitionClass.EFFECT_BURN,
+					"amount": get_tier_value(resolved),
+				},
+			}]
+		"paralytic_poison":
+			return [{
+				"id": "paralytic_poison_on_first_poison_freeze",
+				"trigger": EffectDefinitionClass.TRIGGER_ON_ENEMY_STATUS_APPLIED,
+				"condition": {"status_type": EffectDefinitionClass.EFFECT_POISON},
+				"target": {"side": "enemy", "selector": "slowest_items", "count": 1},
+				"effect": {
+					"type": EffectDefinitionClass.EFFECT_FREEZE,
+					"amount": get_tier_value(resolved),
+				},
+				"max_triggers_per_fight": 1,
+			}]
+		"slow_burn":
+			return [{
+				"id": "slow_burn_on_slow_charge",
+				"trigger": EffectDefinitionClass.TRIGGER_ON_ENEMY_STATUS_APPLIED,
+				"condition": {"status_type": EffectDefinitionClass.EFFECT_SLOW},
+				"target": {
+					"side": "self",
+					"selector": "matching_tag_highest_cooldown",
+					"tag": "Burn",
+					"count": 1,
+				},
+				"effect": {
+					"type": EffectDefinitionClass.EFFECT_CHARGE,
+					"amount": get_tier_value(resolved, "charge_seconds"),
+				},
+				"max_triggers_per_fight": int(round(get_tier_value(resolved, "limits"))),
+			}]
+	return []
+
+static func get_effect_warnings(skill_ref: Variant) -> Array[String]:
+	var resolved: Dictionary = _resolve_catalog_entry(skill_ref)
+	if resolved.is_empty():
+		return []
+	if str(resolved.get("support_status", SUPPORT_UNKNOWN)) != SUPPORT_UNSUPPORTED:
+		return []
+	return [
+		"unsupported_skill_effect:%s:%s"
+		% [str(resolved.get("id", "")), str(resolved.get("unsupported_reason", ""))]
+	]
 
 static func get_registered_skill_ids() -> Array[String]:
 	_ensure_skills_config_cache()

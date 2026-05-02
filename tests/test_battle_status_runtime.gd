@@ -45,7 +45,9 @@ func _game_manager() -> Node:
 func _start_battle(monster_hp: int = 100, inv: LinearInventoryClass = null) -> MonsterDataClass:
 	var game_manager: Node = _game_manager()
 	game_manager.call("reset_stats")
-	game_manager.set("selected_hero", BazaarContentClass.create_mak_hero())
+	var hero = BazaarContentClass.create_mak_hero()
+	hero.skills = []
+	game_manager.set("selected_hero", hero)
 	game_manager.set("player_health", 100)
 	var monster: MonsterDataClass = MonsterDataClass.new()
 	monster.monster_name = "Runtime Test"
@@ -57,7 +59,9 @@ func _start_battle(monster_hp: int = 100, inv: LinearInventoryClass = null) -> M
 func _start_battle_with_monster(monster: MonsterDataClass, inv: LinearInventoryClass = null) -> MonsterDataClass:
 	var game_manager: Node = _game_manager()
 	game_manager.call("reset_stats")
-	game_manager.set("selected_hero", BazaarContentClass.create_mak_hero())
+	var hero = BazaarContentClass.create_mak_hero()
+	hero.skills = []
+	game_manager.set("selected_hero", hero)
 	game_manager.set("player_health", 100)
 	_battle_system().call("start_battle", monster, inv if inv != null else LinearInventoryClass.new())
 	return monster

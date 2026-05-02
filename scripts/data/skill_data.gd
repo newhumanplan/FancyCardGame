@@ -26,6 +26,9 @@ enum EffectType { CRIT, SHIELD, BURN, POISON, FREEZE, HASTE, CHARGE, HEALTH, COO
 ## 效果数值（按品质递增）: [Bronze, Silver, Gold, Diamond]
 @export var effect_value: Array[float] = [0.0, 0.0, 0.0, 0.0]
 
+## 标准化效果定义（用于 Trigger / Condition / Target / Effect 运行时）。
+@export var effects: Array[Dictionary] = []
+
 ## 技能来源商人
 @export var merchant: String = ""
 

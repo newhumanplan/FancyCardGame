@@ -72,6 +72,9 @@ var current_max_ammo: int = -1
 ## 暴击几率
 @export var crit_chance: float = 0.05
 
+## 标准化战斗效果定义（Trigger / Condition / Target / Effect）。
+@export var effects: Array[Dictionary] = []
+
 ## ============ 特殊效果 ============
 
 ## 中毒：状态叠层。每秒造成等同层数的伤害，忽略护盾。
@@ -100,6 +103,9 @@ var current_max_ammo: int = -1
 
 ## 免疫：免疫控制效果
 @export var is_immune: bool = false
+
+## 由 Effect DSL 构建阶段收集的显式告警，避免静默丢失效果语义。
+var effect_warnings: Array[String] = []
 
 ## ============ 运行时方法 ============
 

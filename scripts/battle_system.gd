@@ -7,6 +7,7 @@ const SkillEffectsClass = preload("res://scripts/data/skill_effects.gd")
 const ItemEffectsClass = preload("res://scripts/data/item_effects.gd")
 const BattleEffectRuntimeClass = preload("res://scripts/data/battle_effect_runtime.gd")
 const BazaarContentClass = preload("res://scripts/data/bazaar_content.gd")
+const EffectDefinitionClass = preload("res://scripts/data/effect_definition.gd")
 
 var game_manager: Node
 var skill_manager: RefCounted = null
@@ -19,6 +20,8 @@ const BATTLE_TICK: float = 0.5
 const MIN_ITEM_COOLDOWN: float = 1.0
 const BURN_TICK_SECONDS: float = 0.5
 const POISON_REGEN_TICK_SECONDS: float = 1.0
+const EFFECT_CHAIN_DEPTH_LIMIT: int = 8
+const MAX_TRIGGERED_EFFECTS_PER_TICK: int = 64
 var current_monster: MonsterData = null
 var inventory: LinearInventory = null
 var player_status_state: Dictionary = {}
@@ -26,6 +29,11 @@ var enemy_status_state: Dictionary = {}
 var item_runtime_bonuses: Dictionary = {}
 var transformed_items: Array[Dictionary] = []
 var _skill_target_hero: HeroData = null
+var effect_execution_trace: Array[Dictionary] = []
+var effect_warnings: Array[String] = []
+var _effect_runtime_state: Dictionary = {}
+var _battle_elapsed_time: float = 0.0
+var _effect_event_id_counter: int = 0
 
 signal item_triggered(item_name: String, damage: int, is_crit: bool, target: String)
 signal effect_applied(item_name: String, effect_type: String, value: int, target: String)
@@ -73,9 +81,15 @@ func start_battle(monster: MonsterData, inv: LinearInventory) -> void:
 	enemy_status_state = _new_status_state()
 	item_runtime_bonuses.clear()
 	transformed_items.clear()
+	effect_execution_trace.clear()
+	effect_warnings.clear()
+	_effect_runtime_state.clear()
+	_battle_elapsed_time = 0.0
+	_effect_event_id_counter = 0
 	_refresh_skill_modifiers()
 	player_skill_counters.clear()
 	_reset_player_item_cooldowns(true)
+	_log_effect_support_warnings()
 	_apply_player_start_item_effects()
 	if current_monster != null:
 		if current_monster.ai != null:
@@ -132,6 +146,11 @@ func end_battle() -> void:
 	player_status_state = _new_status_state()
 	enemy_status_state = _new_status_state()
 	item_runtime_bonuses.clear()
+	effect_execution_trace.clear()
+	effect_warnings.clear()
+	_effect_runtime_state.clear()
+	_battle_elapsed_time = 0.0
+	_effect_event_id_counter = 0
 	_reset_player_item_cooldowns(false)
 	if current_monster != null:
 		current_monster.reset_item_cooldowns()
@@ -171,6 +190,7 @@ func execute_battle_tick(elapsed_time: float = BATTLE_TICK) -> bool:
 		return false
 	# Cooldowns/effects use real elapsed time; trigger cadence still stays on BATTLE_TICK.
 	var tick_time: float = maxf(elapsed_time, 0.0)
+	_battle_elapsed_time += tick_time
 	if _check_battle_end():
 		return true
 	_trigger_player_items()
@@ -224,16 +244,38 @@ func _trigger_player_items() -> void:
 			item.current_cooldown = _get_effective_cooldown(_get_player_item_effective_cooldown(item))
 			continue
 		var total_context: Dictionary = _new_use_context()
+		var reactive_events: Array[Dictionary] = []
 		var multicast_count: int = _get_player_item_multicast_count(item)
 		var item_crit_rate: float = _get_player_item_crit_rate(item, hero_crit_rate)
 		for _cast_index in range(multicast_count):
 			var is_crit: bool = randf() < item_crit_rate
-			var use_context: Dictionary = _trigger_player_item_once(item, is_crit, lifesteal_rate, burn_bonus, poison_bonus)
-			_merge_use_context(total_context, use_context)
+			var use_result: Dictionary = _trigger_player_item_once(
+				item,
+				is_crit,
+				lifesteal_rate,
+				burn_bonus,
+				poison_bonus
+			)
+			_merge_use_context(total_context, use_result.get("context", {}))
+			reactive_events.append_array(use_result.get("events", []))
 			if _check_battle_end():
 				break
 		item.consume_ammo()
 		item.current_cooldown = _get_effective_cooldown(_get_player_item_effective_cooldown(item))
+		var post_consume_result: Dictionary = _execute_item_effect_definitions(
+			item,
+			{
+				"is_crit": false,
+				"crit_multiplier": 1.0,
+				"lifesteal_rate": lifesteal_rate,
+				"burn_bonus": burn_bonus,
+				"poison_bonus": poison_bonus,
+			},
+			"after_consume"
+		)
+		_merge_use_context(total_context, post_consume_result.get("context", {}))
+		reactive_events.append_array(post_consume_result.get("events", []))
+		_merge_use_context(total_context, _process_reactive_effect_events(reactive_events))
 		_after_player_item_used(item, total_context)
 
 func _trigger_monster_items() -> void:
@@ -326,6 +368,7 @@ func _new_use_context() -> Dictionary:
 		"use_count": 0,
 		"crit_count": 0,
 		"damage": 0,
+		"shield_proc_count": 0,
 		"heal_proc_count": 0,
 		"regen_proc_count": 0,
 		"poison_proc_count": 0,
@@ -339,54 +382,38 @@ func _merge_use_context(total: Dictionary, context: Dictionary) -> void:
 	for key in total.keys():
 		total[key] = int(total.get(key, 0)) + int(context.get(key, 0))
 
-func _trigger_player_item_once(item: ItemData, is_crit: bool, passive_lifesteal_rate: float, burn_bonus: float, poison_bonus: float) -> Dictionary:
+func _trigger_player_item_once(
+	item: ItemData,
+	is_crit: bool,
+	passive_lifesteal_rate: float,
+	burn_bonus: float,
+	poison_bonus: float
+) -> Dictionary:
 	var context: Dictionary = _new_use_context()
 	context["use_count"] = 1
 	if is_crit:
 		context["crit_count"] = 1
-	var crit_text: String = "（暴击!）" if is_crit else ""
-	var hero: HeroData = null if game_manager == null else game_manager.selected_hero
-	var runtime_damage: int = int(round(_get_item_runtime_bonus(item, "damage")))
-	var item_lifesteal_rate: float = 1.0 if _item_has_lifesteal(item) else 0.0
-	var lifesteal_rate: float = clampf(passive_lifesteal_rate + item_lifesteal_rate, 0.0, 1.0)
-
-	if item.damage > 0 and current_monster != null and current_monster.is_alive():
-		var base_damage: int = maxi(item.get_rarity_adjusted_damage() + runtime_damage + _get_player_item_skill_damage_bonus(item), 0)
-		var total_damage: int = base_damage * (2 if is_crit else 1)
-		current_monster.take_damage(total_damage)
-		context["damage"] = total_damage
-		item_triggered.emit(item.item_name, total_damage, is_crit, "enemy")
-		print("🗡️ [%s] 触发！造成 %d 伤害%s" % [item.item_name, total_damage, crit_text])
-		if lifesteal_rate > 0.0 and total_damage > 0 and game_manager != null:
-			var stolen: int = int(float(total_damage) * lifesteal_rate)
-			if stolen > 0:
-				game_manager.heal(stolen)
-				print("💚 [%s] 生命偷取恢复 %d 生命" % [item.item_name, stolen])
-
-	if item.shield > 0 and item.source_id != "duct_tape":
-		var total_shield: int = ItemEffectsClass.calculate_shield(item) + _get_player_item_skill_shield_bonus(item)
-		if is_crit:
-			total_shield *= 2
-		if hero != null:
-			hero.add_shield(float(total_shield))
-		effect_applied.emit(item.item_name, "shield", total_shield, "self")
-		print("🛡️ [%s] 触发！获得 %d 护盾%s" % [item.item_name, total_shield, crit_text])
-
-	if item.heal > 0:
-		var total_heal: int = ItemEffectsClass.calculate_heal(item)
-		if is_crit:
-			total_heal *= 2
-		if game_manager != null:
-			game_manager.heal(total_heal)
-		context["heal_proc_count"] = 1
-		effect_applied.emit(item.item_name, "heal", total_heal, "self")
-		print("💚 [%s] 触发！恢复 %d 生命%s" % [item.item_name, total_heal, crit_text])
-
-	var status_context: Dictionary = _apply_player_item_status_effects(item, is_crit, burn_bonus, poison_bonus)
-	_merge_use_context(context, status_context)
-	var tempo_context: Dictionary = _apply_player_item_tempo_effects(item, is_crit)
-	_merge_use_context(context, tempo_context)
-	return context
+	var result: Dictionary = {
+		"context": context,
+		"events": [],
+	}
+	var root_result: Dictionary = _execute_item_effect_definitions(
+		item,
+		{
+			"is_crit": is_crit,
+			"crit_multiplier": 2.0 if is_crit else 1.0,
+			"lifesteal_rate": passive_lifesteal_rate,
+			"burn_bonus": burn_bonus,
+			"poison_bonus": poison_bonus,
+		}
+	)
+	_merge_use_context(context, root_result.get("context", {}))
+	result["events"].append_array(root_result.get("events", []))
+	result["events"].append(_make_effect_event(EffectDefinitionClass.TRIGGER_ON_ITEM_USED, item))
+	result["events"].append(_make_effect_event(EffectDefinitionClass.TRIGGER_ON_TAG_USED, item))
+	if is_crit:
+		result["events"].append(_make_effect_event(EffectDefinitionClass.TRIGGER_ON_CRIT, item))
+	return result
 
 func _apply_player_item_status_effects(item: ItemData, is_crit: bool, burn_bonus: float, poison_bonus: float) -> Dictionary:
 	var context: Dictionary = _new_use_context()
@@ -485,15 +512,12 @@ func _after_player_item_used(item: ItemData, context: Dictionary) -> void:
 		_apply_mortar_pestle_bonus(item, use_count)
 	if item.source_id == "magic_carpet" and int(context.get("crit_count", 0)) > 0:
 		_add_item_runtime_bonus(item, "cooldown_flat_reduction", float(context.get("crit_count", 0)))
-	if _is_small_item(item):
-		_charge_items_by_source_id("candles", 2.0 * float(use_count))
 
 	var heal_or_regen_triggers: int = int(context.get("heal_proc_count", 0)) + int(context.get("regen_proc_count", 0))
 	if heal_or_regen_triggers > 0:
 		_apply_nightshade_heal_reference_bonus(heal_or_regen_triggers)
 
-	var observer_poison_events: int = _apply_right_observer_effects(item, use_count)
-	var poison_events: int = int(context.get("poison_proc_count", 0)) + observer_poison_events
+	var poison_events: int = int(context.get("poison_proc_count", 0))
 	var burn_events: int = int(context.get("burn_proc_count", 0))
 	var slow_events: int = int(context.get("slow_proc_count", 0))
 	var freeze_events: int = int(context.get("freeze_proc_count", 0))
@@ -508,9 +532,6 @@ func _after_player_item_used(item: ItemData, context: Dictionary) -> void:
 		_handle_player_status_reference(ItemEffectsClass.EFFECT_FREEZE, freeze_events)
 	if haste_events > 0:
 		_handle_player_status_reference(ItemEffectsClass.EFFECT_HASTE, haste_events)
-	if slow_events > 0:
-		_apply_smelling_salts_haste(item, slow_events)
-	_apply_player_skill_item_use_triggers(item, context)
 
 func _after_monster_item_used(item_index: int) -> void:
 	if current_monster == null:
@@ -533,7 +554,24 @@ func _is_active_player_item(item: ItemData) -> bool:
 		return item.cooldown > 0.0
 	if item.cooldown <= 0.0:
 		return false
-	return item.damage > 0 or item.shield > 0 or item.heal > 0 or item.has_special_effect()
+	return item.damage > 0 or item.shield > 0 or item.heal > 0 or item.has_special_effect() or _has_root_item_effect_definition(item)
+
+func _has_root_item_effect_definition(item: ItemData) -> bool:
+	if item == null:
+		return false
+	_ensure_item_effect_definitions(item)
+	for definition_variant in item.effects:
+		if not definition_variant is Dictionary:
+			continue
+		var definition: Dictionary = definition_variant
+		if str(definition.get("trigger", "")) != EffectDefinitionClass.TRIGGER_ON_COOLDOWN_READY:
+			continue
+		var effect_data: Dictionary = definition.get("effect", {})
+		var effect_type: String = str(effect_data.get("type", ""))
+		if effect_type == EffectDefinitionClass.EFFECT_MULTICAST:
+			continue
+		return true
+	return false
 
 func _get_player_item_effective_cooldown(item: ItemData) -> float:
 	if item == null or item.cooldown <= 0.0:
@@ -573,19 +611,810 @@ func _get_player_item_crit_rate(item: ItemData, hero_crit_rate: float) -> float:
 func _get_player_item_multicast_count(item: ItemData) -> int:
 	if item == null:
 		return 1
+	_ensure_item_effect_definitions(item)
 	var count: int = 1
-	if item.source_id == "aludel":
-		for adjacent in _get_adjacent_player_items(item):
-			if _is_potion_item(adjacent) or _is_reagent_item(adjacent):
-				count += 1
-	elif item.source_id == "quill_and_ink" and not _has_other_weapon_item(item):
-		count += 1
-	elif item.source_id == "barbed_claws":
-		if float(player_status_state.get("poison", 0.0)) > 0.0:
-			count += 1
-		if float(enemy_status_state.get("poison", 0.0)) > 0.0:
-			count += 1
+	count += _get_item_multicast_bonus(item)
 	return maxi(count, 1)
+
+func _ensure_item_effect_definitions(item: ItemData) -> void:
+	if item == null or not item.effects.is_empty():
+		return
+	item.effects = EffectDefinitionClass.build_item_effects(item)
+	item.effect_warnings = EffectDefinitionClass.collect_item_warnings(item, item.effects)
+
+func get_effect_execution_trace() -> Array[Dictionary]:
+	return effect_execution_trace.duplicate(true)
+
+func get_effect_warnings() -> Array[String]:
+	return effect_warnings.duplicate()
+
+func _new_effect_execution_result() -> Dictionary:
+	return {
+		"context": _new_use_context(),
+		"events": [],
+		"executed": false,
+	}
+
+func _log_effect_support_warnings() -> void:
+	if inventory != null:
+		for item in inventory.items:
+			if item == null:
+				continue
+			_ensure_item_effect_definitions(item)
+			for warning_text in item.effect_warnings:
+				_push_effect_warning(str(warning_text))
+	for skill_ref in player_skill_refs:
+		for warning_text in PlayerSkillCatalogClass.get_effect_warnings(skill_ref):
+			_push_effect_warning(str(warning_text))
+
+func _push_effect_warning(message: String) -> void:
+	if message.is_empty() or effect_warnings.has(message):
+		return
+	effect_warnings.append(message)
+	push_warning(message)
+
+func _next_effect_event_id() -> int:
+	_effect_event_id_counter += 1
+	return _effect_event_id_counter
+
+func _make_effect_event(
+	event_name: String,
+	source_item: ItemData,
+	extra: Dictionary = {},
+	depth: int = 0
+) -> Dictionary:
+	var event_data: Dictionary = {
+		"id": _next_effect_event_id(),
+		"name": event_name,
+		"depth": depth,
+		"source_item": source_item,
+		"source_id": "" if source_item == null else source_item.source_id,
+		"source_name": "" if source_item == null else source_item.item_name,
+	}
+	for key in extra.keys():
+		event_data[key] = extra[key]
+	return event_data
+
+func _record_effect_trace(
+	owner: Dictionary,
+	definition: Dictionary,
+	event_name: String,
+	amount: float,
+	target_count: int
+) -> void:
+	var owner_item: ItemData = owner.get("item", null) as ItemData
+	effect_execution_trace.append({
+		"owner_kind": str(owner.get("kind", "")),
+		"owner_id": str(owner.get("id", owner_item.source_id if owner_item != null else "")),
+		"definition_id": str(definition.get("id", "")),
+		"trigger": str(definition.get("trigger", "")),
+		"event_name": event_name,
+		"effect_type": str((definition.get("effect", {}) as Dictionary).get("type", "")),
+		"amount": amount,
+		"target_count": target_count,
+		"time": _battle_elapsed_time,
+	})
+
+func _get_item_multicast_bonus(item: ItemData) -> int:
+	if item == null:
+		return 0
+	var owner := {"kind": "item", "id": item.source_id, "item": item}
+	var root_event: Dictionary = _make_effect_event(
+		EffectDefinitionClass.TRIGGER_ON_COOLDOWN_READY,
+		item
+	)
+	var bonus: int = 0
+	for definition_variant in item.effects:
+		if not definition_variant is Dictionary:
+			continue
+		var definition: Dictionary = definition_variant
+		if str(definition.get("trigger", "")) != EffectDefinitionClass.TRIGGER_ON_COOLDOWN_READY:
+			continue
+		var effect_data: Dictionary = definition.get("effect", {})
+		if str(effect_data.get("type", "")) != EffectDefinitionClass.EFFECT_MULTICAST:
+			continue
+		if not _definition_condition_matches(owner, definition, root_event):
+			continue
+		_record_effect_trace(owner, definition, str(root_event.get("name", "")), 1.0, 1)
+		bonus += int(round(_resolve_effect_amount(
+			item,
+			effect_data,
+			{
+				"crit_multiplier": 1.0,
+				"burn_bonus": 0.0,
+				"poison_bonus": 0.0,
+				"lifesteal_rate": 0.0,
+			}
+		)))
+	return maxi(bonus, 0)
+
+func _execute_item_effect_definitions(
+	item: ItemData,
+	execution_context: Dictionary,
+	timing: String = "before_consume"
+) -> Dictionary:
+	var result: Dictionary = _new_effect_execution_result()
+	if item == null:
+		return result
+	if item.effects.is_empty():
+		item.effects = EffectDefinitionClass.build_item_effects(item)
+		item.effect_warnings = EffectDefinitionClass.collect_item_warnings(item, item.effects)
+	var owner := {"kind": "item", "id": item.source_id, "item": item}
+	var root_event: Dictionary = _make_effect_event(
+		EffectDefinitionClass.TRIGGER_ON_COOLDOWN_READY,
+		item
+	)
+	var has_poison_root: bool = false
+	var has_regen_root: bool = false
+	for definition_variant in item.effects:
+		if not definition_variant is Dictionary:
+			continue
+		var definition: Dictionary = definition_variant
+		if str(definition.get("trigger", "")) != EffectDefinitionClass.TRIGGER_ON_COOLDOWN_READY:
+			continue
+		var definition_timing: String = str(definition.get("timing", "before_consume"))
+		if definition_timing != timing:
+			continue
+		var effect_data: Dictionary = definition.get("effect", {})
+		if str(effect_data.get("type", "")) == EffectDefinitionClass.EFFECT_MULTICAST:
+			continue
+		if str(effect_data.get("type", "")) == EffectDefinitionClass.EFFECT_POISON:
+			has_poison_root = true
+		elif str(effect_data.get("type", "")) == EffectDefinitionClass.EFFECT_REGENERATION:
+			has_regen_root = true
+		if not _definition_condition_matches(owner, definition, root_event):
+			continue
+		var execution_result: Dictionary = _apply_effect_definition(
+			owner,
+			definition,
+			root_event,
+			execution_context
+		)
+		_merge_use_context(result.get("context", {}), execution_result.get("context", {}))
+		result["events"].append_array(execution_result.get("events", []))
+		result["executed"] = bool(result.get("executed", false)) or bool(execution_result.get("executed", false))
+	if timing == "before_consume":
+		var extra_poison: float = _get_item_runtime_bonus(item, "poison") + _get_other_emerald_poison_bonus(item)
+		if not has_poison_root and extra_poison > 0.0:
+			var extra_poison_result: Dictionary = _apply_effect_definition(
+				owner,
+				{
+					"id": "%s_runtime_poison_bonus" % item.source_id,
+					"trigger": EffectDefinitionClass.TRIGGER_ON_COOLDOWN_READY,
+					"target": {"side": "enemy", "selector": "hero"},
+					"effect": {"type": EffectDefinitionClass.EFFECT_POISON, "amount": extra_poison},
+				},
+				root_event,
+				execution_context
+			)
+			_merge_use_context(result.get("context", {}), extra_poison_result.get("context", {}))
+			result["events"].append_array(extra_poison_result.get("events", []))
+			result["executed"] = bool(result.get("executed", false)) or bool(extra_poison_result.get("executed", false))
+		var extra_regen: float = _get_item_runtime_bonus(item, "regeneration")
+		if not has_regen_root and extra_regen > 0.0:
+			var extra_regen_result: Dictionary = _apply_effect_definition(
+				owner,
+				{
+					"id": "%s_runtime_regeneration_bonus" % item.source_id,
+					"trigger": EffectDefinitionClass.TRIGGER_ON_COOLDOWN_READY,
+					"target": {"side": "self", "selector": "hero"},
+					"effect": {"type": EffectDefinitionClass.EFFECT_REGENERATION, "amount": extra_regen},
+				},
+				root_event,
+				execution_context
+			)
+			_merge_use_context(result.get("context", {}), extra_regen_result.get("context", {}))
+			result["events"].append_array(extra_regen_result.get("events", []))
+			result["executed"] = bool(result.get("executed", false)) or bool(extra_regen_result.get("executed", false))
+	return result
+
+func _process_reactive_effect_events(events: Array[Dictionary]) -> Dictionary:
+	var context: Dictionary = _new_use_context()
+	if events.is_empty():
+		return context
+	var queue: Array = []
+	queue.append_array(events)
+	var triggered_count: int = 0
+	while not queue.is_empty():
+		if triggered_count >= MAX_TRIGGERED_EFFECTS_PER_TICK:
+			_push_effect_warning("effect_chain_limit:max_triggered_effects_per_tick")
+			break
+		var event_data: Dictionary = queue.pop_front()
+		var depth: int = int(event_data.get("depth", 0))
+		if depth >= EFFECT_CHAIN_DEPTH_LIMIT:
+			_push_effect_warning("effect_chain_limit:chain_depth")
+			continue
+		for owner in _collect_effect_owners():
+			var definitions: Array = owner.get("effects", [])
+			for definition_variant in definitions:
+				if not definition_variant is Dictionary:
+					continue
+				var definition: Dictionary = definition_variant
+				if str(definition.get("trigger", "")) != str(event_data.get("name", "")):
+					continue
+				if not _should_execute_effect_definition(owner, definition, event_data):
+					continue
+				var execution_result: Dictionary = _apply_effect_definition(
+					owner,
+					definition,
+					event_data,
+					{
+						"crit_multiplier": 1.0,
+						"burn_bonus": 0.0,
+						"poison_bonus": 0.0,
+						"lifesteal_rate": 0.0,
+						"is_crit": false,
+					}
+				)
+				if not bool(execution_result.get("executed", false)):
+					continue
+				_mark_effect_definition_triggered(owner, definition, event_data)
+				_merge_use_context(context, execution_result.get("context", {}))
+				var next_events: Array = execution_result.get("events", [])
+				for next_event_variant in next_events:
+					if not next_event_variant is Dictionary:
+						continue
+					var next_event: Dictionary = (next_event_variant as Dictionary).duplicate(true)
+					next_event["depth"] = depth + 1
+					queue.append(next_event)
+				triggered_count += 1
+				if triggered_count >= MAX_TRIGGERED_EFFECTS_PER_TICK:
+					break
+			if triggered_count >= MAX_TRIGGERED_EFFECTS_PER_TICK:
+				break
+	return context
+
+func _collect_effect_owners() -> Array[Dictionary]:
+	var owners: Array[Dictionary] = []
+	if inventory != null:
+		for item in inventory.items:
+			if item == null or item.effects.is_empty():
+				continue
+			owners.append({
+				"kind": "item",
+				"id": item.source_id,
+				"item": item,
+				"effects": item.effects,
+			})
+	for skill_ref in player_skill_refs:
+		var skill_entry: Dictionary = PlayerSkillCatalogClass.get_skill_entry(skill_ref)
+		var definitions: Array[Dictionary] = PlayerSkillCatalogClass.get_effect_definitions(skill_entry)
+		if definitions.is_empty():
+			continue
+		owners.append({
+			"kind": "skill",
+			"id": str(skill_entry.get("id", "")),
+			"skill_ref": skill_entry,
+			"effects": definitions,
+		})
+	return owners
+
+func _should_execute_effect_definition(
+	owner: Dictionary,
+	definition: Dictionary,
+	event_data: Dictionary
+) -> bool:
+	if not _definition_condition_matches(owner, definition, event_data):
+		return false
+	var definition_key: String = _effect_definition_state_key(owner, definition)
+	var state: Dictionary = _effect_runtime_state.get(definition_key, {})
+	var consumed_events: Dictionary = state.get("consumed_events", {})
+	var event_id: int = int(event_data.get("id", -1))
+	if event_id >= 0 and consumed_events.has(event_id):
+		return false
+	var max_triggers: int = int(definition.get("max_triggers_per_fight", 0))
+	if max_triggers > 0 and int(state.get("trigger_count", 0)) >= max_triggers:
+		return false
+	var internal_cooldown: float = float(definition.get("internal_cooldown", 0.0))
+	if internal_cooldown > 0.0:
+		var last_time: float = float(state.get("last_time", -999999.0))
+		if _battle_elapsed_time - last_time < internal_cooldown:
+			return false
+	return true
+
+func _mark_effect_definition_triggered(
+	owner: Dictionary,
+	definition: Dictionary,
+	event_data: Dictionary
+) -> void:
+	var definition_key: String = _effect_definition_state_key(owner, definition)
+	var state: Dictionary = _effect_runtime_state.get(definition_key, {})
+	state["trigger_count"] = int(state.get("trigger_count", 0)) + 1
+	state["last_time"] = _battle_elapsed_time
+	var consumed_events: Dictionary = state.get("consumed_events", {})
+	var event_id: int = int(event_data.get("id", -1))
+	if event_id >= 0:
+		consumed_events[event_id] = true
+	state["consumed_events"] = consumed_events
+	_effect_runtime_state[definition_key] = state
+
+func _effect_definition_state_key(owner: Dictionary, definition: Dictionary) -> String:
+	return "%s:%s" % [str(owner.get("id", "")), str(definition.get("id", ""))]
+
+func _definition_condition_matches(
+	owner: Dictionary,
+	definition: Dictionary,
+	event_data: Dictionary
+) -> bool:
+	var condition: Dictionary = definition.get("condition", {})
+	if condition.is_empty():
+		return true
+	var owner_item: ItemData = owner.get("item", null) as ItemData
+	var source_item: ItemData = event_data.get("source_item", null) as ItemData
+	if condition.has("tag") and not _item_has_tag(source_item, str(condition.get("tag", ""))):
+		return false
+	if condition.has("event_source_size"):
+		var expected_size: String = str(condition.get("event_source_size", "")).to_lower()
+		if source_item == null:
+			return false
+		match expected_size:
+			"small", "小":
+				if source_item.get_slot_count() != 1:
+					return false
+			"medium", "中":
+				if source_item.get_slot_count() != 2:
+					return false
+			"large", "大":
+				if source_item.get_slot_count() != 3:
+					return false
+			_:
+				return false
+	if condition.has("event_source_has_ammo"):
+		if source_item == null or source_item.has_ammo_limit() != bool(condition.get("event_source_has_ammo", false)):
+			return false
+	if condition.has("status_type"):
+		if str(event_data.get("status_type", "")) != str(condition.get("status_type", "")):
+			return false
+	if condition.has("event_source_relation"):
+		if owner_item == null or source_item == null or inventory == null:
+			return false
+		var relation: String = str(condition.get("event_source_relation", ""))
+		match relation:
+			"left_adjacent":
+				if inventory.get_right_adjacent_item(source_item) != owner_item:
+					return false
+			"right_adjacent":
+				if inventory.get_left_adjacent_item(source_item) != owner_item:
+					return false
+			_:
+				return false
+	if bool(condition.get("event_source_is_owner_or_adjacent", false)):
+		if owner_item == null or source_item == null:
+			return false
+		if owner_item != source_item and not _get_adjacent_player_items(owner_item).has(source_item):
+			return false
+	if condition.has("adjacent_any_tags"):
+		if owner_item == null:
+			return false
+		var has_match: bool = false
+		for tag in condition.get("adjacent_any_tags", []):
+			for adjacent in _get_adjacent_player_items(owner_item):
+				if _item_has_tag(adjacent, str(tag)):
+					has_match = true
+					break
+			if has_match:
+				break
+		if not has_match:
+			return false
+	if condition.has("adjacent_status_type"):
+		if owner_item == null or not _has_adjacent_status_item(owner_item, str(condition.get("adjacent_status_type", ""))):
+			return false
+	if condition.has("no_other_tag"):
+		if owner_item == null or _has_other_tag_item(owner_item, str(condition.get("no_other_tag", ""))):
+			return false
+	if condition.has("status_at_least"):
+		var status_requirements: Array = [condition.get("status_at_least", {})]
+		if condition.get("status_at_least") is Array:
+			status_requirements = condition.get("status_at_least", [])
+		for requirement_variant in status_requirements:
+			if not requirement_variant is Dictionary:
+				return false
+			var requirement: Dictionary = requirement_variant
+			var minimum: float = float(requirement.get("minimum", 0.0))
+			var side: String = str(requirement.get("side", "self"))
+			var status_type: String = str(requirement.get("type", ""))
+			if _get_status_total(side, status_type) < minimum:
+				return false
+	return true
+
+func _get_status_total(side: String, status_type: String) -> float:
+	var state: Dictionary = enemy_status_state if side == "enemy" else player_status_state
+	return float(state.get(status_type, 0.0))
+
+func _has_other_tag_item(item: ItemData, tag: String) -> bool:
+	if inventory == null or item == null:
+		return false
+	for candidate in inventory.items:
+		if candidate != null and candidate != item and _item_has_tag(candidate, tag):
+			return true
+	return false
+
+func _resolve_effect_amount(
+	owner_item: ItemData,
+	effect_data: Dictionary,
+	execution_context: Dictionary
+) -> float:
+	var amount: float = 0.0
+	if effect_data.has("amount"):
+		amount = float(effect_data.get("amount", 0.0))
+	elif effect_data.has("amount_by_rarity"):
+		amount = _get_rarity_value(owner_item, effect_data.get("amount_by_rarity", []), 0.0)
+	elif effect_data.has("amount_from") and owner_item != null:
+		match str(effect_data.get("amount_from", "")):
+			"source.damage":
+				amount = float(maxi(
+					owner_item.get_rarity_adjusted_damage()
+					+ int(round(_get_item_runtime_bonus(owner_item, "damage")))
+					+ _get_player_item_skill_damage_bonus(owner_item),
+					0
+				))
+			"source.shield":
+				amount = float(ItemEffectsClass.calculate_shield(owner_item) + _get_player_item_skill_shield_bonus(owner_item))
+			"source.heal":
+				amount = float(ItemEffectsClass.calculate_heal(owner_item))
+			"source.poison":
+				amount = owner_item.poison_damage
+				amount += _get_item_runtime_bonus(owner_item, "poison")
+				amount += _get_other_emerald_poison_bonus(owner_item)
+				amount += float(execution_context.get("poison_bonus", 0.0))
+			"source.poison_bonus":
+				amount = _get_item_runtime_bonus(owner_item, "poison")
+				amount += _get_other_emerald_poison_bonus(owner_item)
+				amount += float(execution_context.get("poison_bonus", 0.0))
+			"source.burn":
+				amount = owner_item.burn_damage
+				amount += _get_item_runtime_bonus(owner_item, "burn")
+				if owner_item.burn_damage > 0.0:
+					amount += _get_other_ruby_burn_bonus(owner_item)
+				amount += float(execution_context.get("burn_bonus", 0.0))
+			"source.regeneration":
+				amount = owner_item.regeneration + _get_item_runtime_bonus(owner_item, "regeneration")
+			"source.slow_duration":
+				amount = owner_item.slow_duration
+			"source.freeze_duration":
+				amount = owner_item.freeze_duration
+			"source.haste_duration":
+				amount = owner_item.haste_duration
+	if bool(effect_data.get("include_runtime_poison_bonus", false)) and owner_item != null:
+		amount += _get_item_runtime_bonus(owner_item, "poison")
+	if bool(effect_data.get("include_burn_synergy_bonus", false)) and owner_item != null:
+		amount += _get_other_ruby_burn_bonus(owner_item)
+	if bool(effect_data.get("crit_scaled", false)):
+		amount *= float(execution_context.get("crit_multiplier", 1.0))
+	return maxf(amount, 0.0)
+
+func _resolve_target_count(
+	owner_item: ItemData,
+	target_data: Dictionary,
+	effect_data: Dictionary,
+	execution_context: Dictionary
+) -> int:
+	var count: int = 1
+	if target_data.has("count"):
+		count = int(target_data.get("count", 1))
+	elif target_data.has("count_from") and owner_item != null:
+		match str(target_data.get("count_from", "")):
+			"source.slow_count":
+				count = owner_item.slow_count
+			"source.freeze_count":
+				count = owner_item.freeze_count
+			"source.haste_count":
+				count = owner_item.haste_count
+	if bool(effect_data.get("count_crit_scaled", false)):
+		count = int(round(float(count) * float(execution_context.get("crit_multiplier", 1.0))))
+	return maxi(count, 1)
+
+func _resolve_effect_targets(
+	owner: Dictionary,
+	definition: Dictionary,
+	execution_context: Dictionary
+) -> Array[Dictionary]:
+	var targets: Array[Dictionary] = []
+	var owner_item: ItemData = owner.get("item", null) as ItemData
+	var target_data: Dictionary = definition.get("target", {})
+	var effect_data: Dictionary = definition.get("effect", {})
+	var selector: String = str(target_data.get("selector", "hero"))
+	var side: String = str(target_data.get("side", "self"))
+	var count: int = _resolve_target_count(owner_item, target_data, effect_data, execution_context)
+	match selector:
+		"hero":
+			targets.append({"kind": "hero", "side": side})
+		"this_item":
+			if owner_item != null:
+				targets.append({"kind": "player_item", "item": owner_item})
+		"left_item":
+			if inventory != null and owner_item != null:
+				var left_item: ItemData = inventory.get_left_adjacent_item(owner_item)
+				if left_item != null:
+					targets.append({"kind": "player_item", "item": left_item})
+		"right_item":
+			if inventory != null and owner_item != null:
+				var right_item: ItemData = inventory.get_right_adjacent_item(owner_item)
+				if right_item != null:
+					targets.append({"kind": "player_item", "item": right_item})
+		"adjacent":
+			if owner_item != null:
+				for adjacent in _get_adjacent_player_items(owner_item):
+					if adjacent != null:
+						targets.append({"kind": "player_item", "item": adjacent})
+		"matching_tag_highest_cooldown":
+			var tag: String = str(target_data.get("tag", ""))
+			var candidates: Array[ItemData] = []
+			if inventory != null:
+				for item in inventory.items:
+					if item != null and _item_has_tag(item, tag) and item.current_cooldown > 0.0:
+						candidates.append(item)
+			candidates.sort_custom(func(a: ItemData, b: ItemData) -> bool:
+				return a.current_cooldown > b.current_cooldown
+			)
+			for index in range(mini(count, candidates.size())):
+				targets.append({"kind": "player_item", "item": candidates[index]})
+		"slowest_other_items":
+			var other_items: Array[ItemData] = []
+			if inventory != null:
+				for item in inventory.items:
+					if item != null and item != owner_item and item.cooldown > 0.0:
+						other_items.append(item)
+			other_items.sort_custom(func(a: ItemData, b: ItemData) -> bool:
+				return a.current_cooldown > b.current_cooldown
+			)
+			for index in range(mini(count, other_items.size())):
+				targets.append({"kind": "player_item", "item": other_items[index]})
+		"slowest_items":
+			if side == "enemy" and current_monster != null:
+				var enemy_indices: Array[int] = []
+				for item_index in range(current_monster.monster_items.size()):
+					var monster_item: Dictionary = current_monster.monster_items[item_index]
+					if float(monster_item.get("cooldown", 0.0)) > 0.0:
+						enemy_indices.append(item_index)
+				enemy_indices.sort_custom(func(a: int, b: int) -> bool:
+					return float(current_monster.monster_items[a].get("current_cooldown", 0.0)) > float(current_monster.monster_items[b].get("current_cooldown", 0.0))
+				)
+				for index in range(mini(count, enemy_indices.size())):
+					targets.append({"kind": "monster_item", "index": enemy_indices[index]})
+			elif side != "enemy" and inventory != null:
+				var player_items: Array[ItemData] = []
+				for item in inventory.items:
+					if item != null and item.cooldown > 0.0:
+						player_items.append(item)
+				player_items.sort_custom(func(a: ItemData, b: ItemData) -> bool:
+					return a.current_cooldown > b.current_cooldown
+				)
+				for index in range(mini(count, player_items.size())):
+					targets.append({"kind": "player_item", "item": player_items[index]})
+		_:
+			_push_effect_warning("unsupported_target_selector:%s:%s" % [
+				str(owner.get("id", "")),
+				selector,
+			])
+	return targets
+
+func _apply_effect_definition(
+	owner: Dictionary,
+	definition: Dictionary,
+	event_data: Dictionary,
+	execution_context: Dictionary
+) -> Dictionary:
+	var result: Dictionary = _new_effect_execution_result()
+	var effect_data: Dictionary = definition.get("effect", {})
+	var effect_type: String = str(effect_data.get("type", ""))
+	var owner_item: ItemData = owner.get("item", null) as ItemData
+	if effect_type == EffectDefinitionClass.EFFECT_MULTICAST:
+		return result
+	var amount: float = _resolve_effect_amount(owner_item, effect_data, execution_context)
+	var targets: Array[Dictionary] = _resolve_effect_targets(owner, definition, execution_context)
+	if targets.is_empty() and effect_type != EffectDefinitionClass.EFFECT_DAMAGE:
+		return result
+
+	match effect_type:
+		EffectDefinitionClass.EFFECT_DAMAGE:
+			var damage_amount: int = int(round(amount))
+			if damage_amount <= 0:
+				return result
+			var did_damage: bool = false
+			for target in targets:
+				if str(target.get("kind", "")) != "hero":
+					continue
+				if str(target.get("side", "")) == "enemy":
+					if current_monster != null and current_monster.is_alive():
+						current_monster.take_damage(damage_amount)
+						did_damage = true
+				elif game_manager != null:
+					game_manager.take_damage(damage_amount)
+					did_damage = true
+			if not did_damage:
+				return result
+			result["executed"] = true
+			result["context"]["damage"] = int(result["context"].get("damage", 0)) + damage_amount
+			if owner_item != null:
+				item_triggered.emit(
+					owner_item.item_name,
+					damage_amount,
+					bool(execution_context.get("is_crit", false)),
+					"enemy"
+				)
+				var crit_text: String = "（暴击!）" if bool(execution_context.get("is_crit", false)) else ""
+				print("🗡️ [%s] 触发！造成 %d 伤害%s" % [owner_item.item_name, damage_amount, crit_text])
+				var lifesteal_rate: float = clampf(
+					float(execution_context.get("lifesteal_rate", 0.0))
+					+ (1.0 if _item_has_lifesteal(owner_item) else 0.0),
+					0.0,
+					1.0
+				)
+				if lifesteal_rate > 0.0 and game_manager != null:
+					var stolen: int = int(float(damage_amount) * lifesteal_rate)
+					if stolen > 0:
+						game_manager.heal(stolen)
+						print("💚 [%s] 生命偷取恢复 %d 生命" % [owner_item.item_name, stolen])
+			result["events"].append(_make_effect_event(
+				EffectDefinitionClass.TRIGGER_ON_DAMAGE_DEALT,
+				owner_item
+			))
+		EffectDefinitionClass.EFFECT_SHIELD:
+			var shield_amount: int = int(round(amount))
+			if shield_amount <= 0:
+				return result
+			var applied_shield: bool = false
+			for target in targets:
+				if str(target.get("kind", "")) != "hero":
+					continue
+				if str(target.get("side", "")) == "enemy":
+					if current_monster != null:
+						current_monster.current_shield = maxf(current_monster.current_shield + float(shield_amount), 0.0)
+						applied_shield = true
+				else:
+					var hero: HeroData = null if game_manager == null else game_manager.selected_hero
+					if hero != null:
+						hero.add_shield(float(shield_amount))
+						applied_shield = true
+			if not applied_shield:
+				return result
+			result["executed"] = true
+			result["context"]["shield_proc_count"] = int(result["context"].get("shield_proc_count", 0)) + 1
+			effect_applied.emit(_owner_effect_name(owner), "shield", shield_amount, str((targets[0] as Dictionary).get("side", "self")))
+			print("🛡️ [%s] 触发！获得 %d 护盾" % [_owner_effect_name(owner), shield_amount])
+			result["events"].append(_make_effect_event(
+				EffectDefinitionClass.TRIGGER_ON_SHIELD_GAINED,
+				owner_item
+			))
+		EffectDefinitionClass.EFFECT_HEAL:
+			var heal_amount: int = int(round(amount))
+			if heal_amount <= 0:
+				return result
+			var applied_heal: bool = false
+			for target in targets:
+				if str(target.get("kind", "")) != "hero":
+					continue
+				if str(target.get("side", "")) == "enemy":
+					if current_monster != null and current_monster.is_alive():
+						current_monster.current_hp = mini(current_monster.current_hp + heal_amount, current_monster.max_hp)
+						applied_heal = true
+				elif game_manager != null:
+					game_manager.heal(heal_amount)
+					applied_heal = true
+			if not applied_heal:
+				return result
+			result["executed"] = true
+			result["context"]["heal_proc_count"] = int(result["context"].get("heal_proc_count", 0)) + 1
+			effect_applied.emit(_owner_effect_name(owner), "heal", heal_amount, str((targets[0] as Dictionary).get("side", "self")))
+			print("💚 [%s] 触发！恢复 %d 生命" % [_owner_effect_name(owner), heal_amount])
+			result["events"].append(_make_effect_event(
+				EffectDefinitionClass.TRIGGER_ON_HEAL,
+				owner_item
+			))
+		EffectDefinitionClass.EFFECT_POISON, EffectDefinitionClass.EFFECT_BURN, EffectDefinitionClass.EFFECT_REGENERATION:
+			var status_amount: float = amount
+			if status_amount <= 0.0:
+				return result
+			var applied_status: bool = false
+			for target in targets:
+				if str(target.get("kind", "")) != "hero":
+					continue
+				var target_side: String = str(target.get("side", "enemy"))
+				_apply_status_effect({
+					"type": effect_type,
+					"value": status_amount,
+					"duration": 0.0,
+					"item_name": _owner_effect_name(owner),
+					"target": "enemy" if target_side == "enemy" else "self",
+				})
+				applied_status = true
+				if target_side == "enemy":
+					result["events"].append(_make_effect_event(
+						EffectDefinitionClass.TRIGGER_ON_ENEMY_STATUS_APPLIED,
+						owner_item,
+						{"status_type": effect_type}
+					))
+			if not applied_status:
+				return result
+			result["executed"] = true
+			match effect_type:
+				EffectDefinitionClass.EFFECT_POISON:
+					result["context"]["poison_proc_count"] = int(result["context"].get("poison_proc_count", 0)) + 1
+				EffectDefinitionClass.EFFECT_BURN:
+					result["context"]["burn_proc_count"] = int(result["context"].get("burn_proc_count", 0)) + 1
+				EffectDefinitionClass.EFFECT_REGENERATION:
+					result["context"]["regen_proc_count"] = int(result["context"].get("regen_proc_count", 0)) + 1
+		EffectDefinitionClass.EFFECT_SLOW, EffectDefinitionClass.EFFECT_FREEZE, EffectDefinitionClass.EFFECT_HASTE, EffectDefinitionClass.EFFECT_CHARGE:
+			if amount <= 0.0:
+				return result
+			var applied_count: int = 0
+			for target in targets:
+				match str(target.get("kind", "")):
+					"player_item":
+						var player_item: ItemData = target.get("item", null) as ItemData
+						if player_item == null:
+							continue
+						if effect_type == EffectDefinitionClass.EFFECT_SLOW or effect_type == EffectDefinitionClass.EFFECT_FREEZE:
+							player_item.current_cooldown = maxf(player_item.current_cooldown + amount, 0.0)
+						else:
+							player_item.current_cooldown = maxf(player_item.current_cooldown - amount, 0.0)
+						applied_count += 1
+					"monster_item":
+						var item_index: int = int(target.get("index", -1))
+						if current_monster == null or item_index < 0 or item_index >= current_monster.monster_items.size():
+							continue
+						var monster_item: Dictionary = current_monster.monster_items[item_index]
+						if effect_type == EffectDefinitionClass.EFFECT_SLOW or effect_type == EffectDefinitionClass.EFFECT_FREEZE:
+							monster_item["current_cooldown"] = maxf(float(monster_item.get("current_cooldown", 0.0)) + amount, 0.0)
+						else:
+							monster_item["current_cooldown"] = maxf(float(monster_item.get("current_cooldown", 0.0)) - amount, 0.0)
+						applied_count += 1
+			if applied_count <= 0:
+				return result
+			result["executed"] = true
+			match effect_type:
+				EffectDefinitionClass.EFFECT_SLOW:
+					result["context"]["slow_proc_count"] = int(result["context"].get("slow_proc_count", 0)) + 1
+					result["events"].append(_make_effect_event(
+						EffectDefinitionClass.TRIGGER_ON_ENEMY_STATUS_APPLIED,
+						owner_item,
+						{"status_type": EffectDefinitionClass.EFFECT_SLOW}
+					))
+				EffectDefinitionClass.EFFECT_FREEZE:
+					result["context"]["freeze_proc_count"] = int(result["context"].get("freeze_proc_count", 0)) + 1
+					result["events"].append(_make_effect_event(
+						EffectDefinitionClass.TRIGGER_ON_ENEMY_STATUS_APPLIED,
+						owner_item,
+						{"status_type": EffectDefinitionClass.EFFECT_FREEZE}
+					))
+				EffectDefinitionClass.EFFECT_HASTE:
+					result["context"]["haste_proc_count"] = int(result["context"].get("haste_proc_count", 0)) + 1
+				EffectDefinitionClass.EFFECT_CHARGE:
+					pass
+			effect_applied.emit(_owner_effect_name(owner), effect_type, int(round(amount)), str((definition.get("target", {}) as Dictionary).get("side", "self")))
+		EffectDefinitionClass.EFFECT_RELOAD:
+			var reload_amount: int = maxi(int(round(amount)), 1)
+			var reloaded_count: int = 0
+			for target in targets:
+				if str(target.get("kind", "")) != "player_item":
+					continue
+				var player_item: ItemData = target.get("item", null) as ItemData
+				if player_item == null:
+					continue
+				if player_item.refill_ammo(reload_amount) > 0:
+					reloaded_count += 1
+			if reloaded_count <= 0:
+				return result
+			result["executed"] = true
+			effect_applied.emit(_owner_effect_name(owner), effect_type, reload_amount, "self")
+		_:
+			_push_effect_warning("unsupported_effect_type:%s:%s" % [
+				str(owner.get("id", "")),
+				effect_type,
+			])
+			return result
+
+	if bool(result.get("executed", false)):
+		_record_effect_trace(owner, definition, str(event_data.get("name", "")), amount, targets.size())
+	return result
+
+func _owner_effect_name(owner: Dictionary) -> String:
+	var owner_item: ItemData = owner.get("item", null) as ItemData
+	if owner_item != null:
+		return owner_item.item_name
+	var skill_entry: Dictionary = owner.get("skill_ref", {})
+	return PlayerSkillCatalogClass.get_skill_display_name(skill_entry)
 
 func _get_item_runtime_bonus(item: ItemData, key: String) -> float:
 	if item == null:
@@ -702,7 +1531,6 @@ func _handle_player_status_reference(status_type: String, trigger_count: int) ->
 		elif status_type == ItemEffectsClass.EFFECT_HASTE:
 			if candidate.source_id == "earrings":
 				_charge_player_item(candidate, 1.0 * float(trigger_count))
-	_apply_player_skill_status_triggers(status_type, trigger_count)
 
 func _apply_smelling_salts_haste(source_item: ItemData, trigger_count: int) -> void:
 	if inventory == null or source_item == null or trigger_count <= 0:
