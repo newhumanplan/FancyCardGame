@@ -581,31 +581,78 @@ const MONSTER_SKILL_SPECS: Array[Dictionary] = [
 	{"collection": "Monster", "effect": "You have +20/30/40 Regen for each non-Weapon item you have.", "id": "waters_of_infinity", "image_file": "Waters of Infinity.png", "name": "Waters of Infinity", "starting_tier": "Silver", "tags": ["Regen"]},
 ]
 
+const SUPPLEMENTAL_MONSTER_ITEM_NAMES: Dictionary = {
+	"butterfly_swords": "Butterfly Swords",
+	"bushel": "Bushel",
+	"caltrops": "Caltrops",
+	"cannonball": "Cannonball",
+	"captain": "Captain",
+	"cargo_shorts": "Cargo Shorts",
+	"cash_cannon": "Cash Cannon",
+	"catfish": "Catfish",
+	"cauldron": "Cauldron",
+	"char_cole": "Char Cole",
+	"chris_army_knife": "Chris Army Knife",
+	"chum": "Chum",
+	"clamera": "Clamera",
+	"clockwork_blade": "Clockwork Blade",
+	"cog": "Cog",
+	"concealed_dagger": "Concealed Dagger",
+	"coolant": "Coolant",
+	"copper_ed": "Copper Ed",
+	"crane": "Crane",
+	"crook": "Crook",
+	"crow": "Crow",
+	"crypto": "Crypto",
+	"cryomastery": "Cryomastery",
+	"fork_lift": "Fork Lift",
+	"fossilized_femur": "Fossilized Femur",
+	"hakurvian_launcher": "Hakurvian Launcher",
+	"ouroborus_statue": "Ouroborus Statue",
+	"s_nest": "S Nest",
+	"s_ring": "S Ring",
+	"shoeblade": "Shoeblade",
+}
+
+const SUPPLEMENTAL_MONSTER_SKILL_NAMES: Dictionary = {
+	"heavy_weaponry": "Heavy Weaponry",
+}
+
 static func get_monster_specs() -> Array[Dictionary]:
 	return MONSTER_SPECS.duplicate(true)
 
 static func get_item_specs() -> Array[Dictionary]:
-	return MONSTER_ITEM_SPECS.duplicate(true)
+	var specs: Array[Dictionary] = MONSTER_ITEM_SPECS.duplicate(true)
+	for item_id in SUPPLEMENTAL_MONSTER_ITEM_NAMES.keys():
+		specs.append(_make_supplemental_monster_item_spec(str(item_id)))
+	return specs
 
 static func get_skill_specs() -> Array[Dictionary]:
-	return MONSTER_SKILL_SPECS.duplicate(true)
+	var specs: Array[Dictionary] = MONSTER_SKILL_SPECS.duplicate(true)
+	for skill_id in SUPPLEMENTAL_MONSTER_SKILL_NAMES.keys():
+		specs.append(_make_supplemental_monster_skill_spec(str(skill_id)))
+	return specs
 
 static func get_item_specs_for_collection(collection_name: String) -> Array[Dictionary]:
-	return _get_specs_for_collection(MONSTER_ITEM_SPECS, collection_name)
+	return _get_specs_for_collection(get_item_specs(), collection_name)
 
 static func get_skill_specs_for_collection(collection_name: String) -> Array[Dictionary]:
-	return _get_specs_for_collection(MONSTER_SKILL_SPECS, collection_name)
+	return _get_specs_for_collection(get_skill_specs(), collection_name)
 
 static func find_item_spec(item_id: String) -> Dictionary:
 	for spec in MONSTER_ITEM_SPECS:
 		if str(spec.get("id", "")) == item_id:
 			return spec.duplicate(true)
+	if SUPPLEMENTAL_MONSTER_ITEM_NAMES.has(item_id):
+		return _make_supplemental_monster_item_spec(item_id)
 	return {}
 
 static func find_skill_spec(skill_id: String) -> Dictionary:
 	for spec in MONSTER_SKILL_SPECS:
 		if str(spec.get("id", "")) == skill_id:
 			return spec.duplicate(true)
+	if SUPPLEMENTAL_MONSTER_SKILL_NAMES.has(skill_id):
+		return _make_supplemental_monster_skill_spec(skill_id)
 	return {}
 
 static func find_monster_spec(monster_id: String) -> Dictionary:
@@ -626,6 +673,32 @@ static func _get_specs_for_collection(source_specs: Array[Dictionary], collectio
 				result.append(spec.duplicate(true))
 				break
 	return result
+
+static func _make_supplemental_monster_item_spec(item_id: String) -> Dictionary:
+	return {
+		"ammo": [],
+		"collection": "Monster",
+		"cooldown": [],
+		"cost": [],
+		"effect": "Supplemental monster loadout reference from wiki monster pages; exact item mechanics unresolved.",
+		"id": item_id,
+		"image_file": "",
+		"name": str(SUPPLEMENTAL_MONSTER_ITEM_NAMES.get(item_id, item_id)),
+		"size": "Small",
+		"starting_tier": "Bronze",
+		"tags": ["MonsterReference", "UnresolvedMechanics"],
+	}
+
+static func _make_supplemental_monster_skill_spec(skill_id: String) -> Dictionary:
+	return {
+		"collection": "Monster",
+		"effect": "Supplemental monster skill reference from wiki monster pages; exact skill mechanics unresolved.",
+		"id": skill_id,
+		"image_file": "",
+		"name": str(SUPPLEMENTAL_MONSTER_SKILL_NAMES.get(skill_id, skill_id)),
+		"starting_tier": "Bronze",
+		"tags": ["MonsterReference", "UnresolvedMechanics"],
+	}
 
 static func get_monster_specs_for_level(level: int) -> Array[Dictionary]:
 	var specs: Array[Dictionary] = []

@@ -17,6 +17,8 @@ func _ready() -> void:
 		test_all_confirmed_hero_item_collections()
 		test_day1_monster_values_match_wiki()
 		test_full_monster_catalog_values_match_wiki()
+		test_monster_catalog_references_resolve()
+		test_full_event_catalog_values_match_wiki()
 		test_day1_event_catalog()
 		_print_summary()
 
@@ -118,6 +120,35 @@ func test_full_monster_catalog_values_match_wiki() -> void:
 
 	_assert_true(WikiMonsterCatalogClass.find_item_spec("tusked_helm").has("damage"), "Monster-related item mechanics are parsed")
 	_assert_true(WikiMonsterCatalogClass.find_skill_spec("lash_out").has("start_poison"), "Monster skill start effects are parsed")
+
+func test_monster_catalog_references_resolve() -> void:
+	var missing_items: Array[String] = []
+	var missing_skills: Array[String] = []
+	for monster in BazaarContentClass.get_all_monster_specs():
+		if int(monster.get("level", 0)) <= 0:
+			continue
+		for item_id in monster.get("item_ids", []):
+			if WikiMonsterCatalogClass.find_item_spec(str(item_id)).is_empty():
+				missing_items.append("%s:%s" % [str(monster.get("id", "")), str(item_id)])
+		for skill_id in monster.get("skill_ids", []):
+			if WikiMonsterCatalogClass.find_skill_spec(str(skill_id)).is_empty():
+				missing_skills.append("%s:%s" % [str(monster.get("id", "")), str(skill_id)])
+	_assert_eq(missing_items.size(), 0, "all leveled monster item references resolve: %s" % ", ".join(missing_items))
+	_assert_eq(missing_skills.size(), 0, "all leveled monster skill references resolve: %s" % ", ".join(missing_skills))
+
+func test_full_event_catalog_values_match_wiki() -> void:
+	var events: Array[Dictionary] = BazaarContentClass.get_all_event_specs()
+	_assert_true(events.size() >= 80, "Full wiki event table is available")
+	_assert_true(not BazaarContentClass.find_event_spec("mandala").is_empty(), "Event catalog includes Mandala")
+	_assert_true(not BazaarContentClass.find_event_spec("the_docks").is_empty(), "Event catalog includes The Docks")
+	_assert_true(not BazaarContentClass.find_event_spec("futura").is_empty(), "Event catalog includes Futura")
+	var day10_events: Array[Dictionary] = BazaarContentClass.get_event_specs_for_day(10)
+	var day10_ids: Array[String] = []
+	for event in day10_events:
+		day10_ids.append(str(event.get("id", "")))
+	_assert_true(day10_ids.has("frozen_tomb"), "Day 10 event catalog includes Frozen Tomb")
+	_assert_true(day10_ids.has("guardians_gorge"), "Day 10 event catalog includes Guardian's Gorge")
+	_assert_true(not day10_ids.has("dabora"), "Disabled events are excluded from day pools")
 
 func test_day1_event_catalog() -> void:
 	var events: Array[Dictionary] = BazaarContentClass.get_day1_events()

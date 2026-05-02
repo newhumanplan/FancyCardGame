@@ -18,7 +18,7 @@ var event_callback: Callable
 ## ============ 随机事件定义 ============
 
 ## 随机事件列表（ID, 名称, 图标, 权重）
-var _random_events: Array[Dictionary] = BazaarContentClass.get_day1_events()
+var _random_events: Array[Dictionary] = BazaarContentClass.get_all_event_specs()
 
 func _build_option(text: String, option_type: String, event_id: String = "", metadata: Dictionary = {}) -> Dictionary:
 	var option := {"text": text, "type": option_type}
@@ -150,6 +150,8 @@ func execute_random_event(event_id: String, day: int, game_manager: Node, invent
 			return "B1&B2: no Bronze item to upgrade."
 		"battlefield":
 			var small_weapon: ItemDataClass = BazaarContentClass.create_random_hero_item(hero_type, BazaarContentClass.RARITY_BRONZE, "Small", "Weapon", true)
+			if small_weapon == null:
+				small_weapon = BazaarContentClass.create_item("old_sword", BazaarContentClass.RARITY_BRONZE)
 			return _grant_item_or_gold(small_weapon, inventory, stash_inventory, game_manager, 0, "Battlefield: get a free small Weapon")
 		"borrow":
 			game_manager.add_income(-1)

@@ -6,6 +6,7 @@ const MonsterDataClass = preload("res://scripts/data/monster_data.gd")
 const HeroDataClass = preload("res://scripts/data/hero_data.gd")
 const PassiveSkillDataClass = preload("res://scripts/data/passive_skill.gd")
 const WikiMonsterCatalogClass = preload("res://scripts/data/wiki_monster_catalog.gd")
+const WikiEventCatalogClass = preload("res://scripts/data/wiki_event_catalog.gd")
 
 const RARITY_BRONZE: int = 1
 const RARITY_SILVER: int = 2
@@ -333,7 +334,16 @@ static func get_hero_skill_specs(hero_type: HeroDataClass.HeroType) -> Array[Dic
 	return WikiMonsterCatalogClass.get_skill_specs_for_collection(str(profile.get("collection", "")))
 
 static func get_day1_events() -> Array[Dictionary]:
-	return DAY1_EVENT_SPECS.duplicate(true)
+	return get_event_specs_for_day(1)
+
+static func get_all_event_specs() -> Array[Dictionary]:
+	return WikiEventCatalogClass.get_event_specs()
+
+static func get_event_specs_for_day(day: int) -> Array[Dictionary]:
+	return WikiEventCatalogClass.get_event_specs_for_day(day)
+
+static func find_event_spec(event_id: String) -> Dictionary:
+	return WikiEventCatalogClass.find_event_spec(event_id)
 
 static func get_day1_merchants() -> Array[Dictionary]:
 	return DAY1_MERCHANT_SPECS.duplicate(true)
