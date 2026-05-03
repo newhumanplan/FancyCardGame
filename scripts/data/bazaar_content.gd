@@ -25,6 +25,45 @@ const HERO_PROFILE_SPECS: Array[Dictionary] = [
 	{"type": HeroDataClass.HeroType.KARNOK, "id": "karnok", "name": "Karnok", "max_hp": 110, "crit": 0.05, "collection": "Karnok", "skills": ["initial_rage", "adrenaline_rush", "blight_temper", "blind_fury"], "passives": [{"name": "Karnok's Rage", "description": "Mobalytics Karnok guide: item uses build Rage to 100; Enrage clears Slow/Freeze and reduces item Cooldowns by 10% for 5 seconds.", "type": "cooldown", "value": 10.0}, {"name": "Monstrous Hunter", "description": "Temporary app passive derived from Karnok's confirmed monster-hunter/Rage playstyle; replace if Tempo publishes canonical innate passives.", "type": "lifesteal", "value": 4.0}]},
 ]
 
+const HERO_ARCHETYPE_SPECS: Dictionary = {
+	"vanessa": [
+		{
+			"id": "vanessa_ammo_weapons",
+			"name": "Ammo Weapons",
+			"tags": ["Weapon", "Ammo", "Damage", "Crit"],
+			"core_items": ["bolas", "grenade", "grapeshot", "throwing_knives", "cutlass"],
+			"core_skills": ["deadly_eye", "gunner", "flashy_reload", "parting_shot"],
+			"summary": "Ammo-backed Weapons scale damage, crit, and reload loops.",
+		},
+		{
+			"id": "vanessa_aquatic_control",
+			"name": "Aquatic Control",
+			"tags": ["Aquatic", "Slow", "Poison", "Haste"],
+			"core_items": ["jellyfish", "dock_lines", "dive_weights", "electric_eels", "turtle_shell"],
+			"core_skills": ["crashing_waves", "improved_toxins", "slow_and_steady", "slowed_targets"],
+			"summary": "Aquatic items slow, poison, and haste Weapons into control payoffs.",
+		},
+	],
+	"pygmalien": [
+		{
+			"id": "pygmalien_heal_shield",
+			"name": "Heal and Shield",
+			"tags": ["Heal", "Shield", "Health"],
+			"core_items": ["bandages", "textiles", "hogwash", "igloo", "succulents"],
+			"core_skills": ["toughness", "overheal_haste", "critical_aid", "frontal_shielding"],
+			"summary": "Healing and Shielding convert sustain into tempo and survivability.",
+		},
+		{
+			"id": "pygmalien_value_weapons",
+			"name": "Value Weapons",
+			"tags": ["Property", "Economy", "Value", "Weapon"],
+			"core_items": ["atm", "landscraper", "spacescraper", "golf_clubs", "tusked_helm"],
+			"core_skills": ["strength", "toughness", "left_handed", "right_handed"],
+			"summary": "Properties and value engines turn economy into Shield, Heal, and Weapon pressure.",
+		},
+	],
+}
+
 const KARNOK_BAZAARDB_ITEMS: Array[Dictionary] = [
 	{"id": "adrenaline_shot", "name": "Adrenaline Shot", "size": "Small", "starting_tier": "Bronze", "cost": [2, 4, 8, 16], "cooldown": [6.0], "ammo": 1, "tags": ["Potion", "Rage"], "effect": "Gain 20/30/40/50 Rage. When you Crit, reload this.", "source_url": "https://mobalytics.gg/the-bazaar/karnok-items"},
 	{"id": "anaconda", "name": "Anaconda", "size": "Large", "starting_tier": "Bronze", "cost": [12, 24, 48, 96], "cooldown": [6.0, 6.0, 4.0, 4.0], "tags": ["Friend", "Weapon", "Vehicle", "Aquatic", "Damage", "RageReference"], "effect": "Deal damage equal to double the Rage you have gained this fight. When you Enrage, this gains +3 Multicast for the fight.", "source_url": "https://mobalytics.gg/the-bazaar/karnok-items"},
@@ -271,6 +310,37 @@ static func get_hero_profile_spec(hero_type: HeroDataClass.HeroType) -> Dictiona
 		if int(profile.get("type", -1)) == int(hero_type):
 			return profile.duplicate(true)
 	return {}
+
+static func get_hero_starter_skill_ids(hero_type: HeroDataClass.HeroType) -> Array[String]:
+	var profile: Dictionary = get_hero_profile_spec(hero_type)
+	if profile.is_empty():
+		return []
+	return _string_array(profile.get("skills", []))
+
+static func get_hero_archetypes(hero_type: HeroDataClass.HeroType) -> Array[Dictionary]:
+	var profile: Dictionary = get_hero_profile_spec(hero_type)
+	if profile.is_empty():
+		return []
+	var hero_id: String = str(profile.get("id", ""))
+	var archetypes: Array[Dictionary] = []
+	for archetype in HERO_ARCHETYPE_SPECS.get(hero_id, []):
+		if archetype is Dictionary:
+			archetypes.append((archetype as Dictionary).duplicate(true))
+	return archetypes
+
+static func get_hero_identity_summary(hero_type: HeroDataClass.HeroType) -> Dictionary:
+	var profile: Dictionary = get_hero_profile_spec(hero_type)
+	if profile.is_empty():
+		return {}
+	return {
+		"id": str(profile.get("id", "")),
+		"name": str(profile.get("name", "")),
+		"collection": str(profile.get("collection", "")),
+		"starter_skills": get_hero_starter_skill_ids(hero_type),
+		"item_ids": get_hero_item_ids(hero_type),
+		"archetypes": get_hero_archetypes(hero_type),
+		"art_path": get_hero_art_path(hero_type),
+	}
 
 static func get_hero_art_path(hero_type: HeroDataClass.HeroType) -> String:
 	var profile: Dictionary = get_hero_profile_spec(hero_type)

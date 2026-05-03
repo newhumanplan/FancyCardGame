@@ -1007,6 +1007,9 @@ func _definition_condition_matches(
 	if condition.has("status_type"):
 		if str(event_data.get("status_type", "")) != str(condition.get("status_type", "")):
 			return false
+	if condition.has("overheal"):
+		if bool(event_data.get("overheal", false)) != bool(condition.get("overheal", false)):
+			return false
 	if condition.has("event_source_relation"):
 		if owner_item == null or source_item == null or inventory == null:
 			return false
@@ -1407,14 +1410,22 @@ func _apply_effect_definition(
 			if heal_amount <= 0:
 				return result
 			var applied_heal: bool = false
+			var overheal_occurred: bool = false
 			for target in targets:
 				if str(target.get("kind", "")) != "hero":
 					continue
 				if str(target.get("side", "")) == "enemy":
 					if current_monster != null and current_monster.is_alive():
+						var enemy_missing_health: int = maxi(current_monster.max_hp - current_monster.current_hp, 0)
+						overheal_occurred = overheal_occurred or heal_amount > enemy_missing_health
 						current_monster.current_hp = mini(current_monster.current_hp + heal_amount, current_monster.max_hp)
 						applied_heal = true
 				elif game_manager != null:
+					var selected_hero: HeroData = game_manager.selected_hero
+					var missing_health: int = 0
+					if selected_hero != null:
+						missing_health = maxi(selected_hero.max_hp - int(game_manager.player_health), 0)
+					overheal_occurred = overheal_occurred or heal_amount > missing_health
 					game_manager.heal(heal_amount)
 					applied_heal = true
 			if not applied_heal:
@@ -1425,7 +1436,8 @@ func _apply_effect_definition(
 			print("💚 [%s] 触发！恢复 %d 生命" % [_owner_effect_name(owner), heal_amount])
 			result["events"].append(_make_effect_event(
 				EffectDefinitionClass.TRIGGER_ON_HEAL,
-				owner_item
+				owner_item,
+				{"overheal": overheal_occurred}
 			))
 		EffectDefinitionClass.EFFECT_POISON, EffectDefinitionClass.EFFECT_BURN, EffectDefinitionClass.EFFECT_REGENERATION:
 			var status_amount: float = amount

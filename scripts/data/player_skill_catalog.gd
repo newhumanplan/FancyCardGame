@@ -234,6 +234,7 @@ const _TRIGGER_SKILL_RULES := {
 		"values": [2.0, 3.0, 4.0],
 		"starting_tier": "silver",
 	},
+	"overheal_haste": {"values": [2.0, 4.0], "starting_tier": "gold"},
 	"paralyzing_rush": {"values": [1.0, 2.0], "starting_tier": "gold"},
 	"poison_tyrant": {"values": [2.0, 4.0, 6.0, 8.0], "starting_tier": "bronze"},
 	"pyromania": {"values": [10.0, 15.0], "starting_tier": "gold"},
@@ -449,6 +450,8 @@ static func get_effect_definitions(skill_ref: Variant) -> Array[Dictionary]:
 			return [_skill_definition("invigorating_cold_on_freeze_haste_items", EffectDefinitionClass.TRIGGER_ON_ENEMY_STATUS_APPLIED, EffectDefinitionClass.EFFECT_HASTE, get_tier_value(resolved), {"side": "self", "selector": "slowest_items", "count": int(round(get_tier_value(resolved, "counts")))}, {"status_type": EffectDefinitionClass.EFFECT_FREEZE}, 1)]
 		"lash_out":
 			return [_skill_definition("lash_out_battle_start_poison", EffectDefinitionClass.TRIGGER_ON_BATTLE_START, EffectDefinitionClass.EFFECT_POISON, get_tier_value(resolved), {"side": "enemy", "selector": "hero"})]
+		"overheal_haste":
+			return [_skill_definition("overheal_haste_on_overheal_haste_all", EffectDefinitionClass.TRIGGER_ON_HEAL, EffectDefinitionClass.EFFECT_HASTE, get_tier_value(resolved), {"side": "self", "selector": "all_items"}, {"overheal": true}, 1)]
 		"paralytic_poison":
 			return [_skill_definition("paralytic_poison_on_first_poison_freeze", EffectDefinitionClass.TRIGGER_ON_ENEMY_STATUS_APPLIED, EffectDefinitionClass.EFFECT_FREEZE, get_tier_value(resolved), {"side": "enemy", "selector": "slowest_items", "count": 1}, {"status_type": EffectDefinitionClass.EFFECT_POISON}, 1)]
 		"paralyzing_rush":
