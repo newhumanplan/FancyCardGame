@@ -100,7 +100,7 @@ func request_close() -> void:
 	closed.emit()
 
 func get_refresh_cost() -> int:
-	return 0 if not free_refresh_used else REFRESH_COST
+	return EconomyService.get_shop_refresh_cost(free_refresh_used)
 
 func get_visible_item_count() -> int:
 	return mini(shop_items.size(), MAX_VISIBLE_ITEMS)
@@ -109,23 +109,15 @@ func is_item_locked(index: int) -> bool:
 	return index in locked_indices
 
 func apply_refresh() -> void:
-	var item_count: int = maxi(shop_items.size(), 3)
-	item_count = mini(item_count, MAX_VISIBLE_ITEMS)
-	var day: int = maxi(int(GameManager.current_day), 1)
-	var max_rarity: int = _get_max_rarity_for_day(day)
-	var new_items: Array[ItemDataClass] = []
-
-	for index in range(item_count):
-		if index in locked_indices and index < shop_items.size():
-			new_items.append(shop_items[index])
-		else:
-			var generated_item: ItemDataClass = _create_random_item(day, max_rarity)
-			if generated_item != null:
-				new_items.append(generated_item)
-
-	shop_items = new_items
-	_filter_invalid_shop_items()
-	_ensure_minimum_shop_items(day, max_rarity, item_count)
+	shop_items = EconomyService.refresh_merchant_shelf(
+		shop_items,
+		locked_indices,
+		merchant_info,
+		inventory,
+		stash_inventory,
+		maxi(int(GameManager.current_day), 1),
+		_get_shop_hero_type()
+	)
 	free_refresh_used = true
 	_refresh_shelf()
 	show_feedback("货架已刷新")
@@ -157,17 +149,17 @@ func update_button_states() -> void:
 		_refresh_shelf()
 
 func _generate_shop_items() -> void:
-	shop_items.clear()
-	var day: int = maxi(int(GameManager.current_day), 1)
-	var max_rarity: int = _get_max_rarity_for_day(day)
-	var item_count: int = randi_range(3, MAX_VISIBLE_ITEMS)
+	shop_items = EconomyService.generate_merchant_shelf(
+		merchant_info,
+		inventory,
+		stash_inventory,
+		maxi(int(GameManager.current_day), 1),
+		_get_shop_hero_type(),
+		randi_range(3, MAX_VISIBLE_ITEMS)
+	)
 
-	for i in range(item_count):
-		var generated_item: ItemDataClass = _create_random_item(day, max_rarity)
-		if generated_item != null:
-			shop_items.append(generated_item)
-	_filter_invalid_shop_items()
-	_ensure_minimum_shop_items(day, max_rarity, item_count)
+func _get_shop_hero_type() -> HeroDataClass.HeroType:
+	return GameManager.selected_hero.hero_type if GameManager.selected_hero != null else HeroDataClass.HeroType.MAK
 
 func _refresh_shelf() -> void:
 	_cancel_shop_drag()
@@ -258,8 +250,7 @@ func _create_item_card(item: ItemDataClass, index: int) -> Control:
 	card.add_child(name_label)
 
 	var stat_grid: GridContainer = _create_item_stat_badge_grid(item)
-	if stat_grid.get_child_count() > 0:
-		card.add_child(stat_grid)
+	card.add_child(stat_grid)
 
 	var value_badge: Panel = _create_item_value_badge(item.buy_price, index, _is_purchase_available(item))
 	card.add_child(value_badge)

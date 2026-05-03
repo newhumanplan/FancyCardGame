@@ -344,6 +344,8 @@ func _handle_event_selection_by_index(index: int) -> void:
 	match event_type:
 		"shop":
 			_execute_shop_event()
+		"service_vendor":
+			_execute_service_vendor_event()
 		"monster":
 			_execute_monster_event()
 		"pvp":
@@ -582,6 +584,25 @@ func _show_merchant_feedback(message: String, is_error: bool = false) -> void:
 func _update_active_merchant_buttons() -> void:
 	if is_instance_valid(active_merchant_view) and active_merchant_view.has_method("update_button_states"):
 		active_merchant_view.call("update_button_states")
+
+## 执行服务商事件
+func _execute_service_vendor_event() -> void:
+	print("执行服务商事件")
+	var day: int = GameManager.current_day
+	var selected_option: Dictionary = GameFlowService.get_selected_option()
+	var service_id: String = str(selected_option.get("service_id", ""))
+	if service_id.is_empty():
+		_auto_advance_hour()
+		return
+	var result: String = event_manager.execute_service_vendor(service_id, day, GameManager, _get_player_inventory(), _get_stash_inventory())
+	print("服务商事件: %s" % result)
+	if RewardService.has_pending_choice():
+		_set_reward_choice_resume_action(REWARD_CHOICE_RESUME_ADVANCE_HOUR)
+		_show_active_reward_choice()
+		return
+	_update_ui()
+	bazaar_shell.refresh_static_panels()
+	_auto_advance_hour()
 
 ## 执行怪物事件
 func _execute_monster_event() -> void:

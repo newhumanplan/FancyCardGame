@@ -87,19 +87,9 @@ func hide_shop() -> void:
 
 ## 生成商店物品（根据当前 Day）
 func _generate_shop_items() -> void:
-	shop_items.clear()
-
-	# 根据 Day 确定稀有度概率
-	var day = GameManager.current_day
-	var max_rarity = _get_max_rarity_for_day(day)
-
-	# 生成 3-6 个物品
-	var item_count = randi_range(3, 6)
-
-	for i in range(item_count):
-		var item = _create_random_item(day, max_rarity)
-		shop_items.append(item)
-
+	var day: int = maxi(int(GameManager.current_day), 1)
+	var hero_type: HeroDataClass.HeroType = GameManager.selected_hero.hero_type if GameManager.selected_hero != null else HeroDataClass.HeroType.MAK
+	shop_items = EconomyService.generate_merchant_shelf({}, inventory, null, day, hero_type, randi_range(3, 5))
 	print("生成了 %d 个商店物品" % shop_items.size())
 
 ## 根据 Day 获取最大稀有度（1-4: 普通/稀有/史诗/传说）
@@ -474,16 +464,9 @@ func _on_refresh_pressed(refresh_btn: Button) -> void:
 			locked_idx_map.append(idx)
 
 	# 重新生成未锁定的物品
-	var day = GameManager.current_day
-	var max_rarity = _get_max_rarity_for_day(day)
-	var new_items: Array[ItemDataClass] = []
-	for i in range(shop_items.size()):
-		if i in locked_indices:
-			new_items.append(shop_items[i])
-		else:
-			new_items.append(_create_random_item(day, max_rarity))
-
-	shop_items = new_items
+	var day: int = maxi(int(GameManager.current_day), 1)
+	var hero_type: HeroDataClass.HeroType = GameManager.selected_hero.hero_type if GameManager.selected_hero != null else HeroDataClass.HeroType.MAK
+	shop_items = EconomyService.refresh_merchant_shelf(shop_items, locked_indices, {}, inventory, null, day, hero_type)
 	# 更新锁定索引（保持锁定状态）
 	var new_locked: Array[int] = []
 	var li = 0

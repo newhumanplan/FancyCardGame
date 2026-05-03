@@ -50,6 +50,20 @@ func _build_merchant_option(day: int) -> Dictionary:
 		"art_path": BazaarContentClass.get_merchant_art_path(merchant_id),
 	})
 
+func _build_service_vendor_option(day: int, excluded_ids: Dictionary = {}) -> Dictionary:
+	var vendor: Dictionary = EconomyService.pick_service_vendor(day, excluded_ids)
+	if vendor.is_empty():
+		return {}
+	var service_id: String = str(vendor.get("id", ""))
+	var hero_type: HeroDataClass.HeroType = HeroStateService.selected_hero.hero_type if HeroStateService.selected_hero != null else HeroDataClass.HeroType.MAK
+	return _build_option(str(vendor.get("name", "Service")), "service_vendor", "", {
+		"service_id": service_id,
+		"service_vendor_kind": str(vendor.get("kind", service_id)),
+		"summary": str(vendor.get("summary", "")),
+		"rarity": "Service",
+		"reward": EconomyService.get_service_vendor_reward(service_id, day, hero_type),
+	})
+
 func _build_monster_option(spec: Dictionary, index: int, day: int) -> Dictionary:
 	var monster_id: String = str(spec.get("id", ""))
 	var option := _build_option(str(spec.get("name", "Monster")), "monster", "", {
@@ -82,11 +96,22 @@ func generate_options(hour: int, day: int) -> Array[Dictionary]:
 	var options: Array[Dictionary] = []
 	options.append(_build_merchant_option(day))
 
+	var used_service_ids: Dictionary = {}
+	var service_option: Dictionary = _build_service_vendor_option(day, used_service_ids)
+	if not service_option.is_empty():
+		used_service_ids[str(service_option.get("service_id", ""))] = true
+		options.append(service_option)
+
 	var used_event_ids: Dictionary = {}
 	while options.size() < 3:
 		var evt = _pick_random_event(day, used_event_ids)
 		if evt.is_empty():
-			break
+			var fallback_service: Dictionary = _build_service_vendor_option(day, used_service_ids)
+			if fallback_service.is_empty():
+				break
+			used_service_ids[str(fallback_service.get("service_id", ""))] = true
+			options.append(fallback_service)
+			continue
 		var event_id: String = str(evt.get("id", ""))
 		used_event_ids[event_id] = true
 		options.append(_build_event_option(evt))
@@ -267,6 +292,16 @@ func execute_random_event(event_id: String, day: int, game_manager: Node, invent
 		_:
 			return _unsupported_event_result(event_id)
 
+func execute_service_vendor(service_id: String, day: int, game_manager: Node, inventory: LinearInventoryClass = null, stash_inventory: LinearInventoryClass = null) -> String:
+	if game_manager == null:
+		return "Service failed: GameManager missing."
+	var hero_type: HeroDataClass.HeroType = game_manager.selected_hero.hero_type if game_manager.selected_hero != null else HeroDataClass.HeroType.MAK
+	var reward: Dictionary = EconomyService.get_service_vendor_reward(service_id, day, hero_type)
+	if reward.is_empty():
+		return "Unsupported service vendor %s: no reward registered." % service_id
+	var summary: Dictionary = RewardService.apply_reward(reward, "service_vendor:%s" % service_id, inventory, stash_inventory)
+	return "Service vendor %s: %s" % [service_id, _describe_reward_summary(summary)]
+
 ## 获取所有注册的随机事件列表（用于 UI 展示或调试）
 func get_all_events() -> Array[Dictionary]:
 	return _random_events.duplicate(true)
@@ -274,6 +309,28 @@ func get_all_events() -> Array[Dictionary]:
 ## 获取事件总数
 func get_event_count() -> int:
 	return _random_events.size()
+
+func _describe_reward_summary(summary: Dictionary) -> String:
+	var parts: Array[String] = []
+	if int(summary.get("gold", 0)) != 0:
+		parts.append("%d Gold" % int(summary.get("gold", 0)))
+	if int(summary.get("income", 0)) != 0:
+		parts.append("%d Income" % int(summary.get("income", 0)))
+	if int(summary.get("heal", 0)) != 0:
+		parts.append("%d Heal" % int(summary.get("heal", 0)))
+	if int(summary.get("xp", 0)) != 0:
+		parts.append("%d XP" % int(summary.get("xp", 0)))
+	if not (summary.get("items", []) as Array).is_empty():
+		parts.append("item reward")
+	if not (summary.get("skills", []) as Array).is_empty():
+		parts.append("skill reward")
+	if not (summary.get("upgrades", []) as Array).is_empty():
+		parts.append("upgrade")
+	if not (summary.get("enchantments", []) as Array).is_empty():
+		parts.append("enchantment")
+	if parts.is_empty():
+		return "no applicable target"
+	return ", ".join(parts)
 
 func _grant_item_or_gold(item: ItemDataClass, inventory: LinearInventoryClass, stash_inventory: LinearInventoryClass, game_manager: Node, fallback_gold: int, message: String) -> String:
 	if _grant_item(item, inventory, stash_inventory):
