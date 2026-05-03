@@ -97,6 +97,10 @@ var current_event_type: String = ""
 var active_merchant_view: Control = null
 var active_ghost_editor: Control = null
 var _active_special_choice_mode: String = ""
+var _reward_choice_resume_action: String = ""
+
+const REWARD_CHOICE_RESUME_ADVANCE_HOUR: String = "advance_hour"
+const REWARD_CHOICE_RESUME_SHOW_CURRENT_HOUR: String = "show_current_hour"
 
 func _ready() -> void:
 	# 隐藏全屏UI（避免遮挡英雄选择）
@@ -250,6 +254,9 @@ func _apply_passive_skills(hero: HeroDataClass) -> void:
 
 ## 游戏开始
 func _on_game_started() -> void:
+	RewardService.reset_runtime_state()
+	_reward_choice_resume_action = ""
+	_clear_special_choice_mode()
 	_hide_hero_selection()
 	bazaar_shell.show_run_shell()
 	_show_event_panel()
@@ -360,14 +367,28 @@ func _show_special_choice(options: Array[Dictionary], mode: String) -> void:
 	bazaar_shell.show_time_select(options)
 	_refresh_shell_editor_action()
 
+func _show_active_reward_choice() -> void:
+	var choice: Dictionary = RewardService.get_active_choice()
+	if choice.is_empty():
+		return
+	_active_special_choice_mode = "reward_choice"
+	bazaar_shell.show_run_shell()
+	bazaar_shell.refresh_static_panels()
+	active_merchant_view = null
+	if hero_bar_layer:
+		hero_bar_layer.visible = true
+	event_panel.visible = false
+	bazaar_shell.show_reward_choice(choice)
+	_refresh_shell_editor_action()
+
 func _handle_special_choice_by_index(index: int) -> void:
 	var special_mode: String = _active_special_choice_mode
 	if special_mode.is_empty():
 		return
 	_hide_event_panel()
-	_clear_special_choice_mode()
 	match special_mode:
 		"futura_last_chance":
+			_clear_special_choice_mode()
 			match index:
 				0:
 					_on_futura_bounty()
@@ -375,9 +396,50 @@ func _handle_special_choice_by_index(index: int) -> void:
 					_on_futura_crossroads()
 				2:
 					_on_futura_legacy()
+		"reward_choice":
+			_resolve_active_reward_choice(index)
 
 func _clear_special_choice_mode() -> void:
 	_active_special_choice_mode = ""
+
+func _set_reward_choice_resume_action(action: String) -> void:
+	if _reward_choice_resume_action.is_empty():
+		_reward_choice_resume_action = action
+
+func _resolve_active_reward_choice(index: int) -> void:
+	var result: Dictionary = RewardService.resolve_active_choice(
+		index,
+		_get_player_inventory(),
+		_get_stash_inventory()
+	)
+	if not bool(result.get("resolved", false)):
+		_show_active_reward_choice()
+		return
+	_update_ui()
+	bazaar_shell.refresh_static_panels()
+	if RewardService.has_pending_choice():
+		_show_active_reward_choice()
+		return
+	_resume_after_reward_choice()
+
+func _resume_after_reward_choice() -> void:
+	var resume_action: String = _reward_choice_resume_action
+	_reward_choice_resume_action = ""
+	_clear_special_choice_mode()
+	match resume_action:
+		REWARD_CHOICE_RESUME_ADVANCE_HOUR:
+			_show_event_panel()
+			_auto_advance_hour()
+		REWARD_CHOICE_RESUME_SHOW_CURRENT_HOUR:
+			bazaar_shell.show_run_shell()
+			bazaar_shell.refresh_static_panels()
+			active_merchant_view = null
+			event_panel.visible = false
+			_generate_event_options()
+			_update_button_visibility()
+		_:
+			_show_event_panel()
+			_update_button_visibility()
 
 ## ============ 事件执行 ============
 
@@ -548,6 +610,10 @@ func _execute_random_event() -> void:
 
 	var result = event_manager.execute_random_event(event_id, day, GameManager, _get_player_inventory(), _get_stash_inventory())
 	print("随机事件: %s" % result)
+	if RewardService.has_pending_choice():
+		_set_reward_choice_resume_action(REWARD_CHOICE_RESUME_ADVANCE_HOUR)
+		_show_active_reward_choice()
+		return
 	_auto_advance_hour()
 
 ## ============ 战斗系统 ============
@@ -616,6 +682,10 @@ func _on_battle_ended(won: bool, gold_reward: int) -> void:
 		return
 	if bool(result.get("last_chance", false)):
 		return
+	if bool(result.get("reward_choice_queued", false)) or RewardService.has_pending_choice():
+		_set_reward_choice_resume_action(REWARD_CHOICE_RESUME_ADVANCE_HOUR)
+		_show_active_reward_choice()
+		return
 	_show_event_panel()
 	_auto_advance_hour()
 
@@ -641,6 +711,11 @@ func _auto_advance_hour() -> void:
 	GameManager.next_hour()
 	print("进入 Hour %d: %s" % [GameManager.current_hour, GameManager.get_current_phase_name()])
 	_update_ui()
+	if RewardService.has_pending_choice():
+		_set_reward_choice_resume_action(REWARD_CHOICE_RESUME_SHOW_CURRENT_HOUR)
+		_show_active_reward_choice()
+		_update_button_visibility()
+		return
 	_generate_event_options()
 	_update_button_visibility()
 

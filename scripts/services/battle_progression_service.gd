@@ -50,9 +50,12 @@ func apply_battle_result(won: bool, is_pvp: bool, monster = null, primary_invent
 			print("PvP 胜利! PvP胜场: %d/%d" % [pvp_win_count, PVP_WINS_FOR_CLEAR])
 		else:
 			var reward: Dictionary = _get_monster_reward(monster)
-			var reward_summary: Dictionary = RewardService.apply_reward(reward, "pve_win", primary_inventory, secondary_inventory)
+			var reward_result: Dictionary = RewardService.apply_monster_reward(reward, "pve_win", primary_inventory, secondary_inventory)
+			var reward_summary: Dictionary = reward_result.get("summary", {})
 			result["reward"] = reward
 			result["reward_summary"] = reward_summary
+			result["reward_choice"] = reward_result.get("choice", {})
+			result["reward_choice_queued"] = bool(reward_result.get("choice_queued", false))
 			result["gold_reward"] = int(reward_summary.get("gold", 0))
 			result["xp_reward"] = int(reward_summary.get("xp", 0))
 			result["level_rewards"] = reward_summary.get("level_rewards", [])

@@ -110,7 +110,9 @@ scripts/
 
 - 接收统一奖励字典，例如 `{ "gold": 4, "xp": 2, "income": 1 }`。
 - 将 gold/income/xp/max_health/heal/prestige 分发到权威 service。
-- 根据 level-up 表应用 demo 阶段升级奖励，并发出 `level_reward_applied`。
+- 根据 level-up 表生成 choice 或应用 fallback reward，并在实际结算后发出
+  `level_reward_applied`。
+- 维护 pending reward choice 队列；UI 只能选择，不能直接改 run state。
 - 不保存权威状态，不打开 UI。
 
 ### BattleSystem

@@ -5,6 +5,7 @@ extends Control
 
 const TimeSelectViewScene: PackedScene = preload("res://scenes/ui/time_select_view.tscn")
 const MerchantStateViewScene: PackedScene = preload("res://scenes/ui/merchant_state_view.tscn")
+const RewardChoiceViewScene: PackedScene = preload("res://scenes/ui/reward_choice_view.tscn")
 const InventoryUIScene: PackedScene = preload("res://scenes/inventory_ui.tscn")
 const LinearInventoryClass = preload("res://scripts/data/linear_inventory.gd")
 const BazaarContentClass = preload("res://scripts/data/bazaar_content.gd")
@@ -88,6 +89,21 @@ func show_time_select(options: Array[Dictionary]) -> void:
 	if view.has_method("set_options"):
 		view.call("set_options", options)
 	view.connect("option_selected", Callable(self, "_on_option_pressed"))
+
+func show_reward_choice(choice: Dictionary) -> Control:
+	clear_dynamic_regions()
+	_add_context_header(
+		str(choice.get("title", "Choose Reward")),
+		str(choice.get("subtitle", "Pick one reward."))
+	)
+	var view: Control = RewardChoiceViewScene.instantiate() as Control
+	view.name = "RewardChoiceView"
+	view.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	upper_board_panel.add_child(view)
+	if view.has_method("set_choice"):
+		view.call("set_choice", choice)
+	view.connect("option_selected", Callable(self, "_on_option_pressed"))
+	return view
 
 func show_merchant(inventory: Resource, merchant_info: Dictionary = {}) -> Control:
 	clear_dynamic_regions()
@@ -273,6 +289,33 @@ func _add_context_label(text: String) -> void:
 	label.add_theme_color_override("font_color", Color(0.95, 0.88, 0.68, 1.0))
 	label.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	top_context_panel.add_child(label)
+
+func _add_context_header(title: String, subtitle: String = "") -> void:
+	var column: VBoxContainer = VBoxContainer.new()
+	column.name = "ContextHeader"
+	column.alignment = BoxContainer.ALIGNMENT_CENTER
+	column.add_theme_constant_override("separation", 4)
+	column.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	top_context_panel.add_child(column)
+
+	var title_label: Label = Label.new()
+	title_label.name = "TitleLabel"
+	title_label.text = title
+	title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title_label.add_theme_font_size_override("font_size", 28)
+	title_label.add_theme_color_override("font_color", Color(0.96, 0.90, 0.72, 1.0))
+	column.add_child(title_label)
+
+	if subtitle.is_empty():
+		return
+	var subtitle_label: Label = Label.new()
+	subtitle_label.name = "SubtitleLabel"
+	subtitle_label.text = subtitle
+	subtitle_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	subtitle_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	subtitle_label.add_theme_font_size_override("font_size", 14)
+	subtitle_label.add_theme_color_override("font_color", Color(0.86, 0.89, 0.94, 0.88))
+	column.add_child(subtitle_label)
 
 func _add_time_context() -> void:
 	var label: Label = Label.new()

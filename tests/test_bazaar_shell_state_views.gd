@@ -14,6 +14,7 @@ func _ready() -> void:
 
 func _run_tests() -> void:
 	test_time_select_view_in_shell_emits_selection()
+	test_reward_choice_view_in_shell_emits_selection()
 	test_merchant_view_emits_purchase_without_spending()
 	test_merchant_uses_slot_board_layout_and_wiki_art()
 	test_curio_merchant_does_not_open_sold_out()
@@ -42,6 +43,35 @@ func test_time_select_view_in_shell_emits_selection() -> void:
 	_assert_not_null(button, "time select option has a hit button")
 	button.emit_signal("pressed")
 	_assert_equal(int(selected["index"]), 1, "time select forwards selected index through shell")
+	shell.queue_free()
+
+func test_reward_choice_view_in_shell_emits_selection() -> void:
+	var shell: Control = _create_shell()
+	var choice: Dictionary = {
+		"title": "Level Up",
+		"subtitle": "Choose how this level shapes your build.",
+		"options": [
+			{"label": "Bulk Up", "summary": "+5 Max Health", "kind": "max_health"},
+			{"label": "Steady Income", "summary": "+1 Income", "kind": "income"},
+			{"label": "Take Gold", "summary": "+3 Gold", "kind": "gold"},
+		],
+	}
+	var selected: Dictionary = {"index": -1}
+	shell.connect("option_selected", func(index: int) -> void:
+		selected["index"] = index
+	)
+
+	shell.call("show_reward_choice", choice)
+	var view: Node = _find_node(shell, "RewardChoiceView")
+	_assert_not_null(view, "shell adds RewardChoiceView")
+	_assert_equal(int(view.call("get_option_count")), 3, "reward choice renders three option nodes")
+	_assert_not_null(_find_node(shell.get_node("TopContextPanel"), "ContextHeader"), "reward choice adds a context header to the shell")
+
+	var button: Button = _find_node(view, "RewardOptionButton2") as Button
+	_assert_not_null(button, "reward choice option has a hit button")
+	if button != null:
+		button.emit_signal("pressed")
+	_assert_equal(int(selected["index"]), 2, "reward choice forwards the selected index through shell")
 	shell.queue_free()
 
 func test_merchant_view_emits_purchase_without_spending() -> void:

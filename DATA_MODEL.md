@@ -155,6 +155,15 @@ P1 起运行时奖励统一使用 Dictionary，并通过 `RewardService.apply_re
 后续 item、skill、loot、upgrade、enchant、board slot 等也应扩展到同一 reward model，
 不要在 UI 或单个事件分支中直接改多个 service。
 
+P0.5 起 RewardService 也可以把 reward 包装成 pending reward choice，再由 BazaarShell 的
+RewardChoiceView 让玩家选 1 个方向，然后仍然回到 RewardService 结算。当前已使用的
+reward 字段包括：
+
+- `items` / `item_pool`
+- `skills` / `skill_pool`
+- `upgrade_leftmost`
+- `enchant_leftmost`
+
 ## EventOption
 
 Hour 0/1/3/4 展示的选项统一为 EventOption：

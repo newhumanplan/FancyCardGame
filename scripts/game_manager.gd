@@ -295,6 +295,7 @@ func reset_stats() -> void:
 	stats_total_wins = 0
 	stats_total_losses = 0
 	stats_total_gold_earned = 0
+	RewardService.reset_runtime_state()
 	EconomyService.reset()
 	RunStateService.reset(true)
 	HeroStateService.reset()
@@ -305,6 +306,7 @@ func reset() -> void:
 func reset_run(mode: String = "partial") -> void:
 	match mode:
 		"partial":
+			RewardService.reset_runtime_state()
 			EconomyService.reset()
 			RunStateService.reset(false)
 			HeroStateService.reset()
@@ -315,6 +317,7 @@ func reset_run(mode: String = "partial") -> void:
 			stats_total_wins = 0
 			stats_total_losses = 0
 			stats_total_gold_earned = 0
+			RewardService.reset_runtime_state()
 			RunStateService.wins = 0
 			RunStateService.losses = 0
 			RunStateService.pvp_wins = 0
