@@ -7,6 +7,8 @@ const ItemArtCatalogClass = preload("res://scripts/data/item_art_catalog.gd")
 const MonsterDataClass = preload("res://scripts/data/monster_data.gd")
 const BazaarContentClass = preload("res://scripts/data/bazaar_content.gd")
 const PlayerSkillCatalogClass = preload("res://scripts/data/player_skill_catalog.gd")
+const GhostSnapshotClass = preload("res://scripts/data/ghost_snapshot.gd")
+const PvpGhostServiceClass = preload("res://scripts/services/pvp_ghost_service.gd")
 
 ## 战斗面板 UI - 管理战斗界面和自动战斗循环
 ## 重构：纯物品触发战斗，移除独立攻击逻辑
@@ -85,6 +87,7 @@ var inventory: LinearInventoryClass = null
 
 ## 敌人数据
 var current_monster: MonsterDataClass = null
+var current_ghost_snapshot: GhostSnapshotClass = null
 
 ## 是否为 PvP 战斗
 var is_pvp: bool = false
@@ -227,6 +230,7 @@ func _on_effect_applied(item_name: String, effect_type: String, value: int, targ
 
 func start_battle(monster: MonsterDataClass = null, pvp: bool = false, enemy_atk_bonus: int = 0) -> void:
 	is_pvp = pvp
+	current_ghost_snapshot = null
 	battle_timer = 0.0
 	elapsed_since_last_tick = 0.0
 	_pvp_resize_timer = 0.0
@@ -250,6 +254,7 @@ func start_battle(monster: MonsterDataClass = null, pvp: bool = false, enemy_atk
 		current_monster = _generate_random_monster()
 	else:
 		current_monster = _create_pvp_enemy(enemy_atk_bonus)
+	_refresh_ghost_snapshot_from_current_monster()
 
 	print("BattleUI inventory items count: %d" % inventory.items.size())
 	if current_monster == null or inventory == null:
@@ -273,6 +278,22 @@ func start_battle(monster: MonsterDataClass = null, pvp: bool = false, enemy_atk
 				_get_monster_item_effective_damage(monster_item),
 				monster_item["cooldown"]
 			])
+
+func start_ghost_battle(snapshot: GhostSnapshotClass) -> void:
+	if snapshot == null or snapshot.snapshot_id.is_empty():
+		start_battle(null, true, 0)
+		return
+	var monster: MonsterDataClass = PvpGhostServiceClass.ghost_snapshot_to_monster(snapshot)
+	start_battle(monster, true, 0)
+
+func _refresh_ghost_snapshot_from_current_monster() -> void:
+	if current_monster == null or not current_monster.is_ghost_snapshot:
+		current_ghost_snapshot = null
+		return
+	if current_monster.source_snapshot.is_empty():
+		current_ghost_snapshot = null
+		return
+	current_ghost_snapshot = GhostSnapshotClass.from_dictionary(current_monster.source_snapshot)
 
 ## ============ 怪物生成 ============
 
@@ -1118,13 +1139,13 @@ func _populate_shell_opponent_item_layer(item_layer: Control, row: HBoxContainer
 	if current_monster == null:
 		return
 
-	var slot_index: int = 0
 	for item_index in range(current_monster.monster_items.size()):
-		if slot_index >= PVP_HAND_SLOT_COUNT:
-			break
 		var monster_item: Dictionary = current_monster.monster_items[item_index]
+		var slot_index: int = clampi(int(monster_item.get("slot_index", item_index)), 0, PVP_HAND_SLOT_COUNT - 1)
 		var slot_count: int = clampi(int(monster_item.get("slot_count", 1)), 1, 3)
 		slot_count = mini(slot_count, PVP_HAND_SLOT_COUNT - slot_index)
+		if slot_count <= 0:
+			continue
 		var item_rect: Rect2 = _get_shell_slot_span_rect(row, slot_index, slot_count)
 		var item_panel: Panel = _create_shell_monster_item_panel(monster_item, item_index)
 		item_panel.position = item_rect.position
@@ -1132,7 +1153,6 @@ func _populate_shell_opponent_item_layer(item_layer: Control, row: HBoxContainer
 		item_panel.custom_minimum_size = item_rect.size
 		item_layer.add_child(item_panel)
 		pvp_opponent_card_panels.append(item_panel)
-		slot_index += slot_count
 
 func _get_shell_slot_span_rect(row: HBoxContainer, start_slot: int, slot_count: int, inset: float = 4.0) -> Rect2:
 	if row == null or start_slot < 0 or start_slot >= row.get_child_count():
@@ -1450,7 +1470,7 @@ func _update_pvp_battle_ui() -> void:
 		_update_pvp_shield_ui(pvp_opponent_shield_bar, pvp_opponent_shield_label, current_monster.max_hp, opponent_shield)
 		_update_combat_status_label(pvp_opponent_status_label, _get_battle_status_totals("enemy"))
 		if pvp_opponent_meta_label != null:
-			pvp_opponent_meta_label.text = "物品 %d" % current_monster.monster_items.size()
+			pvp_opponent_meta_label.text = _get_opponent_meta_text()
 
 	_update_pvp_opponent_skills()
 	_update_pvp_player_hand_labels()
@@ -2731,8 +2751,19 @@ func _get_player_skill_names() -> Array[String]:
 				seen[skill_name] = true
 				names.append(skill_name)
 
-	if names.is_empty() and game_manager.selected_hero != null and game_manager.selected_hero.has_passive_skill():
-		names.append(game_manager.selected_hero.passive_skill_name)
+	if names.is_empty() and game_manager.selected_hero != null:
+		var passive_skills: Array = game_manager.selected_hero.get("passive_skills")
+		for passive_skill in passive_skills:
+			var passive_name: String = ""
+			if passive_skill != null:
+				passive_name = str(passive_skill.get("skill_name"))
+				if passive_name.is_empty():
+					passive_name = str(passive_skill.get("name"))
+			if passive_name.is_empty():
+				continue
+			names.append(passive_name)
+			if names.size() >= 3:
+				break
 
 	return names
 
@@ -2740,6 +2771,14 @@ func _get_monster_skill_names() -> Array[String]:
 	var names: Array[String] = []
 	if current_monster == null:
 		return names
+
+	for monster_skill in current_monster.monster_skills:
+		var skill_name: String = str(monster_skill.get("name", monster_skill.get("id", "")))
+		if skill_name.is_empty():
+			continue
+		names.append(skill_name)
+		if names.size() >= 3:
+			return names
 
 	for monster_item in current_monster.monster_items:
 		var item_name: String = str(monster_item.get("name", ""))
@@ -2749,6 +2788,19 @@ func _get_monster_skill_names() -> Array[String]:
 			break
 
 	return names
+
+func _get_opponent_meta_text() -> String:
+	if current_ghost_snapshot != null and not current_ghost_snapshot.snapshot_id.is_empty():
+		return "Day %d  |  Lv %d  |  格子 %d  |  %s  |  物品 %d" % [
+			current_ghost_snapshot.day,
+			current_ghost_snapshot.level,
+			current_ghost_snapshot.slot_capacity,
+			current_ghost_snapshot.power_bucket,
+			current_monster.monster_items.size(),
+		]
+	if current_monster == null:
+		return ""
+	return "物品 %d" % current_monster.monster_items.size()
 
 func _update_skill_labels(skill_labels: Array[Label], skill_names: Array[String], hidden: bool) -> void:
 	for index in range(skill_labels.size()):

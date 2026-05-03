@@ -1,0 +1,235 @@
+{
+	"schema_version": 1,
+	"archetypes": [
+		{
+			"id": "ghost_day01_mak_burn_start",
+			"name": "Mak Burn Start",
+			"day": 1,
+			"level": 1,
+			"slot_capacity": 6,
+			"hero_id": "mak",
+			"prestige": 20,
+			"max_health": 100,
+			"health": 100,
+			"regeneration": 0.0,
+			"skills": [
+				{"id": "fiery", "tier": "bronze"}
+			],
+			"items": [
+				{"item_id": "cinders", "tier": "bronze", "size": 1, "slot_index": 0, "enchantment": "", "cooldown": 0.0, "ammo": 0, "charges": 0},
+				{"item_id": "lighter", "tier": "bronze", "size": 1, "slot_index": 1, "enchantment": "fiery", "cooldown": 4.0, "ammo": 0, "charges": 0}
+			],
+			"notes": "Day 1 seed ghost for simple burn opener.",
+			"created_at": "2026-05-03T16:50:00+08:00"
+		},
+		{
+			"id": "ghost_day02_vanessa_ammo_mix",
+			"name": "Vanessa Ammo Mix",
+			"day": 2,
+			"level": 2,
+			"slot_capacity": 6,
+			"hero_id": "vanessa",
+			"prestige": 19,
+			"max_health": 120,
+			"health": 116,
+			"regeneration": 0.0,
+			"skills": [
+				{"id": "deadly_eye", "tier": "bronze"},
+				{"id": "gunner", "tier": "silver"}
+			],
+			"items": [
+				{"item_id": "fire_potion", "tier": "bronze", "size": 1, "slot_index": 0, "enchantment": "", "cooldown": 5.0, "ammo": 1, "charges": 0},
+				{"item_id": "hemlock", "tier": "bronze", "size": 1, "slot_index": 1, "enchantment": "", "cooldown": 7.0, "ammo": 0, "charges": 0},
+				{"item_id": "energy_potion", "tier": "silver", "size": 1, "slot_index": 2, "enchantment": "", "cooldown": 6.0, "ammo": 1, "charges": 0}
+			],
+			"notes": "Day 2 ammo plus poison tempo.",
+			"created_at": "2026-05-03T16:50:10+08:00"
+		},
+		{
+			"id": "ghost_day03_mak_regen_poison",
+			"name": "Mak Regen Poison",
+			"day": 3,
+			"level": 3,
+			"slot_capacity": 7,
+			"hero_id": "mak",
+			"prestige": 18,
+			"max_health": 150,
+			"health": 144,
+			"regeneration": 2.0,
+			"skills": [
+				{"id": "fiery", "tier": "bronze"},
+				{"id": "improved_toxins", "tier": "bronze"}
+			],
+			"items": [
+				{"item_id": "nightshade", "tier": "bronze", "size": 2, "slot_index": 0, "enchantment": "toxic", "cooldown": 6.0, "ammo": 0, "charges": 0},
+				{"item_id": "myrrh", "tier": "bronze", "size": 1, "slot_index": 2, "enchantment": "restorative", "cooldown": 6.0, "ammo": 0, "charges": 0},
+				{"item_id": "bottled_lightning", "tier": "bronze", "size": 1, "slot_index": 3, "enchantment": "", "cooldown": 6.0, "ammo": 1, "charges": 0}
+			],
+			"notes": "Day 3 hybrid poison and regeneration shell.",
+			"created_at": "2026-05-03T16:50:20+08:00"
+		},
+		{
+			"id": "ghost_day04_pygmalien_guard_wall",
+			"name": "Pygmalien Guard Wall",
+			"day": 4,
+			"level": 4,
+			"slot_capacity": 7,
+			"hero_id": "pygmalien",
+			"prestige": 17,
+			"max_health": 185,
+			"health": 180,
+			"regeneration": 3.0,
+			"skills": [
+				{"id": "toughness", "tier": "bronze"},
+				{"id": "quick_defenses", "tier": "bronze"}
+			],
+			"items": [
+				{"item_id": "death_caps", "tier": "silver", "size": 2, "slot_index": 0, "enchantment": "toxic", "cooldown": 5.0, "ammo": 0, "charges": 0},
+				{"item_id": "mortar_pestle", "tier": "bronze", "size": 2, "slot_index": 2, "enchantment": "", "cooldown": 7.0, "ammo": 0, "charges": 0},
+				{"item_id": "frost_potion", "tier": "silver", "size": 1, "slot_index": 4, "enchantment": "", "cooldown": 6.0, "ammo": 1, "charges": 0}
+			],
+			"notes": "Day 4 defensive shell with poison and control.",
+			"created_at": "2026-05-03T16:50:30+08:00"
+		},
+		{
+			"id": "ghost_day05_dooley_tool_chain",
+			"name": "Dooley Tool Chain",
+			"day": 5,
+			"level": 5,
+			"slot_capacity": 8,
+			"hero_id": "dooley",
+			"prestige": 16,
+			"max_health": 225,
+			"health": 216,
+			"regeneration": 4.0,
+			"skills": [
+				{"id": "time_to_tinker", "tier": "bronze"},
+				{"id": "rush", "tier": "bronze"}
+			],
+			"items": [
+				{"item_id": "satchel", "tier": "silver", "size": 2, "slot_index": 0, "enchantment": "", "cooldown": 8.0, "ammo": 0, "charges": 0},
+				{"item_id": "regeneration_potion", "tier": "silver", "size": 1, "slot_index": 2, "enchantment": "restorative", "cooldown": 5.0, "ammo": 1, "charges": 0},
+				{"item_id": "runic_daggers", "tier": "silver", "size": 2, "slot_index": 3, "enchantment": "", "cooldown": 6.0, "ammo": 0, "charges": 0}
+			],
+			"notes": "Day 5 tool-heavy midgame ghost.",
+			"created_at": "2026-05-03T16:50:40+08:00"
+		},
+		{
+			"id": "ghost_day06_stelle_haste_burn",
+			"name": "Stelle Haste Burn",
+			"day": 6,
+			"level": 6,
+			"slot_capacity": 8,
+			"hero_id": "stelle",
+			"prestige": 15,
+			"max_health": 270,
+			"health": 258,
+			"regeneration": 6.0,
+			"skills": [
+				{"id": "slow_and_steady", "tier": "silver"},
+				{"id": "slowed_targets", "tier": "silver"}
+			],
+			"items": [
+				{"item_id": "sunlight_spear", "tier": "silver", "size": 2, "slot_index": 0, "enchantment": "fiery", "cooldown": 12.0, "ammo": 0, "charges": 0},
+				{"item_id": "athanor", "tier": "silver", "size": 3, "slot_index": 2, "enchantment": "", "cooldown": 5.0, "ammo": 0, "charges": 0},
+				{"item_id": "rainbow_potion", "tier": "silver", "size": 1, "slot_index": 5, "enchantment": "", "cooldown": 7.0, "ammo": 1, "charges": 0}
+			],
+			"notes": "Day 6 mixed haste, burn, and potion pressure.",
+			"created_at": "2026-05-03T16:50:50+08:00"
+		},
+		{
+			"id": "ghost_day07_jules_heat_kitchen",
+			"name": "Jules Heat Kitchen",
+			"day": 7,
+			"level": 7,
+			"slot_capacity": 9,
+			"hero_id": "jules",
+			"prestige": 14,
+			"max_health": 325,
+			"health": 310,
+			"regeneration": 7.0,
+			"skills": [
+				{"id": "tracer_fire", "tier": "silver"},
+				{"id": "strength", "tier": "bronze"}
+			],
+			"items": [
+				{"item_id": "runic_double_bow", "tier": "silver", "size": 2, "slot_index": 0, "enchantment": "", "cooldown": 7.0, "ammo": 0, "charges": 0},
+				{"item_id": "apothecary", "tier": "silver", "size": 3, "slot_index": 2, "enchantment": "", "cooldown": 6.0, "ammo": 0, "charges": 0},
+				{"item_id": "secret_formula", "tier": "gold", "size": 2, "slot_index": 5, "enchantment": "restorative", "cooldown": 10.0, "ammo": 0, "charges": 0}
+			],
+			"notes": "Day 7 burst plus regen scaling.",
+			"created_at": "2026-05-03T16:51:00+08:00"
+		},
+		{
+			"id": "ghost_day08_karnok_lifesteal_axes",
+			"name": "Karnok Lifesteal Axes",
+			"day": 8,
+			"level": 8,
+			"slot_capacity": 9,
+			"hero_id": "karnok",
+			"prestige": 13,
+			"max_health": 385,
+			"health": 366,
+			"regeneration": 8.0,
+			"skills": [
+				{"id": "unwavering", "tier": "gold"},
+				{"id": "rush", "tier": "bronze"}
+			],
+			"items": [
+				{"item_id": "runic_great_axe", "tier": "gold", "size": 3, "slot_index": 0, "enchantment": "obsidian", "cooldown": 11.0, "ammo": 0, "charges": 0},
+				{"item_id": "plague_glaive", "tier": "gold", "size": 3, "slot_index": 3, "enchantment": "", "cooldown": 10.0, "ammo": 0, "charges": 0},
+				{"item_id": "sapphire", "tier": "silver", "size": 1, "slot_index": 6, "enchantment": "", "cooldown": 8.0, "ammo": 0, "charges": 0}
+			],
+			"notes": "Day 8 high-pressure lifesteal weapon ghost.",
+			"created_at": "2026-05-03T16:51:10+08:00"
+		},
+		{
+			"id": "ghost_day09_vanessa_relic_engine",
+			"name": "Vanessa Relic Engine",
+			"day": 9,
+			"level": 9,
+			"slot_capacity": 10,
+			"hero_id": "vanessa",
+			"prestige": 12,
+			"max_health": 455,
+			"health": 430,
+			"regeneration": 10.0,
+			"skills": [
+				{"id": "regenerative", "tier": "silver"},
+				{"id": "tools_of_the_trade", "tier": "gold"}
+			],
+			"items": [
+				{"item_id": "staff_of_the_moose", "tier": "gold", "size": 3, "slot_index": 0, "enchantment": "", "cooldown": 10.0, "ammo": 0, "charges": 0},
+				{"item_id": "laboratory", "tier": "gold", "size": 3, "slot_index": 3, "enchantment": "", "cooldown": 4.0, "ammo": 0, "charges": 0},
+				{"item_id": "vitality_potion", "tier": "gold", "size": 1, "slot_index": 6, "enchantment": "restorative", "cooldown": 11.0, "ammo": 1, "charges": 0}
+			],
+			"notes": "Day 9 relic engine with sustain burst.",
+			"created_at": "2026-05-03T16:51:20+08:00"
+		},
+		{
+			"id": "ghost_day10_mak_obsidian_lab",
+			"name": "Mak Obsidian Lab",
+			"day": 10,
+			"level": 10,
+			"slot_capacity": 10,
+			"hero_id": "mak",
+			"prestige": 11,
+			"max_health": 540,
+			"health": 510,
+			"regeneration": 12.0,
+			"skills": [
+				{"id": "pyromania", "tier": "gold"},
+				{"id": "void_energy", "tier": "diamond"},
+				{"id": "toxic_friendship", "tier": "gold"}
+			],
+			"items": [
+				{"item_id": "darkstone_engine", "tier": "bronze", "size": 2, "slot_index": 0, "enchantment": "obsidian", "cooldown": 5.0, "ammo": 0, "charges": 0},
+				{"item_id": "runic_great_axe", "tier": "diamond", "size": 3, "slot_index": 2, "enchantment": "", "cooldown": 11.0, "ammo": 0, "charges": 0},
+				{"item_id": "laboratory", "tier": "diamond", "size": 3, "slot_index": 5, "enchantment": "", "cooldown": 4.0, "ammo": 0, "charges": 0},
+				{"item_id": "shard_of_obsidian", "tier": "diamond", "size": 1, "slot_index": 8, "enchantment": "obsidian", "cooldown": 5.0, "ammo": 0, "charges": 0}
+			],
+			"notes": "Day 10 high-end curated fallback ghost.",
+			"created_at": "2026-05-03T16:51:30+08:00"
+		}
+	]
+}

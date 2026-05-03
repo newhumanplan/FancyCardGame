@@ -52,6 +52,9 @@ func get_player_inventory() -> Resource:
 func get_stash_inventory() -> Resource:
 	return _stash_inventory
 
+func get_overlay_layer() -> Control:
+	return overlay_layer
+
 func show_run_shell() -> void:
 	visible = true
 	if _inventory_source != null:
@@ -109,7 +112,7 @@ func show_battle_placeholder() -> void:
 	_add_context_label("Opponent")
 	_add_upper_placeholder("Opponent board will fill this area.")
 
-func set_right_actions(actions: Array[Dictionary]) -> void:
+func set_right_actions(actions: Array) -> void:
 	_clear_children(right_action_area)
 	var column: VBoxContainer = VBoxContainer.new()
 	column.name = "RightActionColumn"

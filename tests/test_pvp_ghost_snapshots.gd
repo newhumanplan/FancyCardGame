@@ -1,0 +1,249 @@
+extends Node
+
+const PvpGhostServiceClass = preload("res://scripts/services/pvp_ghost_service.gd")
+const GhostSnapshotClass = preload("res://scripts/data/ghost_snapshot.gd")
+
+var _total: int = 0
+var _passed: int = 0
+
+func _ready() -> void:
+	if not Engine.is_editor_hint():
+		print("== tests/test_pvp_ghost_snapshots.gd ==")
+		await _run_tests()
+		_print_summary()
+
+func _run_tests() -> void:
+	test_snapshot_json_roundtrip_is_deterministic()
+	test_curated_archetype_validation_success_and_snapshot_conversion()
+	test_curated_archetype_validation_failures()
+	test_over_slot_save_error_preserves_previous_document()
+	test_seed_pool_loads_days_1_to_10()
+	test_power_score_is_roughly_monotonic_by_day()
+	await test_curated_editor_entry_opens_from_bazaar_shell()
+	await test_pvp_battle_uses_ghost_snapshot_path()
+
+func test_snapshot_json_roundtrip_is_deterministic() -> void:
+	var snapshot = PvpGhostServiceClass.pick_snapshot_for_day(5)
+	_assert_true(snapshot != null and not str(snapshot.snapshot_id).is_empty(), "pick_snapshot_for_day returns a seeded ghost")
+	if snapshot == null or str(snapshot.snapshot_id).is_empty():
+		return
+
+	var original_json: String = snapshot.to_json_string("\t")
+	var parser := JSON.new()
+	_assert_eq(parser.parse(original_json), OK, "ghost snapshot JSON serializes cleanly")
+	if parser.parse(original_json) != OK:
+		return
+	var restored = GhostSnapshotClass.from_dictionary(parser.get_data() as Dictionary)
+	var restored_json: String = restored.to_json_string("\t")
+	_assert_eq(restored_json, original_json, "ghost snapshot JSON roundtrip stays deterministic")
+	_assert_eq(restored.to_dictionary(), snapshot.to_dictionary(), "ghost snapshot dictionary roundtrip preserves fields")
+
+func test_curated_archetype_validation_success_and_snapshot_conversion() -> void:
+	var loaded: Dictionary = PvpGhostServiceClass.load_curated_file()
+	_assert_true(bool(loaded.get("success", false)), "curated archetype seed file loads")
+	var archetypes: Array[Dictionary] = loaded.get("archetypes", [])
+	_assert_true(not archetypes.is_empty(), "curated archetype seed file is not empty")
+	if archetypes.is_empty():
+		return
+
+	var validation: Dictionary = PvpGhostServiceClass.validate_curated_archetype(archetypes[0])
+	_assert_true(bool(validation.get("valid", false)), "seed archetype validates successfully")
+	var snapshot = PvpGhostServiceClass.curated_archetype_to_snapshot(archetypes[0])
+	_assert_true(not str(snapshot.snapshot_id).is_empty(), "curated archetype converts to ghost snapshot")
+	_assert_true(snapshot.power_score > 0, "converted ghost snapshot has a power score")
+	_assert_true(not str(snapshot.power_bucket).is_empty(), "converted ghost snapshot has a power bucket")
+
+func test_curated_archetype_validation_failures() -> void:
+	var invalid_hero: Dictionary = PvpGhostServiceClass.get_default_archetype()
+	invalid_hero["hero_id"] = "not_a_hero"
+	_assert_has_error(
+		PvpGhostServiceClass.validate_curated_archetype(invalid_hero),
+		"unknown_hero:",
+		"unknown hero fails validation"
+	)
+
+	var invalid_skill: Dictionary = PvpGhostServiceClass.get_default_archetype()
+	invalid_skill["skills"] = [{"id": "not_a_skill", "tier": "bronze"}]
+	_assert_has_error(
+		PvpGhostServiceClass.validate_curated_archetype(invalid_skill),
+		"unknown_skill:",
+		"unknown skill fails validation"
+	)
+
+	var unsupported_skill: Dictionary = PvpGhostServiceClass.get_default_archetype()
+	unsupported_skill["skills"] = [{"id": "initial_chill", "tier": "bronze"}]
+	_assert_has_error(
+		PvpGhostServiceClass.validate_curated_archetype(unsupported_skill),
+		"unsupported_skill:",
+		"explicitly unsupported skill stays visible at validation time"
+	)
+
+	var invalid_item: Dictionary = PvpGhostServiceClass.get_default_archetype()
+	invalid_item["items"] = [{"item_id": "not_an_item", "tier": "bronze", "size": 1, "slot_index": 0, "enchantment": "", "cooldown": 0.0, "ammo": 0, "charges": 0}]
+	_assert_has_error(
+		PvpGhostServiceClass.validate_curated_archetype(invalid_item),
+		"unknown_item:",
+		"unknown item fails validation"
+	)
+
+	var invalid_enchantment: Dictionary = PvpGhostServiceClass.get_default_archetype()
+	invalid_enchantment["items"] = [{"item_id": "lighter", "tier": "bronze", "size": 1, "slot_index": 0, "enchantment": "arcane", "cooldown": 4.0, "ammo": 0, "charges": 0}]
+	_assert_has_error(
+		PvpGhostServiceClass.validate_curated_archetype(invalid_enchantment),
+		"invalid_enchantment:",
+		"invalid enchantment fails validation"
+	)
+
+func test_over_slot_save_error_preserves_previous_document() -> void:
+	var path: String = "user://ghost_snapshot_save_validation.json"
+	var valid: Dictionary = {
+		"id": "ghost_validation_saved",
+		"name": "Validation Save Seed",
+		"day": 2,
+		"level": 2,
+		"slot_capacity": 3,
+		"hero_id": "mak",
+		"prestige": 20,
+		"max_health": 120,
+		"health": 120,
+		"regeneration": 0.0,
+		"skills": [{"id": "fiery", "tier": "bronze"}],
+		"items": [
+			{"item_id": "lighter", "tier": "bronze", "size": 1, "slot_index": 0, "enchantment": "", "cooldown": 4.0, "ammo": 0, "charges": 0},
+			{"item_id": "cinders", "tier": "bronze", "size": 1, "slot_index": 1, "enchantment": "", "cooldown": 0.0, "ammo": 0, "charges": 0},
+		],
+	}
+	var saved: Dictionary = PvpGhostServiceClass.save_curated_archetype(path, valid)
+	_assert_true(bool(saved.get("success", false)), "baseline user snapshot document saves")
+	if not bool(saved.get("success", false)):
+		return
+
+	var previous_contents: String = FileAccess.get_file_as_string(path)
+	var invalid: Dictionary = valid.duplicate(true)
+	invalid["items"] = [
+		{"item_id": "lighter", "tier": "bronze", "size": 1, "slot_index": 0, "enchantment": "", "cooldown": 4.0, "ammo": 0, "charges": 0},
+		{"item_id": "cinders", "tier": "bronze", "size": 1, "slot_index": 1, "enchantment": "", "cooldown": 0.0, "ammo": 0, "charges": 0},
+		{"item_id": "myrrh", "tier": "bronze", "size": 2, "slot_index": 2, "enchantment": "", "cooldown": 6.0, "ammo": 0, "charges": 0},
+	]
+	var failed_save: Dictionary = PvpGhostServiceClass.save_curated_archetype(path, invalid)
+	_assert_true(not bool(failed_save.get("success", false)), "over-slot ghost save fails")
+	_assert_true(_errors_contain_prefix(failed_save.get("errors", []), "slot_capacity_exceeded"), "over-slot failure reports a capacity error")
+	_assert_eq(FileAccess.get_file_as_string(path), previous_contents, "failed over-slot save preserves previous JSON document")
+	if FileAccess.file_exists(path):
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
+
+func test_seed_pool_loads_days_1_to_10() -> void:
+	var snapshots = PvpGhostServiceClass.load_seed_snapshots()
+	_assert_eq(snapshots.size(), 10, "seed snapshot pool loads ten curated day entries")
+	var days: Array[int] = []
+	for snapshot in snapshots:
+		days.append(int(snapshot.day))
+		_assert_true(not str(snapshot.snapshot_id).is_empty(), "seed snapshot has an id for day %d" % int(snapshot.day))
+	_assert_eq(days, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10], "seed pool covers day 1 through day 10 exactly once")
+
+func test_power_score_is_roughly_monotonic_by_day() -> void:
+	var snapshots = PvpGhostServiceClass.load_seed_snapshots()
+	if snapshots.size() < 2:
+		_assert_true(false, "seed snapshot pool is large enough for power-score checks")
+		return
+	var previous_score: int = int(snapshots[0].power_score)
+	for index in range(1, snapshots.size()):
+		var snapshot = snapshots[index]
+		var current_score: int = int(snapshot.power_score)
+		_assert_true(current_score >= previous_score, "power score does not go backwards at day %d" % int(snapshot.day))
+		previous_score = current_score
+
+func test_curated_editor_entry_opens_from_bazaar_shell() -> void:
+	var main: Control = await _instantiate_main_scene()
+	main.call("_on_warrior_selected")
+	await _drain_frames(2)
+	main.call("_show_event_panel")
+	await _drain_frames(2)
+
+	var shell: Control = main.get_node("BazaarShell") as Control
+	var right_actions: Control = shell.get_node("RightActionArea") as Control
+	var action_button: Button = _find_node(right_actions, "Action_ghost_editor") as Button
+	_assert_true(action_button != null, "BazaarShell exposes a Ghost Editor quick entry")
+	if action_button != null:
+		action_button.pressed.emit()
+		await _drain_frames(2)
+
+	var overlay: Control = shell.get_node("OverlayLayer") as Control
+	var editor: Control = _find_node(overlay, "GhostSnapshotEditor") as Control
+	_assert_true(editor != null, "Ghost Editor opens inside BazaarShell overlay layer")
+	if editor != null:
+		editor.call("_close_editor")
+		await _drain_frames(2)
+	_assert_true(_find_node(overlay, "GhostSnapshotEditor") == null, "Ghost Editor can be closed cleanly")
+	main.queue_free()
+	await _drain_frames(2)
+
+func test_pvp_battle_uses_ghost_snapshot_path() -> void:
+	var main: Control = await _instantiate_main_scene()
+	main.call("_on_warrior_selected")
+	await _drain_frames(2)
+	GameManager.current_day = 5
+	GameManager.current_hour = 5
+	main.call("_start_pvp_battle")
+	await _drain_frames(2)
+
+	var battle_ui: Control = main.get_node("BattleUI") as Control
+	var current_monster = battle_ui.get("current_monster")
+	var current_snapshot = battle_ui.get("current_ghost_snapshot")
+	_assert_true(current_monster != null and bool(current_monster.get("is_ghost_snapshot")), "PvP battle enemy is instantiated from a ghost snapshot")
+	_assert_true(str(current_monster.get("source_snapshot_id")) != "", "snapshot-backed PvP enemy keeps snapshot metadata")
+	_assert_true(not str(current_monster.get("monster_name")).begins_with("PvP "), "snapshot-backed PvP enemy does not use placeholder naming")
+	_assert_true(current_snapshot != null and int(current_snapshot.get("day")) == 5, "PvP battle loads the day-matched ghost snapshot")
+	if battle_ui.has_method("_hide_battle_panel"):
+		battle_ui.call("_hide_battle_panel")
+	main.queue_free()
+	await _drain_frames(2)
+
+func _instantiate_main_scene() -> Control:
+	GameManager.reset_stats()
+	var scene: PackedScene = load("res://scenes/main.tscn")
+	var main: Control = scene.instantiate() as Control
+	add_child(main)
+	await _drain_frames(2)
+	return main
+
+func _drain_frames(count: int) -> void:
+	for _index in range(count):
+		await get_tree().process_frame
+
+func _assert_has_error(validation_result: Dictionary, prefix: String, label: String) -> void:
+	_assert_true(_errors_contain_prefix(validation_result.get("errors", []), prefix), label)
+
+func _errors_contain_prefix(errors: Variant, prefix: String) -> bool:
+	if not errors is Array:
+		return false
+	for error_entry in errors:
+		if str(error_entry).begins_with(prefix):
+			return true
+	return false
+
+func _find_node(root: Node, node_name: String) -> Node:
+	if root == null:
+		return null
+	if root.name == node_name:
+		return root
+	for child in root.get_children():
+		var found: Node = _find_node(child, node_name)
+		if found != null:
+			return found
+	return null
+
+func _assert_true(condition: bool, label: String) -> void:
+	_total += 1
+	if condition:
+		_passed += 1
+		print("PASS: %s" % label)
+	else:
+		push_error("FAIL: %s" % label)
+
+func _assert_eq(actual: Variant, expected: Variant, label: String) -> void:
+	_assert_true(actual == expected, "%s | expected=%s actual=%s" % [label, str(expected), str(actual)])
+
+func _print_summary() -> void:
+	print("SUMMARY: %d/%d passed" % [_passed, _total])
+	get_tree().quit(1 if _passed < _total else 0)

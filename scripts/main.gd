@@ -13,6 +13,8 @@ const LinearInventoryClass = preload("res://scripts/data/linear_inventory.gd")
 const ItemDataClass = preload("res://scripts/data/item_data.gd")
 const ItemAcquisitionClass = preload("res://scripts/data/item_acquisition.gd")
 const BazaarContentClass = preload("res://scripts/data/bazaar_content.gd")
+const PvpGhostServiceClass = preload("res://scripts/services/pvp_ghost_service.gd")
+const GhostSnapshotEditorClass = preload("res://scripts/ui/ghost_snapshot_editor.gd")
 
 ## 玩家背包引用（指向 InventoryUI 的 inventory，避免两套独立系统）
 var player_inventory: LinearInventoryClass = null  # 已废弃，改用 $InventoryUI.get_inventory()
@@ -92,6 +94,7 @@ var is_in_hero_selection: bool = true
 ## 当前事件选项（用于自动流转）
 var current_event_type: String = ""
 var active_merchant_view: Control = null
+var active_ghost_editor: Control = null
 
 func _ready() -> void:
 	# 隐藏全屏UI（避免遮挡英雄选择）
@@ -178,6 +181,7 @@ func _setup_buttons() -> void:
 func _show_hero_selection() -> void:
 	is_in_hero_selection = true
 	hero_select_panel.visible = true
+	_close_ghost_editor()
 	bazaar_shell.hide_run_shell()
 	_hide_game_buttons()
 	_hide_event_panel()
@@ -267,9 +271,11 @@ func _show_event_panel() -> void:
 	var options: Array[Dictionary] = GameFlowService.get_current_options()
 	if not options.is_empty():
 		bazaar_shell.show_time_select(options)
+	_refresh_shell_editor_action()
 
 ## 隐藏事件选择面板
 func _hide_event_panel() -> void:
+	_close_ghost_editor()
 	event_panel.visible = false
 	bazaar_shell.clear_dynamic_regions()
 
@@ -279,6 +285,7 @@ func _on_game_flow_options_generated(options: Array[Dictionary]) -> void:
 	bazaar_shell.refresh_static_panels()
 	event_panel.visible = false
 	bazaar_shell.show_time_select(options)
+	_refresh_shell_editor_action()
 	# 更新事件选项UI
 	if options.is_empty():
 		event_option_1.visible = false
@@ -386,6 +393,9 @@ func _connect_merchant_signals(view: Control) -> void:
 		view.connect("closed", closed_callable)
 
 func _on_shell_right_action_pressed(action_id: String) -> void:
+	if action_id == "ghost_editor":
+		_toggle_ghost_editor()
+		return
 	if not is_instance_valid(active_merchant_view):
 		return
 	match action_id:
@@ -537,8 +547,12 @@ func _start_pvp_battle() -> void:
 	if hero_bar_layer:
 		hero_bar_layer.visible = true
 
-	var enemy_bonus = randi() % 5 + 1
-	battle_ui.start_battle(null, true, enemy_bonus)
+	var snapshot = PvpGhostServiceClass.pick_snapshot_for_day(GameManager.current_day)
+	if snapshot != null and not snapshot.snapshot_id.is_empty():
+		battle_ui.start_ghost_battle(snapshot)
+	else:
+		var enemy_bonus = randi() % 5 + 1
+		battle_ui.start_battle(null, true, enemy_bonus)
 
 	if not battle_ui.battle_ended.is_connected(_on_battle_ended):
 		battle_ui.battle_ended.connect(_on_battle_ended)
@@ -732,6 +746,7 @@ func _on_prestige_changed(value: int) -> void:
 
 ## 游戏结束回调
 func _on_game_over(won: bool) -> void:
+	_close_ghost_editor()
 	# 使用 EndingManager 判定结局
 	var ending = EndingManagerClass.determine_ending(GameManager)
 	var title = EndingManagerClass.get_ending_title(ending)
@@ -763,6 +778,64 @@ func _on_restart_game_pressed() -> void:
 	_show_hero_selection()
 	_hide_game_buttons()
 	_update_ui()
+
+func _refresh_shell_editor_action() -> void:
+	if bazaar_shell == null or not bazaar_shell.visible:
+		return
+	if battle_ui != null and battle_ui.visible:
+		return
+	if is_instance_valid(active_merchant_view):
+		return
+	var action_label: String = "Close Ghost Editor" if _is_ghost_editor_open() else "Ghost Editor"
+	bazaar_shell.set_right_actions([{"id": "ghost_editor", "label": action_label}])
+
+func _toggle_ghost_editor() -> void:
+	if _is_ghost_editor_open():
+		_close_ghost_editor()
+	else:
+		_open_ghost_editor()
+	_refresh_shell_editor_action()
+
+func _open_ghost_editor() -> void:
+	if _is_ghost_editor_open():
+		return
+	if bazaar_shell == null or not bazaar_shell.has_method("get_overlay_layer"):
+		return
+	var overlay_layer: Control = bazaar_shell.get_overlay_layer()
+	if overlay_layer == null:
+		return
+	var editor: Control = GhostSnapshotEditorClass.new()
+	if editor.has_method("set_document_path"):
+		editor.call("set_document_path", PvpGhostServiceClass.DEFAULT_CURATED_PATH)
+	editor.connect("closed", Callable(self, "_on_ghost_editor_closed"))
+	editor.connect("saved", Callable(self, "_on_ghost_editor_saved"))
+	editor.connect("validation_failed", Callable(self, "_on_ghost_editor_validation_failed"))
+	overlay_layer.add_child(editor)
+	overlay_layer.move_to_front()
+	editor.move_to_front()
+	active_ghost_editor = editor
+	print("Ghost snapshot editor opened")
+
+func _close_ghost_editor() -> void:
+	if not _is_ghost_editor_open():
+		active_ghost_editor = null
+		return
+	active_ghost_editor.queue_free()
+	active_ghost_editor = null
+
+func _is_ghost_editor_open() -> bool:
+	return active_ghost_editor != null and is_instance_valid(active_ghost_editor)
+
+func _on_ghost_editor_closed() -> void:
+	active_ghost_editor = null
+	_refresh_shell_editor_action()
+
+func _on_ghost_editor_saved(snapshot_id: String, path: String) -> void:
+	print("Ghost snapshot saved: %s -> %s" % [snapshot_id, path])
+	_refresh_shell_editor_action()
+
+func _on_ghost_editor_validation_failed(errors: Array[String]) -> void:
+	print("Ghost snapshot validation failed: %s" % JSON.stringify(errors))
 
 ## ============ Futura 事件系统 ============
 

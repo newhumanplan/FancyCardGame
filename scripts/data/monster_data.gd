@@ -24,6 +24,11 @@ var current_hp: int = 50
 ## 当前护盾值（运行时）
 var current_shield: float = 0.0
 
+## PvP ghost snapshot 元数据
+var is_ghost_snapshot: bool = false
+var source_snapshot_id: String = ""
+var source_snapshot: Dictionary = {}
+
 ## ============ 怪物物品系统 ============
 ## 怪物的"武器"：1-3 个物品，各有 damage + cooldown
 ## 在战斗循环中按 CD 触发，伤害扣玩家 HP

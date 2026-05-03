@@ -182,20 +182,45 @@ PvP ghost 和战斗回放依赖快照，不应读取实时 run state：
 
 ```gdscript
 {
+	"schema_version": 1,
+	"snapshot_id": "ghost_day05_dooley_tool_chain",
 	"day": 3,
 	"hour": 5,
 	"hero_id": "vanessa",
+	"hero_name": "Vanessa",
 	"level": 4,
+	"slot_capacity": 8,
 	"max_health": 550,
-	"board": [],
-	"stash": [],
+	"health": 510,
+	"regeneration": 4.0,
+	"items": [],
+	"stash_items": [],
 	"skills": [],
 	"prestige": 16,
-	"pvp_wins": 2
+	"pvp_wins": 2,
+	"tags": ["burn", "tool"],
+	"source_run_id": "local-run-001",
+	"notes": ""
 }
 ```
 
 生成 PvP 匹配时使用 snapshot，避免对手数据被后续 UI 操作或 run state 改写。
+
+`GhostSnapshot` 在 `BattleSnapshot` 基础上扩展：
+
+```gdscript
+{
+	"source": "curated",
+	"power_score": 1280,
+	"power_bucket": "P50",
+	"created_at": "2026-05-03T16:50:40+08:00",
+	"rules_version": "fcg-ghost-v1",
+	"generator_version": "curated-editor-v1"
+}
+```
+
+当前 Phase A 使用 `res://data/pvp_ghost/curated_archetypes.json` 维护 curated seed；
+后续真实玩家数据接入必须先转换为同一 snapshot schema，再进入 PvP ghost 选择。
 
 ## Resource 与 JSON
 
