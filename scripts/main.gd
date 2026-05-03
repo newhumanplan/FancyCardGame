@@ -673,7 +673,22 @@ func _start_pvp_battle() -> void:
 	if hero_bar_layer:
 		hero_bar_layer.visible = true
 
-	var snapshot = PvpGhostServiceClass.pick_snapshot_for_day(GameManager.current_day)
+	var player_snapshot = PvpGhostServiceClass.capture_player_ghost_snapshot(
+		GameManager,
+		_get_player_inventory(),
+		_get_stash_inventory()
+	)
+	var saved_snapshot: Dictionary = PvpGhostServiceClass.save_local_snapshot(player_snapshot)
+	if not bool(saved_snapshot.get("success", false)):
+		push_warning("PvP local player snapshot capture failed: %s" % JSON.stringify(saved_snapshot.get("errors", [])))
+
+	var snapshot = PvpGhostServiceClass.pick_snapshot_for_day(
+		GameManager.current_day,
+		PvpGhostServiceClass.DEFAULT_CURATED_PATH,
+		player_snapshot.power_score,
+		PvpGhostServiceClass.DEFAULT_LOCAL_PLAYTEST_DIR,
+		player_snapshot.snapshot_id
+	)
 	if snapshot != null and not snapshot.snapshot_id.is_empty():
 		battle_ui.start_ghost_battle(snapshot)
 	else:

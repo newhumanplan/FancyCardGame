@@ -13,9 +13,12 @@ const MonsterAIClass = preload("res://scripts/data/monster_ai.gd")
 const PlayerSkillCatalogClass = preload("res://scripts/data/player_skill_catalog.gd")
 
 const DEFAULT_CURATED_PATH: String = "res://data/pvp_ghost/curated_archetypes.json"
+const DEFAULT_LOCAL_PLAYTEST_DIR: String = "user://ghost_pool/playtest"
 const DEFAULT_EDITOR_VERSION: String = "curated-editor-v1"
+const DEFAULT_LOCAL_GENERATOR_VERSION: String = "local-playtest-v1"
 const FILE_SCHEMA_VERSION: int = 1
 const DEFAULT_POWER_BUCKET: String = "P10"
+const LOCAL_SOURCE: String = "local_playtest"
 
 const TIER_BRONZE: String = "bronze"
 const TIER_SILVER: String = "silver"
@@ -380,6 +383,202 @@ static func capture_player_snapshot(
 	snapshot.snapshot_id = "player_day%02d_hour%02d" % [snapshot.day, snapshot.hour]
 	return snapshot
 
+static func capture_player_ghost_snapshot(
+	game_manager: Node,
+	inventory: LinearInventoryClass,
+	stash_inventory: LinearInventoryClass = null
+) -> GhostSnapshotClass:
+	var base: BattleSnapshotClass = capture_player_snapshot(game_manager, inventory, stash_inventory)
+	var snapshot: GhostSnapshotClass = GhostSnapshotClass.from_dictionary(base.to_dictionary())
+	snapshot.source = LOCAL_SOURCE
+	snapshot.rules_version = GhostSnapshotClass.DEFAULT_RULES_VERSION
+	snapshot.generator_version = DEFAULT_LOCAL_GENERATOR_VERSION
+	snapshot.created_at = Time.get_datetime_string_from_system(false, true)
+	snapshot.power_score = calculate_power_score(snapshot)
+	snapshot.power_bucket = calculate_power_bucket(snapshot.power_score)
+	snapshot.tags = _collect_snapshot_tags(snapshot)
+	snapshot.snapshot_id = _build_local_snapshot_id(snapshot)
+	return snapshot
+
+static func save_player_snapshot(
+	game_manager: Node,
+	inventory: LinearInventoryClass,
+	stash_inventory: LinearInventoryClass = null,
+	store_dir: String = DEFAULT_LOCAL_PLAYTEST_DIR
+) -> Dictionary:
+	var snapshot: GhostSnapshotClass = capture_player_ghost_snapshot(
+		game_manager,
+		inventory,
+		stash_inventory
+	)
+	return save_local_snapshot(snapshot, store_dir)
+
+static func save_local_snapshot(
+	snapshot: GhostSnapshotClass,
+	store_dir: String = DEFAULT_LOCAL_PLAYTEST_DIR
+) -> Dictionary:
+	if snapshot == null:
+		return {"success": false, "saved": false, "errors": ["missing_snapshot"], "path": ""}
+
+	var validation: Dictionary = validate_ghost_snapshot(snapshot.to_dictionary())
+	if not bool(validation.get("valid", false)):
+		return {
+			"success": false,
+			"saved": false,
+			"errors": validation.get("errors", []),
+			"path": "",
+		}
+
+	var normalized: GhostSnapshotClass = GhostSnapshotClass.from_dictionary(
+		(validation.get("normalized", {}) as Dictionary).duplicate(true)
+	)
+	normalized.source = LOCAL_SOURCE
+	if normalized.created_at.is_empty():
+		normalized.created_at = Time.get_datetime_string_from_system(false, true)
+	normalized.generator_version = DEFAULT_LOCAL_GENERATOR_VERSION
+	normalized.rules_version = GhostSnapshotClass.DEFAULT_RULES_VERSION
+	normalized.power_score = calculate_power_score(normalized)
+	normalized.power_bucket = calculate_power_bucket(normalized.power_score)
+	if normalized.snapshot_id.is_empty():
+		normalized.snapshot_id = _build_local_snapshot_id(normalized)
+
+	var directory_path: String = "%s/day%02d" % [store_dir, int(normalized.day)]
+	var ensure_result: Dictionary = _ensure_user_directory(directory_path)
+	if not bool(ensure_result.get("success", false)):
+		return ensure_result
+
+	var file_path: String = "%s/%s.json" % [directory_path, _sanitize_file_token(normalized.snapshot_id)]
+	var file: FileAccess = FileAccess.open(file_path, FileAccess.WRITE)
+	if file == null:
+		return {
+			"success": false,
+			"saved": false,
+			"errors": ["write_open_failed:%s" % file_path],
+			"path": file_path,
+		}
+	file.store_string(normalized.to_json_string("\t"))
+	file.close()
+
+	_rebuild_local_snapshot_index(store_dir)
+	return {
+		"success": true,
+		"saved": true,
+		"path": file_path,
+		"snapshot": normalized.to_dictionary(),
+	}
+
+static func validate_ghost_snapshot(snapshot_data: Dictionary) -> Dictionary:
+	var snapshot: GhostSnapshotClass = GhostSnapshotClass.from_dictionary(snapshot_data)
+	var errors: Array[String] = []
+
+	if int(snapshot.schema_version) != BattleSnapshotClass.SCHEMA_VERSION:
+		errors.append("invalid_schema_version:%d" % int(snapshot.schema_version))
+	if str(snapshot.snapshot_id).strip_edges().is_empty():
+		errors.append("missing_snapshot_id")
+	if snapshot.day < 1 or snapshot.day > 20:
+		errors.append("invalid_day:%d" % snapshot.day)
+	if snapshot.hour < 0 or snapshot.hour >= 6:
+		errors.append("invalid_hour:%d" % snapshot.hour)
+	if not HERO_ID_TO_TYPE.has(snapshot.hero_id):
+		errors.append("unknown_hero:%s" % snapshot.hero_id)
+	if snapshot.level < 1 or snapshot.level > 20:
+		errors.append("invalid_level:%d" % snapshot.level)
+	if snapshot.slot_capacity < 1 or snapshot.slot_capacity > LinearInventoryClass.TOTAL_SLOTS:
+		errors.append("invalid_slot_capacity:%d" % snapshot.slot_capacity)
+	if snapshot.max_health <= 0:
+		errors.append("invalid_max_health:%d" % snapshot.max_health)
+	if snapshot.health <= 0 or snapshot.health > snapshot.max_health:
+		errors.append("invalid_health:%d:max=%d" % [snapshot.health, snapshot.max_health])
+	if snapshot.prestige < 0 or snapshot.prestige > 20:
+		errors.append("invalid_prestige:%d" % snapshot.prestige)
+	if snapshot.power_score < 0:
+		errors.append("invalid_power_score:%d" % snapshot.power_score)
+	if snapshot.power_bucket.is_empty():
+		errors.append("missing_power_bucket")
+
+	var normalized_skills: Array[Dictionary] = []
+	for skill_entry in snapshot.skills:
+		var skill_result: Dictionary = _normalize_skill_entry(skill_entry)
+		errors.append_array(_variant_to_string_array(skill_result.get("errors", [])))
+		if skill_result.has("entry"):
+			normalized_skills.append((skill_result.get("entry", {}) as Dictionary).duplicate(true))
+	snapshot.skills = normalized_skills
+
+	var normalized_items: Array[Dictionary] = []
+	var occupied_slots: Dictionary = {}
+	var used_slots: int = 0
+	for item_entry in snapshot.items:
+		var item_result: Dictionary = _normalize_item_entry(item_entry)
+		errors.append_array(_variant_to_string_array(item_result.get("errors", [])))
+		if not item_result.has("entry"):
+			continue
+		var normalized_item: Dictionary = (item_result.get("entry", {}) as Dictionary).duplicate(true)
+		var item_slot: int = int(normalized_item.get("slot_index", -1))
+		var slot_count: int = int(normalized_item.get("size", 1))
+		if item_slot + slot_count > snapshot.slot_capacity:
+			errors.append(
+				"slot_capacity_exceeded:%s:start=%d:size=%d:capacity=%d"
+				% [str(normalized_item.get("item_id", "")), item_slot, slot_count, snapshot.slot_capacity]
+			)
+		for slot_offset in range(slot_count):
+			var occupied_slot: int = item_slot + slot_offset
+			if occupied_slots.has(occupied_slot):
+				errors.append(
+					"overlapping_item_slots:%d:%s:%s"
+					% [occupied_slot, str(occupied_slots[occupied_slot]), str(normalized_item.get("item_id", ""))]
+				)
+			else:
+				occupied_slots[occupied_slot] = str(normalized_item.get("item_id", ""))
+		used_slots += slot_count
+		normalized_items.append(normalized_item)
+	if used_slots > snapshot.slot_capacity:
+		errors.append("slot_capacity_exceeded_total:used=%d:capacity=%d" % [used_slots, snapshot.slot_capacity])
+	normalized_items.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		return int(a.get("slot_index", 0)) < int(b.get("slot_index", 0))
+	)
+	snapshot.items = normalized_items
+
+	return {
+		"valid": errors.is_empty(),
+		"errors": errors,
+		"normalized": snapshot.to_dictionary(),
+	}
+
+static func load_local_snapshots(
+	store_dir: String = DEFAULT_LOCAL_PLAYTEST_DIR
+) -> Array[GhostSnapshotClass]:
+	var snapshots: Array[GhostSnapshotClass] = []
+	for day_dir in _list_subdirectories(store_dir):
+		for file_path in _list_json_files(day_dir):
+			var file: FileAccess = FileAccess.open(file_path, FileAccess.READ)
+			if file == null:
+				continue
+			var json := JSON.new()
+			var parse_error: int = json.parse(file.get_as_text())
+			if parse_error != OK:
+				continue
+			var data: Variant = json.get_data()
+			if not data is Dictionary:
+				continue
+			var source_data: Dictionary = data as Dictionary
+			var validation: Dictionary = validate_ghost_snapshot(source_data)
+			if not bool(validation.get("valid", false)):
+				continue
+			var snapshot: GhostSnapshotClass = GhostSnapshotClass.from_dictionary(
+				(validation.get("normalized", {}) as Dictionary).duplicate(true)
+			)
+			snapshot.source = str(source_data.get("source", snapshot.source))
+			snapshot.created_at = str(source_data.get("created_at", snapshot.created_at))
+			snapshot.generator_version = str(source_data.get("generator_version", snapshot.generator_version))
+			snapshot.rules_version = str(source_data.get("rules_version", snapshot.rules_version))
+			snapshots.append(snapshot)
+	snapshots.sort_custom(func(a: GhostSnapshotClass, b: GhostSnapshotClass) -> bool:
+		if a.day == b.day:
+			return a.power_score < b.power_score
+		return a.day < b.day
+	)
+	return snapshots
+
 static func load_seed_snapshots(path: String = DEFAULT_CURATED_PATH) -> Array[GhostSnapshotClass]:
 	var loaded: Dictionary = load_curated_file(path)
 	var snapshots: Array[GhostSnapshotClass] = []
@@ -399,8 +598,20 @@ static func load_seed_snapshots(path: String = DEFAULT_CURATED_PATH) -> Array[Gh
 
 static func pick_snapshot_for_day(
 	day: int,
-	path: String = DEFAULT_CURATED_PATH
+	path: String = DEFAULT_CURATED_PATH,
+	target_power_score: int = -1,
+	local_store_dir: String = DEFAULT_LOCAL_PLAYTEST_DIR,
+	exclude_snapshot_id: String = ""
 ) -> GhostSnapshotClass:
+	var local_match: GhostSnapshotClass = pick_local_snapshot_for_day(
+		day,
+		target_power_score,
+		local_store_dir,
+		exclude_snapshot_id
+	)
+	if local_match != null and not local_match.snapshot_id.is_empty():
+		return local_match
+
 	var snapshots: Array[GhostSnapshotClass] = load_seed_snapshots(path)
 	if snapshots.is_empty():
 		return GhostSnapshotClass.new()
@@ -420,6 +631,45 @@ static func pick_snapshot_for_day(
 			closest = snapshot
 			closest_distance = distance
 	return closest.duplicate_snapshot()
+
+static func pick_local_snapshot_for_day(
+	day: int,
+	target_power_score: int = -1,
+	store_dir: String = DEFAULT_LOCAL_PLAYTEST_DIR,
+	exclude_snapshot_id: String = ""
+) -> GhostSnapshotClass:
+	var snapshots: Array[GhostSnapshotClass] = load_local_snapshots(store_dir)
+	var target_bucket: String = calculate_power_bucket(target_power_score) if target_power_score >= 0 else ""
+	var candidates: Array[GhostSnapshotClass] = []
+	for snapshot in snapshots:
+		if int(snapshot.day) != day:
+			continue
+		if not exclude_snapshot_id.is_empty() and snapshot.snapshot_id == exclude_snapshot_id:
+			continue
+		if not target_bucket.is_empty() and snapshot.power_bucket != target_bucket:
+			continue
+		candidates.append(snapshot)
+	if candidates.is_empty() and not target_bucket.is_empty():
+		for snapshot in snapshots:
+			if int(snapshot.day) != day:
+				continue
+			if not exclude_snapshot_id.is_empty() and snapshot.snapshot_id == exclude_snapshot_id:
+				continue
+			candidates.append(snapshot)
+	if candidates.is_empty():
+		return GhostSnapshotClass.new()
+
+	var target_score: int = target_power_score
+	if target_score < 0:
+		target_score = int(candidates[int(candidates.size() / 2)].power_score)
+	var best: GhostSnapshotClass = candidates[0]
+	var best_distance: int = abs(int(best.power_score) - target_score)
+	for snapshot in candidates:
+		var distance: int = abs(int(snapshot.power_score) - target_score)
+		if distance < best_distance:
+			best = snapshot
+			best_distance = distance
+	return best.duplicate_snapshot()
 
 static func ghost_snapshot_to_monster(snapshot: GhostSnapshotClass) -> MonsterDataClass:
 	var monster: MonsterDataClass = MonsterDataClass.new()
@@ -748,6 +998,103 @@ static func _compact_strings(values: Array[String]) -> Array[String]:
 		seen[normalized] = true
 		result.append(normalized)
 	return result
+
+static func _build_local_snapshot_id(snapshot: GhostSnapshotClass) -> String:
+	var timestamp: String = snapshot.created_at
+	if timestamp.is_empty():
+		timestamp = Time.get_datetime_string_from_system(false, true)
+	return _sanitize_file_token(
+		"player_day%02d_hour%02d_%s_%s"
+		% [snapshot.day, snapshot.hour, snapshot.power_bucket, timestamp]
+	)
+
+static func _sanitize_file_token(value: String) -> String:
+	var token: String = str(value).strip_edges().to_lower()
+	var result: String = ""
+	for index in range(token.length()):
+		var character: String = token.substr(index, 1)
+		if (character >= "a" and character <= "z") or (character >= "0" and character <= "9"):
+			result += character
+		elif character == "_" or character == "-":
+			result += character
+		else:
+			result += "_"
+	while result.contains("__"):
+		result = result.replace("__", "_")
+	result = result.strip_edges().trim_prefix("_").trim_suffix("_")
+	if result.is_empty():
+		return "snapshot"
+	return result
+
+static func _ensure_user_directory(path: String) -> Dictionary:
+	var absolute_path: String = ProjectSettings.globalize_path(path)
+	var error: int = DirAccess.make_dir_recursive_absolute(absolute_path)
+	if error != OK:
+		return {
+			"success": false,
+			"saved": false,
+			"errors": ["mkdir_failed:%s:%d" % [path, error]],
+			"path": path,
+		}
+	return {"success": true, "path": path}
+
+static func _list_subdirectories(path: String) -> Array[String]:
+	var result: Array[String] = []
+	var dir: DirAccess = DirAccess.open(path)
+	if dir == null:
+		return result
+	dir.list_dir_begin()
+	var entry_name: String = dir.get_next()
+	while not entry_name.is_empty():
+		if dir.current_is_dir() and not entry_name.begins_with("."):
+			result.append("%s/%s" % [path, entry_name])
+		entry_name = dir.get_next()
+	dir.list_dir_end()
+	result.sort()
+	return result
+
+static func _list_json_files(path: String) -> Array[String]:
+	var result: Array[String] = []
+	var dir: DirAccess = DirAccess.open(path)
+	if dir == null:
+		return result
+	dir.list_dir_begin()
+	var entry_name: String = dir.get_next()
+	while not entry_name.is_empty():
+		if not dir.current_is_dir() and entry_name.ends_with(".json") and entry_name != "index.json":
+			result.append("%s/%s" % [path, entry_name])
+		entry_name = dir.get_next()
+	dir.list_dir_end()
+	result.sort()
+	return result
+
+static func _rebuild_local_snapshot_index(store_dir: String) -> void:
+	var snapshots: Array[GhostSnapshotClass] = load_local_snapshots(store_dir)
+	var entries: Array[Dictionary] = []
+	for snapshot in snapshots:
+		entries.append({
+			"snapshot_id": snapshot.snapshot_id,
+			"day": snapshot.day,
+			"hour": snapshot.hour,
+			"source": snapshot.source,
+			"power_score": snapshot.power_score,
+			"power_bucket": snapshot.power_bucket,
+			"hero_id": snapshot.hero_id,
+			"created_at": snapshot.created_at,
+		})
+	var ensure_result: Dictionary = _ensure_user_directory(store_dir)
+	if not bool(ensure_result.get("success", false)):
+		return
+	var file: FileAccess = FileAccess.open("%s/index.json" % store_dir, FileAccess.WRITE)
+	if file == null:
+		return
+	file.store_string(JSON.stringify({
+		"schema_version": FILE_SCHEMA_VERSION,
+		"snapshot_schema": GhostSnapshotClass.DEFAULT_RULES_VERSION,
+		"store": "ghost_pool/playtest",
+		"snapshots": entries,
+	}, "\t"))
+	file.close()
 
 static func _variant_to_string_array(value: Variant) -> Array[String]:
 	var result: Array[String] = []

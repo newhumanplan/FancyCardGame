@@ -19,12 +19,22 @@ func _run_tests() -> void:
 	test_over_slot_save_error_preserves_previous_document()
 	test_seed_pool_loads_days_1_to_10()
 	test_power_score_is_roughly_monotonic_by_day()
+	test_local_playtest_snapshot_files_validate_as_ghost_schema()
+	test_local_power_bucket_match_precedes_curated_fallback()
+	test_curated_fallback_when_no_local_power_band_match()
 	await test_curated_editor_entry_opens_from_bazaar_shell()
 	await test_pvp_battle_uses_ghost_snapshot_path()
 
 func test_snapshot_json_roundtrip_is_deterministic() -> void:
-	var snapshot = PvpGhostServiceClass.pick_snapshot_for_day(5)
-	_assert_true(snapshot != null and not str(snapshot.snapshot_id).is_empty(), "pick_snapshot_for_day returns a seeded ghost")
+	var store_dir: String = "user://ghost_pool_test/roundtrip_empty"
+	_remove_tree(store_dir)
+	var snapshot = PvpGhostServiceClass.pick_snapshot_for_day(
+		5,
+		PvpGhostServiceClass.DEFAULT_CURATED_PATH,
+		-1,
+		store_dir
+	)
+	_assert_true(snapshot != null and not str(snapshot.snapshot_id).is_empty(), "pick_snapshot_for_day returns a ghost")
 	if snapshot == null or str(snapshot.snapshot_id).is_empty():
 		return
 
@@ -37,6 +47,7 @@ func test_snapshot_json_roundtrip_is_deterministic() -> void:
 	var restored_json: String = restored.to_json_string("\t")
 	_assert_eq(restored_json, original_json, "ghost snapshot JSON roundtrip stays deterministic")
 	_assert_eq(restored.to_dictionary(), snapshot.to_dictionary(), "ghost snapshot dictionary roundtrip preserves fields")
+	_remove_tree(store_dir)
 
 func test_curated_archetype_validation_success_and_snapshot_conversion() -> void:
 	var loaded: Dictionary = PvpGhostServiceClass.load_curated_file()
@@ -153,6 +164,55 @@ func test_power_score_is_roughly_monotonic_by_day() -> void:
 		_assert_true(current_score >= previous_score, "power score does not go backwards at day %d" % int(snapshot.day))
 		previous_score = current_score
 
+func test_local_playtest_snapshot_files_validate_as_ghost_schema() -> void:
+	var store_dir: String = "user://ghost_pool_test/schema"
+	_remove_tree(store_dir)
+	var snapshot = _make_local_snapshot("schema_seed", 4, 1180, "P50")
+	var saved: Dictionary = PvpGhostServiceClass.save_local_snapshot(snapshot, store_dir)
+	_assert_true(bool(saved.get("success", false)), "local playtest ghost snapshot saves")
+	_assert_true(str(saved.get("path", "")).begins_with(store_dir), "local snapshot is stored under user playtest path")
+	var loaded: Array[GhostSnapshotClass] = PvpGhostServiceClass.load_local_snapshots(store_dir)
+	_assert_eq(loaded.size(), 1, "local playtest ghost snapshot reloads from disk")
+	if not loaded.is_empty():
+		var validation: Dictionary = PvpGhostServiceClass.validate_ghost_snapshot(loaded[0].to_dictionary())
+		_assert_true(bool(validation.get("valid", false)), "local playtest snapshot validates with ghost schema")
+		_assert_eq(loaded[0].source, PvpGhostServiceClass.LOCAL_SOURCE, "local snapshot source is marked local only")
+	_remove_tree(store_dir)
+
+func test_local_power_bucket_match_precedes_curated_fallback() -> void:
+	var store_dir: String = "user://ghost_pool_test/match"
+	_remove_tree(store_dir)
+	var local_snapshot = _make_local_snapshot("local_match", 5, 1180, "P50")
+	var saved: Dictionary = PvpGhostServiceClass.save_local_snapshot(local_snapshot, store_dir)
+	_assert_true(bool(saved.get("success", false)), "local match fixture saves")
+	var picked = PvpGhostServiceClass.pick_snapshot_for_day(
+		5,
+		PvpGhostServiceClass.DEFAULT_CURATED_PATH,
+		1190,
+		store_dir,
+		"current_player"
+	)
+	_assert_eq(picked.snapshot_id, "local_match", "PvP matching prefers same-day local power-band ghost")
+	_assert_eq(picked.source, PvpGhostServiceClass.LOCAL_SOURCE, "picked local ghost keeps local source")
+	_remove_tree(store_dir)
+
+func test_curated_fallback_when_no_local_power_band_match() -> void:
+	var store_dir: String = "user://ghost_pool_test/fallback"
+	_remove_tree(store_dir)
+	var only_current = _make_local_snapshot("current_player", 5, 1180, "P50")
+	var saved: Dictionary = PvpGhostServiceClass.save_local_snapshot(only_current, store_dir)
+	_assert_true(bool(saved.get("success", false)), "current-player local snapshot fixture saves")
+	var picked = PvpGhostServiceClass.pick_snapshot_for_day(
+		5,
+		PvpGhostServiceClass.DEFAULT_CURATED_PATH,
+		1190,
+		store_dir,
+		"current_player"
+	)
+	_assert_true(picked.snapshot_id != "current_player", "current player snapshot is excluded from opponent selection")
+	_assert_eq(picked.source, GhostSnapshotClass.DEFAULT_SOURCE, "curated fallback is used when local match only contains current player")
+	_remove_tree(store_dir)
+
 func test_curated_editor_entry_opens_from_bazaar_shell() -> void:
 	var main: Control = await _instantiate_main_scene()
 	main.call("_on_warrior_selected")
@@ -198,6 +258,49 @@ func test_pvp_battle_uses_ghost_snapshot_path() -> void:
 		battle_ui.call("_hide_battle_panel")
 	main.queue_free()
 	await _drain_frames(2)
+
+func _make_local_snapshot(snapshot_id: String, day: int, power_score: int, power_bucket: String):
+	var snapshot = GhostSnapshotClass.new()
+	snapshot.snapshot_id = snapshot_id
+	snapshot.day = day
+	snapshot.hour = 5
+	snapshot.hero_id = "mak"
+	snapshot.hero_name = "Mak"
+	snapshot.level = day
+	snapshot.slot_capacity = 6
+	snapshot.prestige = 20
+	snapshot.max_health = 120 + day * 10
+	snapshot.health = snapshot.max_health
+	snapshot.regeneration = 0.0
+	var skills: Array[Dictionary] = [{"id": "fiery", "tier": "bronze"}]
+	var items: Array[Dictionary] = [
+		{"item_id": "lighter", "tier": "bronze", "size": 1, "slot_index": 0, "enchantment": "", "cooldown": 4.0, "ammo": 0, "charges": 0},
+		{"item_id": "cinders", "tier": "bronze", "size": 1, "slot_index": 1, "enchantment": "", "cooldown": 0.0, "ammo": 0, "charges": 0},
+	]
+	snapshot.skills = skills
+	snapshot.items = items
+	snapshot.source = PvpGhostServiceClass.LOCAL_SOURCE
+	snapshot.power_score = power_score
+	snapshot.power_bucket = power_bucket
+	snapshot.created_at = "2026-05-04T02:30:00"
+	snapshot.generator_version = PvpGhostServiceClass.DEFAULT_LOCAL_GENERATOR_VERSION
+	return snapshot
+
+func _remove_tree(path: String) -> void:
+	var dir: DirAccess = DirAccess.open(path)
+	if dir == null:
+		return
+	dir.list_dir_begin()
+	var entry_name: String = dir.get_next()
+	while not entry_name.is_empty():
+		var child_path: String = "%s/%s" % [path, entry_name]
+		if dir.current_is_dir():
+			_remove_tree(child_path)
+		else:
+			DirAccess.remove_absolute(ProjectSettings.globalize_path(child_path))
+		entry_name = dir.get_next()
+	dir.list_dir_end()
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
 
 func _instantiate_main_scene() -> Control:
 	GameManager.reset_stats()
