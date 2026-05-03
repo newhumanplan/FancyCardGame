@@ -8,6 +8,7 @@ const PassiveSkillDataClass = preload("res://scripts/data/passive_skill.gd")
 const WikiMonsterCatalogClass = preload("res://scripts/data/wiki_monster_catalog.gd")
 const WikiEventCatalogClass = preload("res://scripts/data/wiki_event_catalog.gd")
 const EffectDefinitionClass = preload("res://scripts/data/effect_definition.gd")
+const EnchantmentCatalogClass = preload("res://scripts/data/enchantment_catalog.gd")
 
 const RARITY_BRONZE: int = 1
 const RARITY_SILVER: int = 2
@@ -432,38 +433,54 @@ static func _get_wiki_art_path(category: String, source_id: String) -> String:
 			return texture_path
 	return ""
 
-static func create_item(item_id: String, rarity: int = RARITY_BRONZE) -> ItemDataClass:
+static func create_item(
+	item_id: String,
+	rarity: int = RARITY_BRONZE,
+	enchantment: String = ""
+) -> ItemDataClass:
 	var spec: Dictionary = _find_item_spec(item_id)
 	if spec.is_empty():
 		return null
-	return create_item_from_spec(spec, rarity)
+	return create_item_from_spec(spec, rarity, enchantment)
 
-static func create_item_from_spec(spec: Dictionary, rarity: int = RARITY_BRONZE) -> ItemDataClass:
+static func create_item_from_spec(
+	spec: Dictionary,
+	rarity: int = RARITY_BRONZE,
+	enchantment: String = ""
+) -> ItemDataClass:
 	var item: ItemDataClass = ItemDataClass.new()
-	_apply_spec_to_item(item, spec, rarity)
+	_apply_spec_to_item(item, spec, rarity, enchantment)
 	return item
 
 static func apply_rarity_to_item(item: ItemDataClass, rarity: int) -> bool:
 	if item == null:
 		return false
 	var spec: Dictionary = _find_item_spec(item.source_id)
+	var previous_enchantment: String = item.enchantment_id
 	if spec.is_empty():
 		item.rarity = clampi(rarity, RARITY_BRONZE, RARITY_DIAMOND)
 		return false
 	var previous_slot: int = item.slot_index
 	var previous_cooldown: float = item.current_cooldown
-	_apply_spec_to_item(item, spec, rarity)
+	_apply_spec_to_item(item, spec, rarity, previous_enchantment)
 	item.slot_index = previous_slot
 	item.current_cooldown = previous_cooldown
 	item.clear_runtime_ammo()
 	return true
 
-static func _apply_spec_to_item(item: ItemDataClass, spec: Dictionary, rarity: int) -> void:
+static func _apply_spec_to_item(
+	item: ItemDataClass,
+	spec: Dictionary,
+	rarity: int,
+	enchantment: String = ""
+) -> void:
 	var item_rarity: int = clampi(rarity, RARITY_BRONZE, RARITY_DIAMOND)
 	item.source_id = str(spec.get("id", ""))
 	item.item_name = str(spec.get("name", "Item"))
+	item.base_item_name = item.item_name
 	item.description = str(spec.get("effect", ""))
 	item.source_effect_text = item.description
+	item.enchantment_id = ""
 	item.tags = _string_array(spec.get("tags", []))
 	item.rarity = item_rarity
 	item.size = _size_to_enum(str(spec.get("size", "Small")))
@@ -488,8 +505,11 @@ static func _apply_spec_to_item(item: ItemDataClass, spec: Dictionary, rarity: i
 	item.haste_count = _get_int_for_rarity(spec.get("haste", []), item_rarity, 0, start_rarity)
 	item.haste_duration = _get_float_for_rarity(spec.get("haste_duration", []), item_rarity, _default_tempo_duration(item.haste_count), start_rarity)
 	item.crit_chance = float(_get_int_for_rarity(spec.get("crit", []), item_rarity, 0, start_rarity)) / 100.0
-	item.effects = EffectDefinitionClass.build_item_effects(item)
-	item.effect_warnings = EffectDefinitionClass.collect_item_warnings(item, item.effects)
+	if enchantment.is_empty():
+		item.effects = EffectDefinitionClass.build_item_effects(item)
+		item.effect_warnings = EffectDefinitionClass.collect_item_warnings(item, item.effects)
+	else:
+		EnchantmentCatalogClass.apply_to_item(item, enchantment)
 	item.current_cooldown = 0.0
 
 static func create_day1_monster(monster_id: String = "") -> MonsterDataClass:
@@ -566,6 +586,7 @@ static func item_to_monster_item(item_data: ItemDataClass) -> Dictionary:
 	var cooldown: float = maxf(item_data.cooldown, 0.0)
 	return {
 		"name": item_data.item_name,
+		"enchantment": item_data.enchantment_id,
 		"type": item_data.type,
 		"rarity": item_data.rarity,
 		"buy_price": item_data.buy_price,

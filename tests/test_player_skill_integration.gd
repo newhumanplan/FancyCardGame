@@ -24,6 +24,9 @@ func _run_tests() -> void:
 	test_paralytic_poison_freezes_enemy_item_on_first_poison()
 	test_slow_burn_charges_a_burn_item_when_you_slow()
 	test_rush_and_pyromania_trigger_through_effect_dsl()
+	test_phasep2_edge_item_and_passive_skill_bonuses()
+	test_phasep2_status_runtime_bonus_skills()
+	test_phasep2_trigger_skills_execute_through_dsl()
 
 func _battle_system() -> Node:
 	return get_node("/root/BattleSystem")
@@ -212,4 +215,142 @@ func test_rush_and_pyromania_trigger_through_effect_dsl() -> void:
 	_assert_float_eq(float(enemy_status.get("burn", 0.0)), 10.0, "Pyromania burns when a Large item is used")
 	_assert_true(_trace_has("rush_first_item_haste_weapon"), "Rush trigger executes through the DSL")
 	_assert_true(_trace_has("pyromania_on_large_item_burn"), "Pyromania trigger executes through the DSL")
+	_battle_system().call("end_battle")
+
+func test_phasep2_edge_item_and_passive_skill_bonuses() -> void:
+	var start_bonus_inv: LinearInventoryClass = LinearInventoryClass.new()
+	var left_heal_item: ItemDataClass = _create_item("bandages")
+	var lighter: ItemDataClass = _create_item("lighter")
+	var right_heal_item: ItemDataClass = _create_item("bluenanas")
+	_assert_true(start_bonus_inv.place_item(left_heal_item, 0), "places left heal item for PhaseP2 start bonuses")
+	_assert_true(start_bonus_inv.place_item(lighter, 1), "places burn item for PhaseP2 start bonuses")
+	_assert_true(start_bonus_inv.place_item(right_heal_item, 2), "places right heal item for PhaseP2 start bonuses")
+	_start_battle(["first_responder", "follow_up_care", "final_flame"], start_bonus_inv)
+	_assert_float_eq(_battle_system().call("_get_item_runtime_bonus", left_heal_item, "heal"), 20.0, "First Responder buffs the leftmost Heal item")
+	_assert_float_eq(_battle_system().call("_get_item_runtime_bonus", right_heal_item, "heal"), 20.0, "Follow-Up Care buffs the rightmost Heal item")
+	_assert_float_eq(_battle_system().call("_get_item_runtime_bonus", lighter, "burn"), 2.0, "Final Flame buffs the rightmost Burn item")
+	_battle_system().call("end_battle")
+
+	var shield_inv: LinearInventoryClass = LinearInventoryClass.new()
+	var silk_scarf: ItemDataClass = _create_item("silk_scarf")
+	_assert_true(shield_inv.place_item(silk_scarf, 0), "places left shield item for Frontal Shielding")
+	_start_battle(["frontal_shielding"], shield_inv)
+	_assert_float_eq(_battle_system().call("_get_item_runtime_bonus", silk_scarf, "shield"), 20.0, "Frontal Shielding buffs the leftmost Shield item")
+	_battle_system().call("end_battle")
+
+	var passive_inv: LinearInventoryClass = LinearInventoryClass.new()
+	var heal_item: ItemDataClass = _create_item("bluenanas")
+	var burn_item: ItemDataClass = _create_item("lighter")
+	var lifesteal_weapon: ItemDataClass = _create_item("fang", BazaarContentClass.RARITY_DIAMOND)
+	_assert_true(passive_inv.place_item(heal_item, 0), "places Heal item for Critical Aid")
+	_assert_true(passive_inv.place_item(burn_item, 1), "places Burn item for Flamedancer")
+	_assert_true(passive_inv.place_item(lifesteal_weapon, 2), "places Weapon for Big Ego and cooldown passives")
+	_start_battle(["critical_aid", "flamedancer", "big_ego", "vengeance", "diamond_fangs"], passive_inv)
+	_assert_eq(_battle_system().call("_get_player_item_skill_crit_bonus", heal_item), 5, "Critical Aid grants crit to Heal items")
+	_assert_eq(_battle_system().call("_get_player_item_skill_crit_bonus", burn_item), 5, "Flamedancer grants crit to Burn items")
+	_assert_true(_battle_system().call("_item_has_lifesteal", lifesteal_weapon), "Big Ego grants Lifesteal to Weapons")
+	var expected_cooldown: float = lifesteal_weapon.cooldown * 0.95 * 0.80
+	_assert_float_eq(_battle_system().call("_get_player_item_effective_cooldown", lifesteal_weapon), expected_cooldown, "Vengeance and Diamond Fangs reduce edge Diamond item cooldown")
+	_game_manager().set("player_health", _game_manager().get("selected_hero").max_hp - 25)
+	lifesteal_weapon.current_cooldown = 0.0
+	_battle_system().call("execute_battle_tick", 0.0)
+	_assert_eq(_game_manager().get("player_health"), _game_manager().get("selected_hero").max_hp - 5, "Big Ego lifesteal heals after weapon damage")
+	_battle_system().call("end_battle")
+
+func test_phasep2_status_runtime_bonus_skills() -> void:
+	var poison_inv: LinearInventoryClass = LinearInventoryClass.new()
+	var poison_item: ItemDataClass = _create_item("noxious_potion")
+	var poison_target: ItemDataClass = _create_item("fang")
+	_assert_true(poison_inv.place_item(poison_item, 0), "places Poison item for Exposing Toxins")
+	_assert_true(poison_inv.place_item(poison_target, 1), "places target item for Exposing Toxins")
+	_start_battle(["exposing_toxins"], poison_inv)
+	poison_item.current_cooldown = 0.0
+	_battle_system().call("execute_battle_tick", 0.0)
+	_assert_float_eq(_battle_system().call("_get_item_runtime_bonus", poison_target, "crit_rate"), 1.0, "Exposing Toxins grants crit rate after Poison")
+	_battle_system().call("end_battle")
+
+	var burn_inv: LinearInventoryClass = LinearInventoryClass.new()
+	var burn_source: ItemDataClass = _create_item("lighter")
+	var burn_weapon: ItemDataClass = _create_item("fang")
+	_assert_true(burn_inv.place_item(burn_source, 0), "places Burn source for Burning Rage")
+	_assert_true(burn_inv.place_item(burn_weapon, 1), "places Weapon target for Burning Rage")
+	_start_battle(["burning_rage"], burn_inv)
+	burn_source.current_cooldown = 0.0
+	_battle_system().call("execute_battle_tick", 0.0)
+	_assert_float_eq(_battle_system().call("_get_item_runtime_bonus", burn_weapon, "damage"), 2.0, "Burning Rage grants weapon damage after Burn")
+	_battle_system().call("end_battle")
+
+	var heal_inv: LinearInventoryClass = LinearInventoryClass.new()
+	var heal_source: ItemDataClass = _create_item("bluenanas")
+	var shield_target: ItemDataClass = _create_item("silk_scarf")
+	_assert_true(heal_inv.place_item(heal_source, 0), "places Heal source for Extreme Comfort")
+	_assert_true(heal_inv.place_item(shield_target, 1), "places Shield target for Extreme Comfort")
+	_start_battle(["extreme_comfort"], heal_inv)
+	heal_source.current_cooldown = 0.0
+	_battle_system().call("execute_battle_tick", 0.0)
+	_assert_float_eq(_battle_system().call("_get_item_runtime_bonus", shield_target, "shield"), 1.0, "Extreme Comfort grants shield bonus after Heal")
+	_battle_system().call("end_battle")
+
+func test_phasep2_trigger_skills_execute_through_dsl() -> void:
+	var battle_start_inv: LinearInventoryClass = LinearInventoryClass.new()
+	_start_battle(["firestarter", "heat_lover"], battle_start_inv)
+	_assert_true(_trace_has("firestarter_battle_start_enemy_burn"), "Firestarter battle-start burn executes through the DSL")
+	_assert_true(_trace_has("heat_lover_on_burn_regeneration"), "Heat Lover reacts to Burn through the DSL")
+	_assert_float_eq(float(_battle_system().call("get_status_totals", "enemy").get("burn", 0.0)), 17.0, "Firestarter applies enemy Burn at battle start")
+	_assert_float_eq(float(_battle_system().call("get_status_totals", "self").get("regeneration", 0.0)), 2.0, "Heat Lover gains Regeneration after Burn")
+	_battle_system().call("end_battle")
+
+	var heal_trigger_inv: LinearInventoryClass = LinearInventoryClass.new()
+	var healer: ItemDataClass = _create_item("bluenanas")
+	var poison_target: ItemDataClass = _create_item("noxious_potion")
+	_assert_true(heal_trigger_inv.place_item(healer, 0), "places Heal item for Equivalent Exchange")
+	_assert_true(heal_trigger_inv.place_item(poison_target, 1), "places Poison item for Equivalent Exchange")
+	_start_battle(["equivalent_exchange"], heal_trigger_inv)
+	healer.current_cooldown = 0.0
+	poison_target.current_cooldown = 4.0
+	_battle_system().call("execute_battle_tick", 0.0)
+	_assert_true(_trace_has("equivalent_exchange_on_heal_charge_poison_item"), "Equivalent Exchange executes through the DSL")
+	_assert_float_eq(poison_target.current_cooldown, 3.0, "Equivalent Exchange charges a Poison item after Heal")
+	_battle_system().call("end_battle")
+
+	var crit_inv: LinearInventoryClass = LinearInventoryClass.new()
+	var crit_source: ItemDataClass = _create_item("fang")
+	var crit_target: ItemDataClass = _create_item("lighter")
+	_assert_true(crit_inv.place_item(crit_source, 0), "places crit source for Cosmic Wind")
+	_assert_true(crit_inv.place_item(crit_target, 1), "places haste target for Cosmic Wind")
+	_start_battle(["cosmic_wind"], crit_inv)
+	_game_manager().get("selected_hero").crit_chance = 1.0
+	crit_source.current_cooldown = 0.0
+	crit_target.current_cooldown = 7.0
+	_battle_system().call("execute_battle_tick", 0.0)
+	_assert_true(_trace_has("cosmic_wind_on_crit_haste_item"), "Cosmic Wind executes through the DSL")
+	_assert_float_eq(crit_target.current_cooldown, 6.0, "Cosmic Wind hastes an item after a crit")
+	_battle_system().call("end_battle")
+
+	var shield_inv: LinearInventoryClass = LinearInventoryClass.new()
+	var shield_source: ItemDataClass = _create_item("silk_scarf")
+	_assert_true(shield_inv.place_item(shield_source, 0), "places shield source for Cryomastery")
+	var freeze_monster: MonsterDataClass = MonsterDataClass.new()
+	freeze_monster.monster_name = "Cryomastery Target"
+	freeze_monster.max_hp = 100
+	freeze_monster.current_hp = 100
+	freeze_monster.monster_items = [{"name": "Target Dummy", "damage": 10, "cooldown": 4.0}]
+	_start_battle(["cryomastery"], shield_inv, freeze_monster)
+	shield_source.current_cooldown = 0.0
+	_battle_system().call("execute_battle_tick", 0.0)
+	_assert_true(_trace_has("cryomastery_on_shield_freeze_item"), "Cryomastery executes through the DSL")
+	_assert_float_eq(float(freeze_monster.monster_items[0].get("current_cooldown", 0.0)), 5.0, "Cryomastery freezes an enemy item after Shield")
+	_battle_system().call("end_battle")
+
+	var weapon_inv: LinearInventoryClass = LinearInventoryClass.new()
+	var weapon_source: ItemDataClass = _create_item("fang")
+	var charge_target: ItemDataClass = _create_item("lighter")
+	_assert_true(weapon_inv.place_item(weapon_source, 0), "places Weapon source for Flurry of Blows")
+	_assert_true(weapon_inv.place_item(charge_target, 1), "places charge target for Flurry of Blows")
+	_start_battle(["flurry_of_blows"], weapon_inv)
+	weapon_source.current_cooldown = 0.0
+	charge_target.current_cooldown = 7.0
+	_battle_system().call("execute_battle_tick", 0.0)
+	_assert_true(_trace_has("flurry_of_blows_on_weapon_charge_item"), "Flurry of Blows executes through the DSL")
+	_assert_float_eq(charge_target.current_cooldown, 6.0, "Flurry of Blows charges an item after a Weapon use")
 	_battle_system().call("end_battle")

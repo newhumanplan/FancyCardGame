@@ -517,6 +517,12 @@ func _after_player_item_used(item: ItemData, context: Dictionary) -> void:
 	var heal_or_regen_triggers: int = int(context.get("heal_proc_count", 0)) + int(context.get("regen_proc_count", 0))
 	if heal_or_regen_triggers > 0:
 		_apply_nightshade_heal_reference_bonus(heal_or_regen_triggers)
+	var heal_events: int = int(context.get("heal_proc_count", 0))
+	if heal_events > 0:
+		_add_player_skill_bonus_to_items("extreme_comfort", "shield", "shield", heal_events)
+	var regen_events: int = int(context.get("regen_proc_count", 0))
+	if regen_events > 0:
+		_apply_player_skill_status_runtime_bonuses(ItemEffectsClass.EFFECT_REGEN, regen_events)
 
 	var poison_events: int = int(context.get("poison_proc_count", 0))
 	var burn_events: int = int(context.get("burn_proc_count", 0))
@@ -586,6 +592,10 @@ func _get_player_item_effective_cooldown(item: ItemData) -> float:
 	for adjacent in _get_adjacent_player_items(item):
 		if adjacent != null and adjacent.source_id == "hourglass":
 			cooldown *= 1.0 - _get_rarity_value(adjacent, [0.03, 0.06, 0.09, 0.12], 0.0)
+	if _has_player_skill("vengeance") and _is_edge_player_item(item):
+		cooldown *= 1.0 - (_get_player_skill_value("vengeance") / 100.0)
+	if _has_player_skill("diamond_fangs") and item.rarity == BazaarContentClass.RARITY_DIAMOND and _is_small_item(item):
+		cooldown *= 1.0 - (_get_player_skill_value("diamond_fangs") / 100.0)
 	var passive_reduction: float = float(_get_passive_combat_stats().get("cd_reduction", 0.0))
 	cooldown *= 1.0 - passive_reduction
 	cooldown -= _get_item_runtime_bonus(item, "cooldown_flat_reduction")
@@ -1057,9 +1067,13 @@ func _resolve_effect_amount(
 					0
 				))
 			"source.shield":
-				amount = float(ItemEffectsClass.calculate_shield(owner_item) + _get_player_item_skill_shield_bonus(owner_item))
+				amount = float(
+					ItemEffectsClass.calculate_shield(owner_item)
+					+ int(round(_get_item_runtime_bonus(owner_item, "shield")))
+					+ _get_player_item_skill_shield_bonus(owner_item)
+				)
 			"source.heal":
-				amount = float(ItemEffectsClass.calculate_heal(owner_item))
+				amount = float(ItemEffectsClass.calculate_heal(owner_item) + int(round(_get_item_runtime_bonus(owner_item, "heal"))))
 			"source.poison":
 				amount = owner_item.poison_damage
 				amount += _get_item_runtime_bonus(owner_item, "poison")
@@ -1608,6 +1622,22 @@ func _apply_player_skill_start_item_bonuses() -> void:
 		var regen_item: ItemData = _get_edge_matching_player_item("regeneration", false)
 		if regen_item != null:
 			_add_item_runtime_bonus(regen_item, "regeneration", _get_player_skill_value("vital_reserve"))
+	if _has_player_skill("final_flame"):
+		var burn_item: ItemData = _get_edge_matching_player_item("burn", false)
+		if burn_item != null:
+			_add_item_runtime_bonus(burn_item, "burn", _get_player_skill_value("final_flame"))
+	if _has_player_skill("first_responder"):
+		var left_heal_item: ItemData = _get_edge_matching_player_item("heal", true)
+		if left_heal_item != null:
+			_add_item_runtime_bonus(left_heal_item, "heal", _get_player_skill_value("first_responder"))
+	if _has_player_skill("follow_up_care"):
+		var right_heal_item: ItemData = _get_edge_matching_player_item("heal", false)
+		if right_heal_item != null:
+			_add_item_runtime_bonus(right_heal_item, "heal", _get_player_skill_value("follow_up_care"))
+	if _has_player_skill("frontal_shielding"):
+		var shield_item: ItemData = _get_edge_matching_player_item("shield", true)
+		if shield_item != null:
+			_add_item_runtime_bonus(shield_item, "shield", _get_player_skill_value("frontal_shielding"))
 
 func _get_edge_matching_player_item(selector: String, leftmost: bool) -> ItemData:
 	if inventory == null:
@@ -1626,8 +1656,9 @@ func _apply_player_skill_status_runtime_bonuses(status_type: String, trigger_cou
 	match status_type:
 		ItemEffectsClass.EFFECT_BURN:
 			_add_player_skill_bonus_to_items("tracer_fire", "any", "crit_rate", trigger_count)
+			_add_player_skill_bonus_to_items("burning_rage", "weapon", "damage", trigger_count)
 		ItemEffectsClass.EFFECT_POISON:
-			pass
+			_add_player_skill_bonus_to_items("exposing_toxins", "any", "crit_rate", trigger_count)
 		ItemEffectsClass.EFFECT_REGEN:
 			_add_player_skill_bonus_to_items("purifying_flame", "burn", "burn", trigger_count)
 		ItemEffectsClass.EFFECT_SLOW:
@@ -1715,6 +1746,8 @@ func _matches_player_item_selector(item: ItemData, selector: String) -> bool:
 			return item != null
 		"burn":
 			return _is_burn_item(item)
+		"heal":
+			return _is_heal_item(item)
 		"poison":
 			return _is_poison_item(item)
 		"regeneration":
@@ -1762,6 +1795,11 @@ func _is_edge_weapon_item(item: ItemData, leftmost: bool) -> bool:
 	var edge_weapon: ItemData = _get_edge_matching_player_item("weapon", leftmost)
 	return edge_weapon == item
 
+func _is_edge_player_item(item: ItemData) -> bool:
+	if inventory == null or item == null:
+		return false
+	return _get_edge_matching_player_item("any", true) == item or _get_edge_matching_player_item("any", false) == item
+
 func _get_player_item_skill_shield_bonus(item: ItemData) -> int:
 	if item == null or item.shield <= 0:
 		return 0
@@ -1771,9 +1809,14 @@ func _get_player_item_skill_shield_bonus(item: ItemData) -> int:
 func _get_player_item_skill_crit_bonus(item: ItemData) -> int:
 	if item == null:
 		return 0
+	var bonus: float = 0.0
 	if _has_player_skill("deadly_eye") and _is_weapon_item(item):
-		return int(round(_get_player_skill_value("deadly_eye")))
-	return 0
+		bonus += _get_player_skill_value("deadly_eye")
+	if _has_player_skill("critical_aid") and _is_heal_item(item):
+		bonus += _get_player_skill_value("critical_aid")
+	if _has_player_skill("flamedancer") and _is_burn_item(item):
+		bonus += _get_player_skill_value("flamedancer")
+	return int(round(bonus))
 
 func _get_other_emerald_poison_bonus(item: ItemData) -> float:
 	if inventory == null or item == null:
@@ -1911,6 +1954,8 @@ func _item_has_lifesteal(item: ItemData) -> bool:
 		return false
 	if _item_has_tag(item, "Lifesteal"):
 		return true
+	if _has_player_skill("big_ego") and _is_weapon_item(item):
+		return true
 	if inventory == null or not _is_weapon_item(item):
 		return false
 	var left_item: ItemData = inventory.get_left_adjacent_item(item)
@@ -1934,11 +1979,14 @@ func _is_poison_item(item: ItemData) -> bool:
 func _is_burn_item(item: ItemData) -> bool:
 	return item != null and (_item_has_tag(item, "Burn") or item.burn_damage > 0.0 or _get_item_runtime_bonus(item, "burn") > 0.0)
 
+func _is_heal_item(item: ItemData) -> bool:
+	return item != null and (_item_has_tag(item, "Heal") or item.heal > 0 or _get_item_runtime_bonus(item, "heal") > 0.0)
+
 func _is_regen_item(item: ItemData) -> bool:
 	return item != null and (_item_has_tag(item, "Regen") or item.regeneration > 0.0 or _get_item_runtime_bonus(item, "regeneration") > 0.0)
 
 func _is_shield_item(item: ItemData) -> bool:
-	return item != null and (_item_has_tag(item, "Shield") or item.shield > 0)
+	return item != null and (_item_has_tag(item, "Shield") or item.shield > 0 or _get_item_runtime_bonus(item, "shield") > 0.0)
 
 func _item_has_tag(item: ItemData, tag: String) -> bool:
 	if item == null:

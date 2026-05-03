@@ -13,6 +13,7 @@ enum Type { WEAPON, SHIELD, HEAL, UTILITY }
 
 ## 物品名称
 @export var item_name: String = "物品"
+var base_item_name: String = "物品"
 
 ## 物品描述
 @export var description: String = ""
@@ -28,6 +29,9 @@ enum Type { WEAPON, SHIELD, HEAL, UTILITY }
 
 ## Wiki 原始效果文本（用于 tooltip 和验收对照）
 @export_multiline var source_effect_text: String = ""
+
+## 当前附魔的规范化 ID。空字符串表示未附魔。
+@export var enchantment_id: String = ""
 
 ## 物品标签（Weapon/Potion/Reagent/Burn/Poison 等）
 @export var tags: Array[String] = []

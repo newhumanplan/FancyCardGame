@@ -15,8 +15,8 @@ func _ready() -> void:
 func _run_tests() -> void:
 	test_registered_skill_ids_have_explicit_catalog_status()
 	test_registered_skill_expectations_match_runtime()
-	test_runtime_coverage_reaches_phase_c_target()
-	test_priority_skill_effect_definitions_are_explicit()
+	test_runtime_coverage_reaches_phase_p2_target()
+	test_phase_p2_skill_effect_definitions_are_explicit()
 	test_known_wiki_skills_are_never_unknown()
 	test_deadly_eye_and_gunner_tier_values_match_runtime_expectations()
 
@@ -85,15 +85,32 @@ func test_registered_skill_expectations_match_runtime() -> void:
 		"Initial Chill unsupported reason is explicit"
 	)
 
-func test_runtime_coverage_reaches_phase_c_target() -> void:
+func test_runtime_coverage_reaches_phase_p2_target() -> void:
 	var report: Dictionary = PlayerSkillCatalogClass.get_coverage_report()
 	var implemented_ids: Array = report.get("implemented_ids", [])
 	_assert_true(
-		int(report.get("implemented_count", 0)) >= 35,
-		"PhaseC runtime-backed skill count reaches at least 35"
+		int(report.get("implemented_count", 0)) >= 60,
+		"PhaseP2 runtime-backed skill count reaches at least 60"
 	)
 	for skill_id in [
 		"ammo_stash",
+		"big_ego",
+		"burning_rage",
+		"cosmic_wind",
+		"critical_aid",
+		"cryomastery",
+		"diamond_fangs",
+		"equivalent_exchange",
+		"exposing_toxins",
+		"extreme_comfort",
+		"final_flame",
+		"firestarter",
+		"first_responder",
+		"flamedancer",
+		"flurry_of_blows",
+		"follow_up_care",
+		"frontal_shielding",
+		"heat_lover",
 		"heated_shells",
 		"initial_dose",
 		"invigorating_cold",
@@ -107,16 +124,23 @@ func test_runtime_coverage_reaches_phase_c_target() -> void:
 		"strength",
 		"time_to_tinker",
 		"unwavering",
+		"vengeance",
 		"vital_reserve",
 	]:
 		_assert_true(
 			implemented_ids.has(skill_id),
-			"PhaseC priority skill is runtime-backed: %s" % skill_id
+			"PhaseP2 priority skill is runtime-backed: %s" % skill_id
 		)
 
-func test_priority_skill_effect_definitions_are_explicit() -> void:
+func test_phase_p2_skill_effect_definitions_are_explicit() -> void:
 	var expected_definitions := {
+		"cosmic_wind": "cosmic_wind_on_crit_haste_item",
+		"cryomastery": "cryomastery_on_shield_freeze_item",
+		"equivalent_exchange": "equivalent_exchange_on_heal_charge_poison_item",
+		"firestarter": "firestarter_battle_start_enemy_burn",
+		"flurry_of_blows": "flurry_of_blows_on_weapon_charge_item",
 		"heated_shells": "heated_shells_on_ammo_burn",
+		"heat_lover": "heat_lover_on_burn_regeneration",
 		"insect_bite": "insect_bite_battle_start_self_poison",
 		"invigorating_cold": "invigorating_cold_on_freeze_haste_items",
 		"lash_out": "lash_out_battle_start_poison",
@@ -146,7 +170,7 @@ func test_priority_skill_effect_definitions_are_explicit() -> void:
 			definition_ids.append(str(definition.get("id", "")))
 		_assert_true(
 			definition_ids.has(str(expected_definitions[skill_id])),
-			"PhaseC trigger skill has explicit DSL definition: %s" % skill_id
+			"PhaseP2 trigger skill has explicit DSL definition: %s" % skill_id
 		)
 
 func test_known_wiki_skills_are_never_unknown() -> void:

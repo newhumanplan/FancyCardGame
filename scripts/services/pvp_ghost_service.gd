@@ -4,6 +4,7 @@ extends RefCounted
 const BattleSnapshotClass = preload("res://scripts/data/battle_snapshot.gd")
 const GhostSnapshotClass = preload("res://scripts/data/ghost_snapshot.gd")
 const BazaarContentClass = preload("res://scripts/data/bazaar_content.gd")
+const EnchantmentCatalogClass = preload("res://scripts/data/enchantment_catalog.gd")
 const HeroDataClass = preload("res://scripts/data/hero_data.gd")
 const ItemDataClass = preload("res://scripts/data/item_data.gd")
 const LinearInventoryClass = preload("res://scripts/data/linear_inventory.gd")
@@ -27,24 +28,6 @@ const VALID_TIERS: Array[String] = [
 	TIER_GOLD,
 	TIER_DIAMOND,
 ]
-
-const VALID_ENCHANTMENTS: Array[String] = [
-	"",
-	"fiery",
-	"toxic",
-	"heavy",
-	"restorative",
-	"obsidian",
-]
-
-const ENCHANTMENT_LABELS := {
-	"": "None",
-	"fiery": "Fiery",
-	"toxic": "Toxic",
-	"heavy": "Heavy",
-	"restorative": "Restorative",
-	"obsidian": "Obsidian",
-}
 
 const HERO_ID_TO_TYPE := {
 	"warrior": HeroDataClass.HeroType.WARRIOR,
@@ -84,22 +67,6 @@ const RARITY_TO_TIER := {
 	BazaarContentClass.RARITY_DIAMOND: TIER_DIAMOND,
 }
 
-const ENCHANTMENT_POWER_BONUS := {
-	"fiery": 60,
-	"toxic": 60,
-	"heavy": 45,
-	"restorative": 55,
-	"obsidian": 90,
-}
-
-const ENCHANTMENT_NAME_SUFFIX := {
-	"fiery": " [Fiery]",
-	"toxic": " [Toxic]",
-	"heavy": " [Heavy]",
-	"restorative": " [Restorative]",
-	"obsidian": " [Obsidian]",
-}
-
 static func get_known_hero_ids() -> Array[String]:
 	var ids: Array[String] = []
 	for hero_id in HERO_ID_TO_TYPE.keys():
@@ -111,10 +78,10 @@ static func get_tier_options() -> Array[String]:
 	return VALID_TIERS.duplicate()
 
 static func get_enchantment_options() -> Array[String]:
-	return VALID_ENCHANTMENTS.duplicate()
+	return EnchantmentCatalogClass.get_known_ids()
 
 static func get_enchantment_label(enchantment: String) -> String:
-	return str(ENCHANTMENT_LABELS.get(str(enchantment).to_lower(), str(enchantment)))
+	return EnchantmentCatalogClass.get_label(enchantment)
 
 static func get_default_archetype() -> Dictionary:
 	return {
@@ -482,7 +449,8 @@ static func ghost_snapshot_to_monster(snapshot: GhostSnapshotClass) -> MonsterDa
 	for item_entry in snapshot.items:
 		var item_data: ItemDataClass = BazaarContentClass.create_item(
 			str(item_entry.get("item_id", "")),
-			_tier_to_rarity(str(item_entry.get("tier", TIER_BRONZE)))
+			_tier_to_rarity(str(item_entry.get("tier", TIER_BRONZE))),
+			str(item_entry.get("enchantment", ""))
 		)
 		if item_data == null:
 			continue
@@ -490,14 +458,12 @@ static func ghost_snapshot_to_monster(snapshot: GhostSnapshotClass) -> MonsterDa
 		monster_item["slot_count"] = int(item_entry.get("size", item_data.get_slot_count()))
 		monster_item["slot_index"] = int(item_entry.get("slot_index", 0))
 		monster_item["tier"] = str(item_entry.get("tier", TIER_BRONZE))
-		monster_item["enchantment"] = str(item_entry.get("enchantment", ""))
 		monster_item["charges"] = int(item_entry.get("charges", 0))
 		if item_entry.has("cooldown") and float(item_entry.get("cooldown", -1.0)) >= 0.0:
 			monster_item["cooldown"] = maxf(float(item_entry.get("cooldown", 0.0)), 0.0)
 			monster_item["current_cooldown"] = maxf(float(monster_item["cooldown"]), 0.0)
 		if item_entry.has("ammo") and int(item_entry.get("ammo", -1)) >= 0:
 			monster_item["ammo"] = int(item_entry.get("ammo", 0))
-		_apply_enchantment_to_monster_item(monster_item)
 		monster.monster_items.append(monster_item)
 
 	monster.monster_items.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
@@ -604,7 +570,7 @@ static func _normalize_item_entry(item_entry: Variant) -> Dictionary:
 	if item_id.is_empty():
 		result["errors"] = ["missing_item_id"]
 		return result
-	if not VALID_ENCHANTMENTS.has(enchantment):
+	if not EnchantmentCatalogClass.is_known_enchantment(enchantment):
 		result["errors"] = ["invalid_enchantment:%s:%s" % [item_id, enchantment]]
 		return result
 	if slot_size < 1 or slot_size > 3:
@@ -661,7 +627,7 @@ static func _capture_inventory_items(inventory: LinearInventoryClass) -> Array[D
 			"tier": _rarity_to_tier(item.rarity),
 			"size": item.get_slot_count(),
 			"slot_index": item.slot_index,
-			"enchantment": "",
+			"enchantment": item.enchantment_id,
 			"cooldown": item.cooldown,
 			"ammo": item.ammo,
 			"charges": 0,
@@ -682,29 +648,6 @@ static func _build_monster_skill_entries(skill_entries: Array[Dictionary]) -> Ar
 			"tier": str(skill_entry.get("tier", TIER_BRONZE)),
 		})
 	return result
-
-static func _apply_enchantment_to_monster_item(monster_item: Dictionary) -> void:
-	var enchantment: String = str(monster_item.get("enchantment", "")).to_lower()
-	if enchantment.is_empty():
-		return
-
-	match enchantment:
-		"fiery":
-			monster_item["burn"] = int(monster_item.get("burn", 0)) + 2
-		"toxic":
-			monster_item["poison"] = int(monster_item.get("poison", 0)) + 2
-		"heavy":
-			monster_item["damage"] = int(monster_item.get("damage", 0)) + 8
-		"restorative":
-			monster_item["regen"] = int(monster_item.get("regen", 0)) + 3
-			monster_item["heal"] = int(monster_item.get("heal", 0)) + 6
-		"obsidian":
-			monster_item["damage"] = int(monster_item.get("damage", 0)) + 18
-
-	monster_item["name"] = "%s%s" % [
-		str(monster_item.get("name", "")),
-		str(ENCHANTMENT_NAME_SUFFIX.get(enchantment, "")),
-	]
 
 static func _collect_snapshot_tags(snapshot: GhostSnapshotClass) -> Array[String]:
 	var tags: Array[String] = []
@@ -767,7 +710,7 @@ static func _item_power_value(item_entry: Dictionary) -> float:
 	score += maxf(item.cooldown, 0.0) * 2.5
 	score += maxf(float(item_entry.get("charges", 0)), 0.0) * 12.0
 	score += maxf(float(item_entry.get("ammo", item.ammo)), 0.0) * 9.0
-	score += float(ENCHANTMENT_POWER_BONUS.get(str(item_entry.get("enchantment", "")).to_lower(), 0))
+	score += float(EnchantmentCatalogClass.get_power_bonus(str(item_entry.get("enchantment", ""))))
 	return score
 
 static func _tier_to_rarity(tier_name: String) -> int:

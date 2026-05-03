@@ -48,16 +48,66 @@ const _NUMERIC_SKILL_RULES := {
 		"values": [4.0, 8.0, 12.0, 16.0],
 		"starting_tier": "bronze",
 	},
-	"quick_defenses": {
-		"effect_type": SkillDataClass.EffectType.COOLDOWN,
-		"values": [5.0, 7.0, 10.0, 15.0],
-		"starting_tier": "bronze",
-	},
-	"toughness": {
-		"effect_type": SkillDataClass.EffectType.SHIELD,
-		"values": [10.0, 15.0, 20.0, 25.0],
-		"starting_tier": "bronze",
-	},
+		"quick_defenses": {
+			"effect_type": SkillDataClass.EffectType.COOLDOWN,
+			"values": [5.0, 7.0, 10.0, 15.0],
+			"starting_tier": "bronze",
+		},
+		"critical_aid": {
+			"values": [5.0, 10.0, 15.0, 20.0],
+			"starting_tier": "bronze",
+			"build_skill_data": false,
+		},
+		"diamond_fangs": {
+			"values": [20.0, 30.0, 40.0, 50.0],
+			"starting_tier": "bronze",
+			"build_skill_data": false,
+		},
+		"exposing_toxins": {
+			"values": [1.0, 2.0, 3.0],
+			"starting_tier": "silver",
+			"build_skill_data": false,
+		},
+		"extreme_comfort": {
+			"values": [1.0, 2.0, 3.0, 4.0],
+			"starting_tier": "bronze",
+			"build_skill_data": false,
+		},
+		"final_flame": {
+			"values": [2.0, 4.0, 6.0, 8.0],
+			"starting_tier": "bronze",
+			"build_skill_data": false,
+		},
+		"first_responder": {
+			"values": [20.0, 35.0, 50.0, 65.0],
+			"starting_tier": "bronze",
+			"build_skill_data": false,
+		},
+		"flamedancer": {
+			"values": [5.0, 10.0, 15.0, 20.0],
+			"starting_tier": "bronze",
+			"build_skill_data": false,
+		},
+		"follow_up_care": {
+			"values": [20.0, 35.0, 50.0, 65.0],
+			"starting_tier": "bronze",
+			"build_skill_data": false,
+		},
+		"frontal_shielding": {
+			"values": [20.0, 30.0, 40.0, 50.0],
+			"starting_tier": "bronze",
+			"build_skill_data": false,
+		},
+		"big_ego": {
+			"values": [1.0],
+			"starting_tier": "diamond",
+			"build_skill_data": false,
+		},
+		"toughness": {
+			"effect_type": SkillDataClass.EffectType.SHIELD,
+			"values": [10.0, 15.0, 20.0, 25.0],
+			"starting_tier": "bronze",
+		},
 	"large_appetites": {
 		"effect_type": SkillDataClass.EffectType.HEALTH,
 		"values": [500.0, 1000.0, 1500.0, 2000.0],
@@ -93,16 +143,21 @@ const _NUMERIC_SKILL_RULES := {
 		"starting_tier": "gold",
 		"build_skill_data": false,
 	},
-	"purifying_flame": {
-		"values": [1.0, 2.0],
-		"starting_tier": "gold",
-		"build_skill_data": false,
-	},
-	"slow_and_steady": {
-		"values": [2.0, 4.0, 6.0],
-		"starting_tier": "silver",
-		"build_skill_data": false,
-	},
+		"purifying_flame": {
+			"values": [1.0, 2.0],
+			"starting_tier": "gold",
+			"build_skill_data": false,
+		},
+		"burning_rage": {
+			"values": [2.0, 4.0, 6.0, 8.0],
+			"starting_tier": "bronze",
+			"build_skill_data": false,
+		},
+		"slow_and_steady": {
+			"values": [2.0, 4.0, 6.0],
+			"starting_tier": "silver",
+			"build_skill_data": false,
+		},
 	"slowed_targets": {
 		"values": [1.0, 2.0, 3.0],
 		"starting_tier": "silver",
@@ -118,21 +173,27 @@ const _NUMERIC_SKILL_RULES := {
 		"starting_tier": "silver",
 		"build_skill_data": false,
 	},
-	"trained": {
-		"values": [5.0, 10.0, 15.0, 20.0],
-		"starting_tier": "bronze",
-		"build_skill_data": false,
-	},
-}
+		"trained": {
+			"values": [5.0, 10.0, 15.0, 20.0],
+			"starting_tier": "bronze",
+			"build_skill_data": false,
+		},
+		"vengeance": {
+			"values": [5.0, 10.0, 15.0],
+			"starting_tier": "silver",
+			"build_skill_data": false,
+		},
+	}
 
 const _TRIGGER_SKILL_RULES := {
-	"heated_shells": {
-		"values": [2.0, 3.0, 4.0],
-		"starting_tier": "silver",
-	},
-	"insect_bite": {"values": [2.0], "starting_tier": "diamond"},
-	"invigorating_cold": {"values": [2.0], "counts": [1.0, 2.0, 3.0], "starting_tier": "silver"},
-	"lash_out": {"values": [3.0, 6.0, 9.0, 12.0], "starting_tier": "bronze"},
+		"heated_shells": {
+			"values": [2.0, 3.0, 4.0],
+			"starting_tier": "silver",
+		},
+		"heat_lover": {"values": [2.0, 4.0, 6.0, 8.0], "starting_tier": "bronze"},
+		"insect_bite": {"values": [2.0], "starting_tier": "diamond"},
+		"invigorating_cold": {"values": [2.0], "counts": [1.0, 2.0, 3.0], "starting_tier": "silver"},
+		"lash_out": {"values": [3.0, 6.0, 9.0, 12.0], "starting_tier": "bronze"},
 	"paralytic_poison": {
 		"values": [2.0, 3.0, 4.0],
 		"starting_tier": "silver",
@@ -140,14 +201,19 @@ const _TRIGGER_SKILL_RULES := {
 	"paralyzing_rush": {"values": [1.0, 2.0], "starting_tier": "gold"},
 	"poison_tyrant": {"values": [2.0, 4.0, 6.0, 8.0], "starting_tier": "bronze"},
 	"pyromania": {"values": [10.0, 15.0], "starting_tier": "gold"},
-	"regenerative": {"values": [10.0, 20.0, 30.0], "starting_tier": "silver"},
-	"rush": {"values": [3.0, 4.0, 5.0, 6.0], "starting_tier": "bronze"},
-	"rust": {"values": [3.0, 4.0, 5.0, 6.0], "starting_tier": "bronze"},
-	"shored_up": {"values": [1.0], "starting_tier": "diamond"},
-	"slow_burn": {
-		"limits": [5.0, 10.0],
-		"charge_seconds": [1.0, 1.0],
-		"starting_tier": "gold",
+		"regenerative": {"values": [10.0, 20.0, 30.0], "starting_tier": "silver"},
+		"rush": {"values": [3.0, 4.0, 5.0, 6.0], "starting_tier": "bronze"},
+		"rust": {"values": [3.0, 4.0, 5.0, 6.0], "starting_tier": "bronze"},
+		"equivalent_exchange": {"values": [1.0], "starting_tier": "diamond"},
+		"firestarter": {"values": [17.0, 25.0, 35.0], "starting_tier": "silver"},
+		"cosmic_wind": {"values": [1.0, 2.0, 3.0], "starting_tier": "silver"},
+		"cryomastery": {"values": [1.0, 1.0], "limits": [3.0, 6.0], "starting_tier": "gold"},
+		"flurry_of_blows": {"values": [1.0, 1.0], "limits": [4.0, 8.0], "starting_tier": "gold"},
+		"shored_up": {"values": [1.0], "starting_tier": "diamond"},
+		"slow_burn": {
+			"limits": [5.0, 10.0],
+			"charge_seconds": [1.0, 1.0],
+			"starting_tier": "gold",
 	},
 	"small_refresh": {"values": [5.0, 10.0, 15.0, 20.0], "starting_tier": "bronze"},
 	"thick_hide": {"values": [1.0], "starting_tier": "diamond"},
@@ -274,8 +340,20 @@ static func get_effect_definitions(skill_ref: Variant) -> Array[Dictionary]:
 
 	var skill_id: String = str(resolved.get("id", ""))
 	match skill_id:
+		"cosmic_wind":
+			return [_skill_definition("cosmic_wind_on_crit_haste_item", EffectDefinitionClass.TRIGGER_ON_CRIT, EffectDefinitionClass.EFFECT_HASTE, get_tier_value(resolved), {"side": "self", "selector": "slowest_items", "count": 1})]
+		"cryomastery":
+			return [_skill_definition("cryomastery_on_shield_freeze_item", EffectDefinitionClass.TRIGGER_ON_SHIELD_GAINED, EffectDefinitionClass.EFFECT_FREEZE, get_tier_value(resolved), {"side": "enemy", "selector": "slowest_items", "count": 1}, {}, int(round(get_tier_value(resolved, "limits"))))]
+		"equivalent_exchange":
+			return [_skill_definition("equivalent_exchange_on_heal_charge_poison_item", EffectDefinitionClass.TRIGGER_ON_HEAL, EffectDefinitionClass.EFFECT_CHARGE, get_tier_value(resolved), {"side": "self", "selector": "matching_tag_highest_cooldown", "tag": "Poison", "count": 1})]
+		"firestarter":
+			return [_skill_definition("firestarter_battle_start_enemy_burn", EffectDefinitionClass.TRIGGER_ON_BATTLE_START, EffectDefinitionClass.EFFECT_BURN, get_tier_value(resolved), {"side": "enemy", "selector": "hero"})]
+		"flurry_of_blows":
+			return [_skill_definition("flurry_of_blows_on_weapon_charge_item", EffectDefinitionClass.TRIGGER_ON_TAG_USED, EffectDefinitionClass.EFFECT_CHARGE, get_tier_value(resolved), {"side": "self", "selector": "slowest_items", "count": 1}, {"tag": "Weapon"}, int(round(get_tier_value(resolved, "limits"))))]
 		"heated_shells":
 			return [_skill_definition("heated_shells_on_ammo_burn", EffectDefinitionClass.TRIGGER_ON_ITEM_USED, EffectDefinitionClass.EFFECT_BURN, get_tier_value(resolved), {"side": "enemy", "selector": "hero"}, {"event_source_has_ammo": true})]
+		"heat_lover":
+			return [_skill_definition("heat_lover_on_burn_regeneration", EffectDefinitionClass.TRIGGER_ON_ENEMY_STATUS_APPLIED, EffectDefinitionClass.EFFECT_REGENERATION, get_tier_value(resolved), {"side": "self", "selector": "hero"}, {"status_type": EffectDefinitionClass.EFFECT_BURN})]
 		"insect_bite":
 			return [_skill_definition("insect_bite_battle_start_self_poison", EffectDefinitionClass.TRIGGER_ON_BATTLE_START, EffectDefinitionClass.EFFECT_POISON, get_tier_value(resolved), {"side": "self", "selector": "hero"})]
 		"invigorating_cold":
