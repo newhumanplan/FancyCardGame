@@ -10,6 +10,7 @@ signal battle_ended(won: bool, gold_reward: int)
 signal last_chance_triggered()
 signal run_failed()
 signal pvp_wins_changed(value: int)
+signal battle_start_status_bonus_changed(status_id: String, amount: float)
 
 const STARTING_PRESTIGE: int = 20
 
@@ -22,6 +23,7 @@ var last_chance_used: bool = false
 var wins: int = 0
 var losses: int = 0
 var pvp_wins: int = 0
+var battle_start_status_bonuses: Dictionary = {}
 
 func get_current_phase_name() -> String:
 	return PhaseService.get_current_phase_name(current_hour)
@@ -87,12 +89,26 @@ func add_pvp_win() -> int:
 	pvp_wins_changed.emit(pvp_wins)
 	return pvp_wins
 
+func add_battle_start_status_bonus(status_id: String, amount: float, source: String = "") -> float:
+	var normalized_id: String = str(status_id).strip_edges().to_lower()
+	if normalized_id.is_empty() or amount <= 0.0:
+		return float(battle_start_status_bonuses.get(normalized_id, 0.0))
+	battle_start_status_bonuses[normalized_id] = float(battle_start_status_bonuses.get(normalized_id, 0.0)) + amount
+	battle_start_status_bonus_changed.emit(normalized_id, float(battle_start_status_bonuses[normalized_id]))
+	if not source.is_empty():
+		print("Run battle-start status bonus %s +%.1f from %s" % [normalized_id, amount, source])
+	return float(battle_start_status_bonuses[normalized_id])
+
+func get_battle_start_status_bonuses() -> Dictionary:
+	return battle_start_status_bonuses.duplicate(true)
+
 func reset(full: bool = true) -> void:
 	current_day = 1
 	current_hour = 0
 	wins = 0
 	losses = 0
 	pvp_wins = 0
+	battle_start_status_bonuses.clear()
 	if full:
 		prestige = STARTING_PRESTIGE
 		prestige_zero_count = 0

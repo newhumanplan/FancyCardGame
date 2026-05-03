@@ -13,6 +13,11 @@ const TRIGGER_ON_SHIELD_GAINED: String = "on_shield_gained"
 const TRIGGER_ON_HEAL: String = "on_heal"
 const TRIGGER_ON_CRIT: String = "on_crit"
 const TRIGGER_ON_ENEMY_STATUS_APPLIED: String = "on_enemy_status_applied"
+const TRIGGER_ON_SELL: String = "on_sell"
+const TRIGGER_ON_BUY: String = "on_buy"
+const TRIGGER_ON_HOUR_START: String = "on_hour_start"
+const TRIGGER_ON_TRANSFORM: String = "on_transform"
+const TRIGGER_ON_ENCHANT: String = "on_enchant"
 
 const EFFECT_DAMAGE: String = "damage"
 const EFFECT_SHIELD: String = "shield"
@@ -41,6 +46,13 @@ const _PRIORITY_KEYWORD_MATCHERS := {
 	EFFECT_CHARGE: ["charge"],
 	EFFECT_RELOAD: ["reload"],
 	EFFECT_MULTICAST: ["multicast"],
+}
+
+const _HOOK_KEYWORD_MATCHERS := {
+	TRIGGER_ON_SELL: ["when you sell", "when this is sold"],
+	TRIGGER_ON_BUY: ["when you buy", "when this is bought"],
+	TRIGGER_ON_HOUR_START: ["start of each day", "start of each hour"],
+	TRIGGER_ON_TRANSFORM: ["when this is transformed", "when you transform"],
 }
 
 static func build_item_effects(item: ItemDataClass) -> Array[Dictionary]:
@@ -310,7 +322,75 @@ static func build_item_effects(item: ItemDataClass) -> Array[Dictionary]:
 				},
 			})
 
+	_append_non_combat_hook_definitions(definitions, handled_keywords, item)
 	return definitions
+
+static func _append_non_combat_hook_definitions(definitions: Array[Dictionary], handled_keywords: Dictionary, item: ItemDataClass) -> void:
+	match item.source_id:
+		"catalyst":
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_SELL, "transform", {"selector": "leftmost_small"}, {"type": "transform", "selector": "leftmost_small"}))
+		"cinders":
+			handled_keywords[EFFECT_BURN] = true
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_SELL, EFFECT_BURN, {"selector": "leftmost_burn"}, {"type": EFFECT_BURN, "amount_by_rarity": [1, 2, 3, 4]}))
+		"extract":
+			handled_keywords[EFFECT_POISON] = true
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_SELL, EFFECT_POISON, {"selector": "leftmost_poison"}, {"type": EFFECT_POISON, "amount_by_rarity": [1, 2, 3, 4]}))
+		"scrap":
+			handled_keywords[EFFECT_SHIELD] = true
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_SELL, EFFECT_SHIELD, {"selector": "leftmost_shield"}, {"type": EFFECT_SHIELD, "amount_by_rarity": [3, 6, 12, 24]}))
+		"med_kit":
+			handled_keywords[EFFECT_HEAL] = true
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_SELL, EFFECT_HEAL, {"selector": "leftmost_heal"}, {"type": EFFECT_HEAL, "amount_by_rarity": [5, 10, 20, 40]}))
+		"eagle_talisman":
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_SELL, "crit", {"selector": "leftmost_item"}, {"type": "crit", "amount_by_rarity": [5, 10, 15, 20]}))
+		"gland":
+			handled_keywords[EFFECT_REGENERATION] = true
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_SELL, EFFECT_REGENERATION, {"selector": "hero"}, {"type": EFFECT_REGENERATION, "amount_by_rarity": [1, 2, 3, 4]}))
+		"philosophers_stone":
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_BUY, "grant_item", {"selector": "inventory"}, {"type": "grant_item", "item_id": "catalyst"}))
+
+	if item.source_id in ["aludel", "mortar_pestle", "sifting_pan", "laboratory", "athanor", "apothecary"]:
+		definitions.append(_hook_definition(item.source_id, TRIGGER_ON_HOUR_START, "grant_item", {"selector": "inventory"}, {"type": "grant_item", "item_id": "catalyst"}))
+
+	if not item.enchantment_id.is_empty():
+		definitions.append(_hook_definition(item.source_id, TRIGGER_ON_ENCHANT, "enchant", {"selector": "this_item"}, {"type": "enchant", "enchantment": item.enchantment_id}))
+
+	var transform_enchantment: String = _transform_enchantment_for_item(item.source_id)
+	if not transform_enchantment.is_empty():
+		definitions.append(_hook_definition(item.source_id, TRIGGER_ON_TRANSFORM, "enchant", {"selector": "transformed_item"}, {"type": "enchant", "enchantment": transform_enchantment}))
+
+	match item.source_id:
+		"calcinator":
+			handled_keywords[EFFECT_BURN] = true
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_TRANSFORM, EFFECT_BURN, {"selector": "this_item", "event_source_tag": "Reagent"}, {"type": EFFECT_BURN, "amount_by_rarity": [3, 5, 7, 9]}))
+		"retort":
+			handled_keywords[EFFECT_POISON] = true
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_TRANSFORM, EFFECT_POISON, {"selector": "this_item", "event_source_tag": "Reagent"}, {"type": EFFECT_POISON, "amount_by_rarity": [3, 5, 7, 9]}))
+		"the_tome_of_yyahan":
+			handled_keywords[EFFECT_REGENERATION] = true
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_TRANSFORM, EFFECT_REGENERATION, {"selector": "this_item", "event_source_tag": "Reagent"}, {"type": EFFECT_REGENERATION, "amount_by_rarity": [4, 10, 15]}))
+
+static func _hook_definition(source_id: String, trigger: String, effect_name: String, target: Dictionary, effect: Dictionary) -> Dictionary:
+	return {
+		"id": "%s_%s_%s" % [source_id, trigger, effect_name],
+		"trigger": trigger,
+		"target": target,
+		"effect": effect,
+	}
+
+static func _transform_enchantment_for_item(source_id: String) -> String:
+	match source_id:
+		"death_caps", "hemlock", "nightshade":
+			return "toxic"
+		"mothmeal":
+			return "heavy"
+		"myrrh":
+			return "restorative"
+		"shard_of_obsidian":
+			return "obsidian"
+		"sulphur":
+			return "fiery"
+	return ""
 
 static func collect_item_warnings(
 	item: ItemDataClass,
@@ -321,10 +401,15 @@ static func collect_item_warnings(
 		return warnings
 
 	var handled_keywords: Dictionary = {}
+	var handled_triggers: Dictionary = {}
 	for definition in definitions:
 		if not definition is Dictionary:
 			continue
-		var effect_data: Dictionary = (definition as Dictionary).get("effect", {})
+		var definition_data := definition as Dictionary
+		var trigger: String = str(definition_data.get("trigger", ""))
+		if not trigger.is_empty():
+			handled_triggers[trigger] = true
+		var effect_data: Dictionary = definition_data.get("effect", {})
 		var effect_type: String = str(effect_data.get("type", ""))
 		if not effect_type.is_empty():
 			handled_keywords[effect_type] = true
@@ -353,6 +438,14 @@ static func collect_item_warnings(
 				handled_keywords[EFFECT_HASTE] = true
 
 	var effect_text: String = item.source_effect_text.to_lower()
+	for trigger in _HOOK_KEYWORD_MATCHERS.keys():
+		if handled_triggers.has(trigger):
+			continue
+		for matcher in _HOOK_KEYWORD_MATCHERS[trigger]:
+			if effect_text.contains(str(matcher).to_lower()):
+				warnings.append("unsupported_item_trigger:%s:%s" % [item.source_id, trigger])
+				break
+
 	for keyword in _PRIORITY_KEYWORD_MATCHERS.keys():
 		if handled_keywords.has(keyword):
 			continue

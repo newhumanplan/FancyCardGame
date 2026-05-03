@@ -20,6 +20,8 @@ func _run_tests() -> void:
 	test_merge_can_cascade_after_lower_event_drop()
 	test_shop_filter_uses_owned_rarity_floor_and_diamond_block()
 	test_start_of_day_mortar_grants_catalyst_from_stash()
+	test_hour_start_hooks_cover_expanded_catalyst_generators()
+	test_on_buy_philosophers_stone_grants_catalyst()
 
 func test_duplicate_purchase_merges_into_existing_upgrade() -> void:
 	var inventory: LinearInventoryClass = LinearInventoryClass.new()
@@ -88,6 +90,29 @@ func test_start_of_day_mortar_grants_catalyst_from_stash() -> void:
 
 	_assert_eq(int(summary.get("catalysts", 0)), 1, "one Mortar & Pestle grants one Catalyst at day start")
 	_assert_true(catalyst != null and catalyst.source_id == "catalyst", "Catalyst is granted into available board space")
+
+func test_hour_start_hooks_cover_expanded_catalyst_generators() -> void:
+	for item_id in ["aludel", "sifting_pan", "laboratory", "athanor"]:
+		var inventory: LinearInventoryClass = LinearInventoryClass.new()
+		var stash: LinearInventoryClass = LinearInventoryClass.new()
+		var item: ItemDataClass = BazaarContentClass.create_item(item_id, BazaarContentClass.RARITY_SILVER)
+		_assert_true(stash.place_item(item, 0), "test setup places %s in stash" % item_id)
+
+		var summary: Dictionary = ItemAcquisitionClass.apply_hour_start_hooks(inventory, stash, "test_hour_start")
+
+		_assert_eq(int(summary.get("catalysts", 0)), 1, "%s grants Catalyst from hour-start hook" % item_id)
+		_assert_eq(int(summary.get("failed", 0)), 0, "%s generated item fits inventory" % item_id)
+
+func test_on_buy_philosophers_stone_grants_catalyst() -> void:
+	var inventory: LinearInventoryClass = LinearInventoryClass.new()
+	var stone: ItemDataClass = BazaarContentClass.create_item("philosophers_stone", BazaarContentClass.RARITY_BRONZE)
+	_assert_true(inventory.place_item(stone, 0), "test setup places Philosopher's Stone")
+
+	var summary: Dictionary = ItemAcquisitionClass.apply_on_buy_hooks(stone, inventory)
+	var granted: ItemDataClass = inventory.get_item_at(1)
+
+	_assert_eq((summary.get("items", []) as Array).size(), 1, "on-buy hook records one generated item")
+	_assert_true(granted != null and granted.source_id == "catalyst", "Philosopher's Stone on-buy grants Catalyst through acquisition service")
 
 func _assert_true(condition: bool, label: String) -> void:
 	_total += 1

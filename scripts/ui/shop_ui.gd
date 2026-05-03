@@ -12,6 +12,7 @@ const ItemDataClass = preload("res://scripts/data/item_data.gd")
 const LinearInventoryClass = preload("res://scripts/data/linear_inventory.gd")
 const HeroDataClass = preload("res://scripts/data/hero_data.gd")
 const BazaarContentClass = preload("res://scripts/data/bazaar_content.gd")
+const ItemAcquisitionClass = preload("res://scripts/data/item_acquisition.gd")
 const ItemArtCatalogClass = preload("res://scripts/data/item_art_catalog.gd")
 
 ## Bazaar风格 UI 资源
@@ -439,6 +440,7 @@ func _add_item_to_inventory(item: ItemDataClass) -> void:
 	if not empty_slots.is_empty():
 		var slot = empty_slots[0]
 		inventory.place_item(item_copy, slot)
+		ItemAcquisitionClass.apply_on_buy_hooks(item_copy, inventory)
 		print("[DEBUG] 物品已放入背包，槽位: %d, inventory.instance_id=%s" % [slot, str(inventory)])
 		print("[DEBUG] inventory.items after: %s" % [inventory.items.map(func(x): return x.item_name if x else "null")])
 	else:

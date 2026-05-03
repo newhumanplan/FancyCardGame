@@ -91,6 +91,7 @@ func start_battle(monster: MonsterData, inv: LinearInventory) -> void:
 	_reset_player_item_cooldowns(true)
 	_log_effect_support_warnings()
 	_apply_player_start_item_effects()
+	_apply_run_battle_start_status_bonuses()
 	_apply_player_skill_battle_start_effects()
 	if current_monster != null:
 		if current_monster.ai != null:
@@ -1604,6 +1605,27 @@ func _apply_player_start_item_effects() -> void:
 			"target": "self",
 		})
 		print("☠️ [%s] 开战时对自己施加中毒 +%d" % [item.item_name, int(poison_amount)])
+
+func _apply_run_battle_start_status_bonuses() -> void:
+	if RunStateService == null:
+		return
+	var bonuses: Dictionary = RunStateService.get_battle_start_status_bonuses()
+	for status_id in bonuses.keys():
+		var amount: float = float(bonuses.get(status_id, 0.0))
+		if amount <= 0.0:
+			continue
+		_add_status_to_state(player_status_state, str(status_id), amount)
+		effect_execution_trace.append({
+			"owner_kind": "run_state",
+			"owner_id": "battle_start_status_bonus",
+			"definition_id": "run_state_%s_battle_start" % str(status_id),
+			"trigger": EffectDefinitionClass.TRIGGER_ON_BATTLE_START,
+			"event_name": "run_state_battle_start_status",
+			"effect_type": str(status_id),
+			"amount": amount,
+			"target_count": 1,
+			"time": _battle_elapsed_time,
+		})
 
 func _apply_player_skill_battle_start_effects() -> void:
 	_apply_player_skill_start_item_bonuses()

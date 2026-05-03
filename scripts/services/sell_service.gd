@@ -2,6 +2,7 @@ class_name SellService
 extends RefCounted
 
 const BazaarContentClass = preload("res://scripts/data/bazaar_content.gd")
+const EnchantmentCatalogClass = preload("res://scripts/data/enchantment_catalog.gd")
 const ItemAcquisitionClass = preload("res://scripts/data/item_acquisition.gd")
 const ItemDataClass = preload("res://scripts/data/item_data.gd")
 const LinearInventoryClass = preload("res://scripts/data/linear_inventory.gd")
@@ -78,6 +79,11 @@ const _LEFTMOST_POISON_GAIN := {
 	"trained_spider": [1, 2, 3, 4],
 }
 
+const _SELL_REGEN_GAINS := {
+	"citrus": [1, 2, 3, 4],
+	"gland": [1, 2, 3, 4],
+}
+
 const _ALL_ITEM_COOLDOWN_REDUCTION := {
 	"clockwork_blades": [1, 2, 3, 4],
 	"insect_wing": [3, 6, 9],
@@ -101,6 +107,33 @@ const _SELL_NON_WEAPON_SHIELD_OBSERVERS := {
 
 const _SELL_TOOL_AMMO_OBSERVERS := {
 	"gearnola_bar": [1],
+}
+
+const _SELL_CATALYST_REGEN_OBSERVERS := {
+	"sifting_pan": [1, 2, 3],
+}
+
+const _REAGENT_TRANSFORM_ENCHANTMENTS := {
+	"death_caps": "toxic",
+	"hemlock": "toxic",
+	"mothmeal": "heavy",
+	"myrrh": "restorative",
+	"nightshade": "toxic",
+	"shard_of_obsidian": "obsidian",
+	"sulphur": "fiery",
+}
+
+const _REAGENT_TRANSFORM_BURN_OBSERVERS := {
+	"calcinator": [3, 5, 7, 9],
+}
+
+const _REAGENT_TRANSFORM_POISON_OBSERVERS := {
+	"retort": [3, 5, 7, 9],
+}
+
+const _REAGENT_TRANSFORM_REGEN_OBSERVERS := {
+	"philosophers_stone": [2, 3, 4, 5],
+	"the_tome_of_yyahan": [4, 10, 15],
 }
 
 static func calculate_sell_price(item: ItemDataClass) -> int:
@@ -153,10 +186,17 @@ static func _apply_direct_sell_effects(item: ItemDataClass, inventory: LinearInv
 	var source_id: String = item.source_id.to_lower()
 
 	if source_id == "catalyst":
-		if not _transform_leftmost_small_item(item.rarity, inventory, related_inventory):
+		var transform_result: Dictionary = _transform_leftmost_small_item(item.rarity, inventory, related_inventory)
+		if not bool(transform_result.get("success", false)):
 			result["unsupported"].append("catalyst_transform_missing_target")
 		else:
 			result["effects_applied"].append("catalyst_transform")
+			result["transforms"] = result.get("transforms", [])
+			(result["transforms"] as Array).append(transform_result)
+			for effect_entry in transform_result.get("effects_applied", []):
+				result["effects_applied"].append(str(effect_entry))
+		for unsupported_entry in transform_result.get("unsupported", []):
+			result["unsupported"].append(str(unsupported_entry))
 
 	if _MAX_HEALTH_GAINS.has(source_id):
 		var max_health_gain: int = _item_value_for_rarity(item, _MAX_HEALTH_GAINS[source_id])
@@ -203,6 +243,9 @@ static func _apply_direct_sell_effects(item: ItemDataClass, inventory: LinearInv
 	if _LEFTMOST_POISON_GAIN.has(source_id):
 		_apply_poison_to_item(_find_leftmost_matching_item(inventory, related_inventory, "poison"), _item_value_for_rarity(item, _LEFTMOST_POISON_GAIN[source_id]), result)
 
+	if _SELL_REGEN_GAINS.has(source_id):
+		_apply_run_regeneration_bonus(_item_value_for_rarity(item, _SELL_REGEN_GAINS[source_id]), "sell_%s" % source_id, result)
+
 	if _ALL_ITEM_COOLDOWN_REDUCTION.has(source_id):
 		_reduce_cooldowns_percent(_collect_owned_items(inventory, related_inventory), _item_value_for_rarity(item, _ALL_ITEM_COOLDOWN_REDUCTION[source_id]), result)
 
@@ -222,8 +265,8 @@ static func _apply_direct_sell_effects(item: ItemDataClass, inventory: LinearInv
 		if granted < 3:
 			result["unsupported"].append("safe_spare_change_partial")
 
-	if source_id in ["citrus", "gland", "sifting_pan", "vial_of_blood", "colossal_popsicle", "darkstone_focuser", "flamecoil_gem", "genie_lamp", "landscraper", "maitoan_altar", "thieves_guild_medallion", "tourist_chariot", "truffles"]:
-		if source_id in ["citrus", "gland", "sifting_pan", "colossal_popsicle", "darkstone_focuser", "flamecoil_gem", "genie_lamp", "landscraper", "maitoan_altar", "thieves_guild_medallion", "tourist_chariot", "truffles"]:
+	if source_id in ["sifting_pan", "vial_of_blood", "colossal_popsicle", "darkstone_focuser", "flamecoil_gem", "genie_lamp", "landscraper", "maitoan_altar", "thieves_guild_medallion", "tourist_chariot", "truffles"]:
+		if source_id in ["colossal_popsicle", "darkstone_focuser", "flamecoil_gem", "genie_lamp", "landscraper", "maitoan_altar", "thieves_guild_medallion", "tourist_chariot", "truffles"]:
 			result["unsupported"].append("unsupported_sell_effect:%s" % source_id)
 
 static func _apply_sell_observer_effects(sold_item: ItemDataClass, inventory: LinearInventoryClass, related_inventory: LinearInventoryClass, result: Dictionary) -> void:
@@ -242,6 +285,8 @@ static func _apply_sell_observer_effects(sold_item: ItemDataClass, inventory: Li
 			_apply_shield_to_item(observer, _item_value_for_rarity(observer, _SELL_NON_WEAPON_SHIELD_OBSERVERS[observer_id]), result)
 		if sold_tool and _SELL_TOOL_AMMO_OBSERVERS.has(observer_id):
 			_apply_ammo_to_item(observer, _item_value_for_rarity(observer, _SELL_TOOL_AMMO_OBSERVERS[observer_id]), result)
+		if sold_item.source_id.to_lower() == "catalyst" and _SELL_CATALYST_REGEN_OBSERVERS.has(observer_id):
+			_apply_run_regeneration_bonus(_item_value_for_rarity(observer, _SELL_CATALYST_REGEN_OBSERVERS[observer_id]), "sell_catalyst:%s" % observer_id, result)
 		if observer_id in ["vat_of_acid", "landscraper"]:
 			result["unsupported"].append("unsupported_sell_observer:%s" % observer_id)
 
@@ -262,23 +307,72 @@ static func _upgrade_leftmost_item(inventory: LinearInventoryClass, related_inve
 		return false
 	return BazaarContentClass.apply_rarity_to_item(target, target.rarity + 1)
 
-static func _transform_leftmost_small_item(rarity: int, inventory: LinearInventoryClass, related_inventory: LinearInventoryClass) -> bool:
+static func _transform_leftmost_small_item(rarity: int, inventory: LinearInventoryClass, related_inventory: LinearInventoryClass) -> Dictionary:
+	var result: Dictionary = {
+		"success": false,
+		"source_id": "catalyst",
+		"target_id": "",
+		"replacement_id": "",
+		"enchantment": "",
+		"effects_applied": [],
+		"unsupported": [],
+	}
 	var target: ItemDataClass = _find_leftmost_matching_item(inventory, related_inventory, "small")
 	if target == null:
-		return false
+		result["unsupported"].append("transform_missing_leftmost_small")
+		return result
 	var target_inventory: LinearInventoryClass = _find_inventory_containing(target, inventory, related_inventory)
 	if target_inventory == null:
-		return false
+		result["unsupported"].append("transform_inventory_not_found")
+		return result
 	var start_slot: int = target.slot_index
-	var replacement: ItemDataClass = BazaarContentClass.create_random_mak_day1_item(rarity, "Small", "", false)
+	var target_id: String = target.source_id
+	var target_rarity: int = target.rarity
+	var was_reagent: bool = _has_tag(target, "reagent")
+	result["target_id"] = target_id
+	var replacement: ItemDataClass = BazaarContentClass.create_random_mak_day1_shop_item(rarity, [target], "Small", "")
 	if replacement == null:
-		return false
+		result["unsupported"].append("transform_replacement_missing")
+		return result
+	if was_reagent:
+		var enchantment_id: String = str(_REAGENT_TRANSFORM_ENCHANTMENTS.get(target_id, ""))
+		if not enchantment_id.is_empty() and EnchantmentCatalogClass.is_known_enchantment(enchantment_id):
+			EnchantmentCatalogClass.apply_to_item(replacement, enchantment_id)
+			result["enchantment"] = enchantment_id
+			result["effects_applied"].append("transform_enchant:%s" % enchantment_id)
+		elif not enchantment_id.is_empty():
+			result["unsupported"].append("unknown_transform_enchantment:%s" % enchantment_id)
 	if not target_inventory.remove_item(target):
-		return false
+		result["unsupported"].append("transform_remove_failed")
+		return result
 	if target_inventory.place_item(replacement, start_slot):
-		return true
+		result["success"] = true
+		result["replacement_id"] = replacement.source_id
+		if was_reagent:
+			_apply_reagent_transform_observer_effects(target_id, target_rarity, inventory, related_inventory, result)
+		return result
 	target_inventory.place_item(target, start_slot)
-	return false
+	result["unsupported"].append("transform_place_failed")
+	return result
+
+static func _apply_reagent_transform_observer_effects(
+	target_id: String,
+	target_rarity: int,
+	inventory: LinearInventoryClass,
+	related_inventory: LinearInventoryClass,
+	result: Dictionary
+) -> void:
+	for observer in _collect_owned_items(inventory, related_inventory):
+		if observer == null:
+			continue
+		var observer_id: String = observer.source_id.to_lower()
+		if _REAGENT_TRANSFORM_BURN_OBSERVERS.has(observer_id):
+			_apply_burn_to_item(observer, _item_value_for_rarity(observer, _REAGENT_TRANSFORM_BURN_OBSERVERS[observer_id]), result)
+		if _REAGENT_TRANSFORM_POISON_OBSERVERS.has(observer_id):
+			_apply_poison_to_item(observer, _item_value_for_rarity(observer, _REAGENT_TRANSFORM_POISON_OBSERVERS[observer_id]), result)
+		if _REAGENT_TRANSFORM_REGEN_OBSERVERS.has(observer_id):
+			_apply_regeneration_to_item(observer, _item_value_for_rarity(observer, _REAGENT_TRANSFORM_REGEN_OBSERVERS[observer_id]), result)
+	result["effects_applied"].append("reagent_transformed:%s:%s" % [target_id, _rarity_name(target_rarity)])
 
 static func _apply_damage_to_item(item: ItemDataClass, amount: int, result: Dictionary) -> void:
 	if item == null or amount <= 0:
@@ -321,6 +415,21 @@ static func _apply_burn_to_item(item: ItemDataClass, amount: int, result: Dictio
 		return
 	item.burn_damage += float(amount)
 	result["effects_applied"].append("%s burn:+%d" % [item.item_name, amount])
+
+static func _apply_regeneration_to_item(item: ItemDataClass, amount: int, result: Dictionary) -> void:
+	if item == null or amount <= 0:
+		return
+	item.regeneration += float(amount)
+	result["effects_applied"].append("%s regeneration:+%d" % [item.item_name, amount])
+
+static func _apply_run_regeneration_bonus(amount: int, source: String, result: Dictionary) -> void:
+	if amount <= 0:
+		return
+	RunStateService.add_battle_start_status_bonus("regeneration", float(amount), source)
+	result["effects_applied"].append("regeneration:+%d" % amount)
+	var combat_state: Dictionary = result.get("combat_state", {})
+	combat_state["regeneration"] = float(combat_state.get("regeneration", 0.0)) + float(amount)
+	result["combat_state"] = combat_state
 
 static func _apply_crit_to_item(item: ItemDataClass, amount: int, result: Dictionary) -> void:
 	if item == null or amount <= 0:
@@ -423,6 +532,16 @@ static func _item_value_for_rarity(item: ItemDataClass, values: Array) -> int:
 		return 0
 	var index: int = clampi(item.rarity - 1, 0, values.size() - 1)
 	return int(values[index])
+
+static func _rarity_name(rarity: int) -> String:
+	match rarity:
+		BazaarContentClass.RARITY_SILVER:
+			return "Silver"
+		BazaarContentClass.RARITY_GOLD:
+			return "Gold"
+		BazaarContentClass.RARITY_DIAMOND:
+			return "Diamond"
+	return "Bronze"
 
 static func _has_no_base_value(item: ItemDataClass) -> bool:
 	if item == null:

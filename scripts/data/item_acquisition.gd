@@ -98,22 +98,53 @@ static func grant_item_at_slot(
 	return grant_item(item, primary_inventory, secondary_inventory, allow_secondary_place)
 
 static func grant_start_of_day_items(primary_inventory: LinearInventoryClass, secondary_inventory: LinearInventoryClass = null) -> Dictionary:
+	return apply_hour_start_hooks(primary_inventory, secondary_inventory, "day_start")
+
+static func apply_hour_start_hooks(primary_inventory: LinearInventoryClass, secondary_inventory: LinearInventoryClass = null, source: String = "hour_start") -> Dictionary:
 	var summary: Dictionary = {
+		"source": source,
 		"catalysts": 0,
+		"reagents": 0,
 		"failed": 0,
+		"unsupported": [],
 	}
 	var triggers: Array[ItemDataClass] = []
 	for item in collect_owned_items(primary_inventory, secondary_inventory):
-		if item.source_id in ["aludel", "mortar_pestle"]:
+		if item.source_id in ["aludel", "mortar_pestle", "sifting_pan", "laboratory", "athanor", "apothecary"]:
 			triggers.append(item)
 
-	for _item in triggers:
-		var catalyst: ItemDataClass = BazaarContentClass.create_item("catalyst", BazaarContentClass.RARITY_BRONZE)
-		var grant_result: Dictionary = grant_item(catalyst, primary_inventory, secondary_inventory, true)
+	for trigger in triggers:
+		var item_id: String = "catalyst"
+		if trigger.source_id == "apothecary" and randi() % 2 == 0:
+			item_id = "hemlock"
+		var granted_item: ItemDataClass = BazaarContentClass.create_item(item_id, BazaarContentClass.RARITY_BRONZE)
+		var grant_result: Dictionary = grant_item(granted_item, primary_inventory, secondary_inventory, true)
 		if bool(grant_result.get("success", false)):
-			summary["catalysts"] = int(summary.get("catalysts", 0)) + 1
+			if item_id == "catalyst":
+				summary["catalysts"] = int(summary.get("catalysts", 0)) + 1
+			else:
+				summary["reagents"] = int(summary.get("reagents", 0)) + 1
 		else:
 			summary["failed"] = int(summary.get("failed", 0)) + 1
+	return summary
+
+static func apply_on_buy_hooks(purchased_item: ItemDataClass, primary_inventory: LinearInventoryClass, secondary_inventory: LinearInventoryClass = null) -> Dictionary:
+	var summary: Dictionary = {
+		"source": "on_buy:%s" % ("" if purchased_item == null else purchased_item.source_id),
+		"items": [],
+		"item_failures": [],
+		"unsupported": [],
+	}
+	if purchased_item == null:
+		return summary
+	match purchased_item.source_id:
+		"philosophers_stone":
+			var catalyst: ItemDataClass = BazaarContentClass.create_item("catalyst", BazaarContentClass.RARITY_BRONZE)
+			var grant_result: Dictionary = grant_item(catalyst, primary_inventory, secondary_inventory, true)
+			if bool(grant_result.get("success", false)):
+				summary["items"].append({"id": "catalyst", "source": purchased_item.source_id})
+			else:
+				summary["item_failures"].append({"id": "catalyst", "reason": "no_space"})
 	return summary
 
 static func collect_owned_items(primary_inventory: LinearInventoryClass, secondary_inventory: LinearInventoryClass = null) -> Array[ItemDataClass]:

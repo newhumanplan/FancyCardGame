@@ -551,6 +551,7 @@ func _on_merchant_purchase_requested(
 		_show_merchant_feedback("背包放置失败", true)
 		_update_active_merchant_buttons()
 		return
+	ItemAcquisitionClass.apply_on_buy_hooks(item_copy, inventory, stash_inventory)
 
 	if is_instance_valid(active_merchant_view) and active_merchant_view.has_method("apply_purchase_success"):
 		active_merchant_view.call("apply_purchase_success", index)
