@@ -547,7 +547,13 @@ func _start_pvp_battle() -> void:
 
 ## 战斗结束回调
 func _on_battle_ended(won: bool, gold_reward: int) -> void:
-	var result: Dictionary = BattleProgressionService.apply_battle_result(won, battle_ui.is_pvp, battle_ui.current_monster)
+	var result: Dictionary = BattleProgressionService.apply_battle_result(
+		won,
+		battle_ui.is_pvp,
+		battle_ui.current_monster,
+		_get_player_inventory(),
+		_get_stash_inventory()
+	)
 	var settled_gold: int = int(result.get("gold_reward", gold_reward))
 	print("战斗结束: 胜利=%s, 金币=%d" % [won, settled_gold])
 	_update_ui()

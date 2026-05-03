@@ -29,7 +29,7 @@ func on_pvp_win() -> void:
 func on_pvp_lose() -> void:
 	apply_battle_result(false, true)
 
-func apply_battle_result(won: bool, is_pvp: bool, monster = null) -> Dictionary:
+func apply_battle_result(won: bool, is_pvp: bool, monster = null, primary_inventory = null, secondary_inventory = null) -> Dictionary:
 	var result: Dictionary = {
 		"won": won,
 		"is_pvp": is_pvp,
@@ -50,7 +50,7 @@ func apply_battle_result(won: bool, is_pvp: bool, monster = null) -> Dictionary:
 			print("PvP 胜利! PvP胜场: %d/%d" % [pvp_win_count, PVP_WINS_FOR_CLEAR])
 		else:
 			var reward: Dictionary = _get_monster_reward(monster)
-			var reward_summary: Dictionary = RewardService.apply_reward(reward, "pve_win")
+			var reward_summary: Dictionary = RewardService.apply_reward(reward, "pve_win", primary_inventory, secondary_inventory)
 			result["reward"] = reward
 			result["reward_summary"] = reward_summary
 			result["gold_reward"] = int(reward_summary.get("gold", 0))

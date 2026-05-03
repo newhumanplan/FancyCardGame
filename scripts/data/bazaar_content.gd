@@ -528,7 +528,14 @@ static func create_monster(monster_id: String = "", level: int = 1) -> MonsterDa
 	monster.gold_reward_min = int(spec.get("gold", 2))
 	monster.gold_reward_max = int(spec.get("gold", 2))
 	monster.xp_reward = int(spec.get("xp", 2))
-	monster.reward = {"gold": int(spec.get("gold", 2)), "xp": int(spec.get("xp", 2))}
+	monster.reward = {
+		"gold": int(spec.get("gold", 2)),
+		"xp": int(spec.get("xp", 2)),
+		"item_pool": _get_monster_reward_item_pool(spec),
+		"skill_pool": _get_monster_reward_skill_pool(spec),
+		"item_count": 1,
+		"skill_count": 1,
+	}
 	monster.monster_skills = _get_monster_skill_entries(spec)
 	monster.monster_items = []
 	var burn_bonus: int = _get_monster_numeric_bonus(monster.monster_skills, "burn_bonus")
@@ -646,6 +653,57 @@ static func _get_monster_skill_entries(spec: Dictionary) -> Array[Dictionary]:
 		if not skill_spec.is_empty():
 			entries.append(skill_spec)
 	return entries
+
+static func _get_monster_reward_item_pool(spec: Dictionary) -> Array[Dictionary]:
+	var pool: Array[Dictionary] = []
+	for item_entry in _get_monster_item_entries(spec):
+		var item_id: String = str(item_entry.get("id", ""))
+		if item_id.is_empty():
+			continue
+		var item_spec: Dictionary = _find_item_spec(item_id)
+		if item_spec.is_empty():
+			continue
+		pool.append({
+			"id": item_id,
+			"tier": str(item_entry.get("tier", item_entry.get("rarity", item_spec.get("starting_tier", "Bronze")))),
+		})
+	return pool
+
+static func _get_monster_reward_skill_pool(spec: Dictionary) -> Array[Dictionary]:
+	var pool: Array[Dictionary] = []
+	for skill_id_ref in spec.get("skill_ids", []):
+		var skill_id: String = str(skill_id_ref)
+		if skill_id.is_empty():
+			continue
+		var skill_spec: Dictionary = WikiMonsterCatalogClass.find_skill_spec(skill_id)
+		pool.append({
+			"id": skill_id,
+			"tier": str(skill_spec.get("starting_tier", "Bronze")),
+		})
+	if not pool.is_empty():
+		return pool
+	for skill_entry in _get_monster_skill_entries(spec):
+		var skill_id: String = _monster_skill_entry_id(skill_entry)
+		if skill_id.is_empty():
+			continue
+		pool.append({
+			"id": skill_id,
+			"tier": str(skill_entry.get("starting_tier", skill_entry.get("tier", "Bronze"))),
+		})
+	return pool
+
+static func _monster_skill_entry_id(skill_entry: Dictionary) -> String:
+	var skill_id: String = str(skill_entry.get("id", ""))
+	if not skill_id.is_empty():
+		return skill_id
+	var skill_name: String = str(skill_entry.get("name", "")).strip_edges().to_lower()
+	if skill_name.is_empty():
+		return ""
+	skill_name = skill_name.replace("&", "and")
+	skill_name = skill_name.replace("'", "")
+	skill_name = skill_name.replace(".", "")
+	skill_name = skill_name.replace(" ", "_")
+	return skill_name
 
 static func _shop_candidate_allowed(item_id: String, rarity: int, owned_items: Array) -> bool:
 	if item_id.is_empty():

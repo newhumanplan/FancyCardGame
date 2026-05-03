@@ -195,6 +195,8 @@ func execute_random_event(event_id: String, day: int, game_manager: Node, invent
 		"jungle_ruins":
 			var reagent: ItemDataClass = BazaarContentClass.create_random_hero_item(hero_type, BazaarContentClass.RARITY_SILVER, "", "Reagent", true)
 			return _grant_item_or_gold(reagent, inventory, stash_inventory, game_manager, 0, "Jungle Ruins: hunted for a Silver Reagent")
+		"gumball_machine_event":
+			return _grant_item_or_gold(BazaarContentClass.create_item("chocolate_bar", BazaarContentClass.RARITY_BRONZE), inventory, stash_inventory, game_manager, 0, "Gumball Machine: get a treat")
 		"look_for_spare_change":
 			game_manager.add_gold(3)
 			return "Look for Spare Change: gained 3 Gold."
@@ -219,11 +221,18 @@ func execute_random_event(event_id: String, day: int, game_manager: Node, invent
 			var shield_value: int = 100 * maxi(int(game_manager.level), 1)
 			_add_combat_shield_skill(game_manager, shield_value)
 			return "Relax: next fights start with %d Shield." % shield_value
+		"study":
+			var xp_gain: int = 2 if day <= 3 else 3
+			_add_xp(game_manager, xp_gain)
+			return "Study: gained %d XP." % xp_gain
 		"recycling_center":
 			var recycled_item: ItemDataClass = _create_random_non_weapon_item(BazaarContentClass.RARITY_BRONZE, "")
 			return _grant_item_or_gold(recycled_item, inventory, stash_inventory, game_manager, 0, "Recycling Center: get a non-Weapon item")
 		"scrap_salvage":
 			return _grant_item_or_gold(BazaarContentClass.create_item("scrap", BazaarContentClass.RARITY_BRONZE), inventory, stash_inventory, game_manager, 0, "Scrap Salvage: get Scrap")
+		"security_center":
+			_grant_skill(game_manager, {"id": "toughness", "tier": "Bronze"})
+			return "Security Center: gained the Toughness skill."
 		"sharpening_kit":
 			var damage_item: ItemDataClass = BazaarContentClass.create_random_hero_item(hero_type, BazaarContentClass.RARITY_BRONZE, "Small", "Damage", true)
 			return _grant_item_or_gold(damage_item, inventory, stash_inventory, game_manager, 0, "Sharpening Kit: get a small Damage item")
@@ -234,15 +243,29 @@ func execute_random_event(event_id: String, day: int, game_manager: Node, invent
 		"the_lost_crate":
 			var medium_item: ItemDataClass = BazaarContentClass.create_random_hero_item(hero_type, BazaarContentClass.RARITY_BRONZE, "Medium", "", true)
 			return _grant_item_or_gold(medium_item, inventory, stash_inventory, game_manager, 0, "The Lost Crate: opened for a Medium item")
+		"the_docks":
+			var dock_damage: int = 10
+			var dock_gold: int = 5 if day <= 4 else 7
+			if game_manager.has_method("take_damage"):
+				game_manager.take_damage(dock_damage)
+			game_manager.add_gold(dock_gold)
+			return "The Docks: took %d damage and earned %d Gold." % [dock_damage, dock_gold]
 		"tiny_furry_monster":
 			game_manager.add_max_health(25)
 			return "Tiny Furry Monster: gained 25 Max Health."
 		"treasure_chest":
 			var treasure_item: ItemDataClass = BazaarContentClass.create_random_hero_item(hero_type, BazaarContentClass.RARITY_BRONZE, "", "", true)
 			return _grant_item_or_gold(treasure_item, inventory, stash_inventory, game_manager, 0, "Treasure Chest: get an item")
+		"utility_box":
+			return _grant_item_or_gold(BazaarContentClass.create_item("scrap", BazaarContentClass.RARITY_BRONZE), inventory, stash_inventory, game_manager, 0, "Utility Box: get a small Tool component")
+		"start_of_run":
+			game_manager.add_gold(3)
+			game_manager.add_income(1)
+			_grant_skill(game_manager, {"id": "keen_eye", "tier": "Bronze"})
+			return "Start of Run: gained 3 Gold, 1 Income, and a starter Skill."
 
 		_:
-			return "未知事件!"
+			return _unsupported_event_result(event_id)
 
 ## 获取所有注册的随机事件列表（用于 UI 展示或调试）
 func get_all_events() -> Array[Dictionary]:
@@ -266,6 +289,31 @@ func _grant_item(item: ItemDataClass, inventory: LinearInventoryClass, stash_inv
 	item.slot_index = -1
 	var result: Dictionary = ItemAcquisitionClass.grant_item(item, inventory, stash_inventory, false)
 	return bool(result.get("success", false))
+
+func _grant_skill(game_manager: Node, skill_ref: Dictionary) -> bool:
+	if game_manager == null or game_manager.selected_hero == null:
+		return false
+	var skill_id: String = str(skill_ref.get("id", ""))
+	if skill_id.is_empty():
+		return false
+	for existing in game_manager.selected_hero.skills:
+		if existing is Dictionary and str((existing as Dictionary).get("id", "")) == skill_id:
+			return false
+		if str(existing) == skill_id:
+			return false
+	game_manager.selected_hero.skills.append(skill_id)
+	return true
+
+func _add_xp(game_manager: Node, amount: int) -> void:
+	if game_manager.has_method("add_xp"):
+		game_manager.add_xp(amount)
+	elif game_manager.has_method("apply_reward"):
+		game_manager.apply_reward({"xp": amount}, "event")
+
+func _unsupported_event_result(event_id: String) -> String:
+	var message: String = "Unsupported event %s: no gameplay effect registered; generic fallback intentionally did nothing." % event_id
+	push_warning(message)
+	return message
 
 func _create_random_non_weapon_item(rarity: int, required_size: String = "") -> ItemDataClass:
 	var candidates: Array[ItemDataClass] = []
