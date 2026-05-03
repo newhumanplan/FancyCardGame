@@ -38,6 +38,7 @@ func _create_item(item_id: String, rarity: int = BazaarContentClass.RARITY_BRONZ
 
 func _start_battle(hero_skills: Array, inv: LinearInventoryClass, monster: MonsterDataClass = null) -> MonsterDataClass:
 	var hero = BazaarContentClass.create_mak_hero()
+	hero.crit_chance = 0.0
 	hero.skills = hero_skills.duplicate()
 	var game_manager: Node = _game_manager()
 	game_manager.call("reset_stats")
@@ -198,16 +199,16 @@ func test_slow_burn_charges_a_burn_item_when_you_slow() -> void:
 func test_rush_and_pyromania_trigger_through_effect_dsl() -> void:
 	var inv: LinearInventoryClass = LinearInventoryClass.new()
 	var fang: ItemDataClass = _create_item("fang")
-	var large_item: ItemDataClass = _create_item("poppy_field", BazaarContentClass.RARITY_SILVER)
-	_assert_true(inv.place_item(fang, 0), "places Weapon target for Rush")
-	_assert_true(inv.place_item(large_item, 1), "places Large non-Weapon item for Pyromania")
+	var large_weapon: ItemDataClass = _create_item("runic_great_axe", BazaarContentClass.RARITY_SILVER)
+	_assert_true(inv.place_item(fang, 0), "places lower-cooldown Weapon decoy")
+	_assert_true(inv.place_item(large_weapon, 1), "places Large Weapon item for Rush and Pyromania")
 	_start_battle(["rush", "pyromania"], inv)
 	fang.current_cooldown = 5.0
-	large_item.current_cooldown = 0.0
+	large_weapon.current_cooldown = 0.0
 
 	_battle_system().call("execute_battle_tick", 0.0)
 	var enemy_status: Dictionary = _battle_system().call("get_status_totals", "enemy")
-	_assert_float_eq(large_item.current_cooldown, 8.0, "Rush hastes the highest-cooldown Weapon after the first item use")
+	_assert_float_eq(large_weapon.current_cooldown, 8.0, "Rush hastes the highest-cooldown Weapon after the first item use")
 	_assert_float_eq(float(enemy_status.get("burn", 0.0)), 10.0, "Pyromania burns when a Large item is used")
 	_assert_true(_trace_has("rush_first_item_haste_weapon"), "Rush trigger executes through the DSL")
 	_assert_true(_trace_has("pyromania_on_large_item_burn"), "Pyromania trigger executes through the DSL")
