@@ -4,6 +4,7 @@ extends Control
 ## Persistent bottom HUD for the Bazaar shell.
 
 const PlayerSkillCatalogClass = preload("res://scripts/data/player_skill_catalog.gd")
+const SkillArtCatalogClass = preload("res://scripts/data/skill_art_catalog.gd")
 
 signal stash_requested()
 
@@ -32,7 +33,7 @@ func _ready() -> void:
 	stash_button.pressed.connect(_on_stash_pressed)
 	_setup_chest_icon()
 	_create_combat_status_label()
-	_hide_passive_area_until_icons_exist()
+	_reset_passive_area()
 
 func bind_services(game_manager: Node, hero_state: Node, economy: Node) -> void:
 	_game_manager = game_manager
@@ -139,7 +140,7 @@ func _setup_chest_icon() -> void:
 	stash_button.icon = icon
 	stash_button.expand_icon = true
 
-func _hide_passive_area_until_icons_exist() -> void:
+func _reset_passive_area() -> void:
 	for child in passive_skill_area.get_children():
 		child.queue_free()
 	passive_skill_area.visible = false
@@ -154,23 +155,41 @@ func _refresh_skills() -> void:
 		passive_skill_area.visible = false
 		return
 
-	var skill_names: Array[String] = []
+	var skill_entries: Array[Dictionary] = []
+	var seen_names: Dictionary = {}
 	for passive_skill in hero.get("passive_skills"):
-		if passive_skill != null and not str(passive_skill.skill_name).is_empty() and not skill_names.has(passive_skill.skill_name):
-			skill_names.append(passive_skill.skill_name)
+		if passive_skill == null:
+			continue
+		var passive_name: String = str(passive_skill.skill_name)
+		if passive_name.is_empty() or seen_names.has(passive_name):
+			continue
+		seen_names[passive_name] = true
+		skill_entries.append({"id": "", "name": passive_name})
 	for hero_skill in hero.get("skills"):
-		var skill_name: String = PlayerSkillCatalogClass.get_skill_display_name(hero_skill)
-		if not skill_name.is_empty() and not skill_names.has(skill_name):
-			skill_names.append(skill_name)
+		var resolved_skill: Dictionary = PlayerSkillCatalogClass.get_skill_entry(hero_skill)
+		var skill_name: String = str(resolved_skill.get("name", ""))
+		if skill_name.is_empty() or seen_names.has(skill_name):
+			continue
+		seen_names[skill_name] = true
+		skill_entries.append({
+			"id": str(resolved_skill.get("id", "")),
+			"name": skill_name,
+		})
 
-	passive_skill_area.visible = not skill_names.is_empty()
-	for skill_name in skill_names:
-		passive_skill_area.add_child(_create_skill_badge(skill_name))
+	passive_skill_area.visible = not skill_entries.is_empty()
+	for skill_entry in skill_entries:
+		passive_skill_area.add_child(_create_skill_badge(skill_entry))
 
-func _create_skill_badge(skill_name: String) -> Control:
+func _create_skill_badge(skill_entry: Dictionary) -> Control:
+	var skill_name: String = str(skill_entry.get("name", ""))
+	var icon_path: String = ""
+	var skill_id: String = str(skill_entry.get("id", ""))
+	if not skill_id.is_empty():
+		icon_path = SkillArtCatalogClass.get_skill_texture_path_by_source_id(skill_id)
+
 	var badge: Panel = Panel.new()
 	badge.name = "SkillBadge_%s" % skill_name.replace(" ", "_")
-	badge.custom_minimum_size = Vector2(88, 24)
+	badge.custom_minimum_size = Vector2(96, 26)
 	var style: StyleBoxFlat = StyleBoxFlat.new()
 	style.bg_color = Color(0.20, 0.17, 0.09, 0.95)
 	style.border_color = Color(0.92, 0.76, 0.32, 0.90)
@@ -178,14 +197,28 @@ func _create_skill_badge(skill_name: String) -> Control:
 	style.set_corner_radius_all(5)
 	badge.add_theme_stylebox_override("panel", style)
 
+	var row: HBoxContainer = HBoxContainer.new()
+	row.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", 6)
+	badge.add_child(row)
+
+	if not icon_path.is_empty():
+		var icon_rect: TextureRect = TextureRect.new()
+		icon_rect.custom_minimum_size = Vector2(18, 18)
+		icon_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		icon_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		icon_rect.texture = SkillArtCatalogClass.load_texture(icon_path)
+		row.add_child(icon_rect)
+
 	var label: Label = Label.new()
 	label.text = skill_name
-	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT if not icon_path.is_empty() else HORIZONTAL_ALIGNMENT_CENTER
 	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	label.add_theme_font_size_override("font_size", 11)
 	label.add_theme_color_override("font_color", Color(1.0, 0.94, 0.80, 1.0))
-	label.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	badge.add_child(label)
+	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(label)
 	return badge
 
 func _get_int(source: Object, property_name: String, fallback: int) -> int:
