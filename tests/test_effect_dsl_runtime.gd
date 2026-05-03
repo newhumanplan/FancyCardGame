@@ -60,6 +60,7 @@ func _warnings() -> Array:
 
 func _start_battle(hero_skills: Array, inv: LinearInventoryClass, monster: MonsterDataClass = null) -> MonsterDataClass:
 	var hero = BazaarContentClass.create_mak_hero()
+	hero.crit_chance = 0.0
 	hero.skills = hero_skills.duplicate()
 	var game_manager: Node = _game_manager()
 	game_manager.call("reset_stats")
