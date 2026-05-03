@@ -2780,13 +2780,6 @@ func _get_monster_skill_names() -> Array[String]:
 		if names.size() >= 3:
 			return names
 
-	for monster_item in current_monster.monster_items:
-		var item_name: String = str(monster_item.get("name", ""))
-		if not item_name.is_empty():
-			names.append(item_name)
-		if names.size() >= 3:
-			break
-
 	return names
 
 func _get_opponent_meta_text() -> String:
