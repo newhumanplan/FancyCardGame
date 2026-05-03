@@ -38,6 +38,20 @@ const _NUMERIC_SKILL_RULES := {
 		"starting_tier": "silver",
 		"build_skill_data": false,
 	},
+	"adaptive_ordinance": {"values": [2.0, 4.0, 6.0], "starting_tier": "silver", "build_skill_data": false},
+	"all_talk": {"values": [25.0, 50.0], "starting_tier": "gold", "build_skill_data": false},
+	"arms_race": {"values": [2.0, 3.0], "starting_tier": "gold", "build_skill_data": false},
+	"augmented_defenses": {"values": [1.0], "starting_tier": "gold", "build_skill_data": false},
+	"augmented_weaponry": {"values": [1.0], "starting_tier": "gold", "build_skill_data": false},
+	"command_ship": {"values": [10.0, 15.0, 20.0], "starting_tier": "silver", "build_skill_data": false},
+	"dual_wield": {"values": [50.0], "starting_tier": "diamond", "build_skill_data": false},
+	"friend_zone": {"values": [5.0], "starting_tier": "gold", "build_skill_data": false},
+	"full_arsenal": {"values": [5.0, 10.0], "starting_tier": "gold", "build_skill_data": false},
+	"guardian_s_fury": {"values": [20.0], "starting_tier": "gold", "build_skill_data": false},
+	"hyper_focus": {"values": [30.0], "starting_tier": "bronze", "build_skill_data": false},
+	"one_shot_one_kill": {"values": [50.0], "starting_tier": "diamond", "build_skill_data": false},
+	"the_right_tool": {"values": [5.0, 10.0, 15.0], "starting_tier": "silver", "build_skill_data": false},
+	"waters_of_infinity": {"values": [20.0, 30.0, 40.0], "starting_tier": "silver", "build_skill_data": false},
 	"improved_toxins": {
 		"effect_type": SkillDataClass.EffectType.POISON,
 		"values": [1.0, 2.0, 3.0, 4.0],
@@ -186,6 +200,28 @@ const _NUMERIC_SKILL_RULES := {
 	}
 
 const _TRIGGER_SKILL_RULES := {
+	"aggressive": {"values": [2.0, 4.0, 6.0, 8.0], "starting_tier": "bronze"},
+	"anything_to_win": {"values": [1.0, 2.0, 3.0], "starting_tier": "silver"},
+	"assault_focus": {"values": [2.0, 4.0], "starting_tier": "gold"},
+	"beautiful_friendship": {"values": [3.0, 6.0], "starting_tier": "gold"},
+	"blizzard": {"values": [2.0, 3.0], "starting_tier": "gold"},
+	"crashing_waves": {"values": [1.0, 1.0], "limits": [5.0, 10.0], "starting_tier": "gold"},
+	"distributed_systems": {"values": [2.0, 3.0], "counts": [2.0, 3.0], "starting_tier": "gold"},
+	"draconic_rage": {"values": [15.0], "starting_tier": "diamond"},
+	"electrified_hull": {"values": [1.0, 1.0], "limits": [4.0, 8.0], "starting_tier": "gold"},
+	"flashy_mechanic": {"values": [3.0, 6.0, 9.0], "starting_tier": "silver"},
+	"flashy_reload": {"values": [1.0], "starting_tier": "diamond"},
+	"foreboding_winds": {"values": [2.0, 4.0], "starting_tier": "gold"},
+	"hypnotic_drain": {"values": [2.0], "starting_tier": "diamond"},
+	"jack_of_all_trades": {"values": [1.0], "limits": [5.0], "starting_tier": "gold"},
+	"juggler": {"values": [1.0], "starting_tier": "diamond"},
+	"jury_rigger": {"values": [1.0, 2.0, 3.0], "starting_tier": "silver"},
+	"neophiliac": {"values": [2.0, 3.0], "starting_tier": "gold"},
+	"parting_shot": {"values": [5.0, 10.0], "starting_tier": "gold"},
+	"retool": {"values": [1.0], "starting_tier": "diamond"},
+	"rigged": {"values": [1.0, 2.0, 3.0], "starting_tier": "silver"},
+	"sharpened_steel": {"values": [4.0, 8.0, 12.0], "starting_tier": "silver"},
+	"wake_up_call": {"values": [1.0], "starting_tier": "diamond"},
 		"heated_shells": {
 			"values": [2.0, 3.0, 4.0],
 			"starting_tier": "silver",
@@ -340,6 +376,59 @@ static func get_effect_definitions(skill_ref: Variant) -> Array[Dictionary]:
 
 	var skill_id: String = str(resolved.get("id", ""))
 	match skill_id:
+		"aggressive":
+			return [_skill_definition("aggressive_on_weapon_crit_source", EffectDefinitionClass.TRIGGER_ON_TAG_USED, EffectDefinitionClass.EFFECT_RUNTIME_BONUS, get_tier_value(resolved), {"side": "self", "selector": "source_item"}, {"tag": "Weapon"}, 0, {"bonus_key": "crit_rate"})]
+		"anything_to_win":
+			return [
+				_skill_definition("anything_to_win_non_weapon_burn", EffectDefinitionClass.TRIGGER_ON_ITEM_USED, EffectDefinitionClass.EFFECT_BURN, get_tier_value(resolved), {"side": "enemy", "selector": "hero"}, {"no_event_source_tag": "Weapon"}),
+				_skill_definition("anything_to_win_non_weapon_poison", EffectDefinitionClass.TRIGGER_ON_ITEM_USED, EffectDefinitionClass.EFFECT_POISON, get_tier_value(resolved), {"side": "enemy", "selector": "hero"}, {"no_event_source_tag": "Weapon"}),
+			]
+		"assault_focus":
+			return [_skill_definition("assault_focus_non_weapon_slow_source", EffectDefinitionClass.TRIGGER_ON_ITEM_USED, EffectDefinitionClass.EFFECT_SLOW, get_tier_value(resolved), {"side": "self", "selector": "source_item"}, {"no_event_source_tag": "Weapon"})]
+		"beautiful_friendship":
+			return [_skill_definition("beautiful_friendship_friend_buffs_weapons", EffectDefinitionClass.TRIGGER_ON_TAG_USED, EffectDefinitionClass.EFFECT_RUNTIME_BONUS, get_tier_value(resolved), {"side": "self", "selector": "matching_tag_items", "tag": "Weapon"}, {"tag": "Friend"}, 0, {"bonus_key": "damage"})]
+		"blizzard":
+			return [_skill_definition("blizzard_first_item_freeze_non_weapons", EffectDefinitionClass.TRIGGER_ON_ITEM_USED, EffectDefinitionClass.EFFECT_FREEZE, get_tier_value(resolved), {"side": "self", "selector": "non_matching_tag_items", "tag": "Weapon"}, {}, 1)]
+		"crashing_waves":
+			return [_skill_definition("crashing_waves_aquatic_haste_weapon", EffectDefinitionClass.TRIGGER_ON_TAG_USED, EffectDefinitionClass.EFFECT_HASTE, get_tier_value(resolved), {"side": "self", "selector": "matching_tag_highest_cooldown", "tag": "Weapon", "count": 1}, {"tag": "Aquatic"}, int(round(get_tier_value(resolved, "limits"))))]
+		"distributed_systems":
+			return [_skill_definition("distributed_systems_large_haste_small", EffectDefinitionClass.TRIGGER_ON_ITEM_USED, EffectDefinitionClass.EFFECT_HASTE, get_tier_value(resolved), {"side": "self", "selector": "matching_size_highest_cooldown", "size": "small", "count": int(round(get_tier_value(resolved, "counts")))}, {"event_source_size": "large"})]
+		"draconic_rage":
+			return [_skill_definition("draconic_rage_medium_burn_bonus", EffectDefinitionClass.TRIGGER_ON_ITEM_USED, EffectDefinitionClass.EFFECT_RUNTIME_BONUS, get_tier_value(resolved), {"side": "self", "selector": "matching_tag_items", "tag": "Burn"}, {"event_source_size": "medium"}, 0, {"bonus_key": "burn"})]
+		"electrified_hull":
+			return [_skill_definition("electrified_hull_on_shield_charge", EffectDefinitionClass.TRIGGER_ON_SHIELD_GAINED, EffectDefinitionClass.EFFECT_CHARGE, get_tier_value(resolved), {"side": "self", "selector": "slowest_items", "count": 1}, {}, int(round(get_tier_value(resolved, "limits"))))]
+		"flashy_mechanic":
+			return [_skill_definition("flashy_mechanic_tool_adjacent_crit", EffectDefinitionClass.TRIGGER_ON_TAG_USED, EffectDefinitionClass.EFFECT_RUNTIME_BONUS, get_tier_value(resolved), {"side": "self", "selector": "adjacent_to_source"}, {"tag": "Tool"}, 0, {"bonus_key": "crit_rate"})]
+		"flashy_reload":
+			return [_skill_definition("flashy_reload_on_crit_reload_ammo", EffectDefinitionClass.TRIGGER_ON_CRIT, EffectDefinitionClass.EFFECT_RELOAD, get_tier_value(resolved), {"side": "self", "selector": "ammo_items", "count": 1})]
+		"foreboding_winds":
+			return [_skill_definition("foreboding_winds_any_item_crit", EffectDefinitionClass.TRIGGER_ON_ITEM_USED, EffectDefinitionClass.EFFECT_RUNTIME_BONUS, get_tier_value(resolved), {"side": "self", "selector": "all_items"}, {}, 0, {"bonus_key": "crit_rate"})]
+		"hypnotic_drain":
+			return [_skill_definition("hypnotic_drain_lifesteal_weapon_freeze_smaller", EffectDefinitionClass.TRIGGER_ON_TAG_USED, EffectDefinitionClass.EFFECT_FREEZE, get_tier_value(resolved), {"side": "self", "selector": "smaller_than_source_highest_cooldown", "count": 1}, {"tag": "Weapon", "event_source_has_lifesteal": true})]
+		"jack_of_all_trades":
+			return [_skill_definition("jack_of_all_trades_first_item_charge", EffectDefinitionClass.TRIGGER_ON_ITEM_USED, EffectDefinitionClass.EFFECT_CHARGE, get_tier_value(resolved), {"side": "self", "selector": "slowest_items", "count": 1}, {}, int(round(get_tier_value(resolved, "limits"))))]
+		"juggler":
+			return [_skill_definition("juggler_small_item_charge_large", EffectDefinitionClass.TRIGGER_ON_ITEM_USED, EffectDefinitionClass.EFFECT_CHARGE, get_tier_value(resolved), {"side": "self", "selector": "matching_size_highest_cooldown", "size": "large", "count": 1}, {"event_source_size": "small"})]
+		"jury_rigger":
+			return [_skill_definition("jury_rigger_ammo_reload_left", EffectDefinitionClass.TRIGGER_ON_ITEM_USED, EffectDefinitionClass.EFFECT_RELOAD, get_tier_value(resolved), {"side": "self", "selector": "left_of_source"}, {"event_source_has_ammo": true})]
+		"neophiliac":
+			return [
+				_skill_definition("neophiliac_first_burn_charge", EffectDefinitionClass.TRIGGER_ON_ENEMY_STATUS_APPLIED, EffectDefinitionClass.EFFECT_CHARGE, get_tier_value(resolved), {"side": "self", "selector": "slowest_items", "count": 1}, {"status_type": EffectDefinitionClass.EFFECT_BURN}, 1),
+				_skill_definition("neophiliac_first_poison_charge", EffectDefinitionClass.TRIGGER_ON_ENEMY_STATUS_APPLIED, EffectDefinitionClass.EFFECT_CHARGE, get_tier_value(resolved), {"side": "self", "selector": "slowest_items", "count": 1}, {"status_type": EffectDefinitionClass.EFFECT_POISON}, 1),
+				_skill_definition("neophiliac_first_slow_charge", EffectDefinitionClass.TRIGGER_ON_ENEMY_STATUS_APPLIED, EffectDefinitionClass.EFFECT_CHARGE, get_tier_value(resolved), {"side": "self", "selector": "slowest_items", "count": 1}, {"status_type": EffectDefinitionClass.EFFECT_SLOW}, 1),
+				_skill_definition("neophiliac_first_freeze_charge", EffectDefinitionClass.TRIGGER_ON_ENEMY_STATUS_APPLIED, EffectDefinitionClass.EFFECT_CHARGE, get_tier_value(resolved), {"side": "self", "selector": "slowest_items", "count": 1}, {"status_type": EffectDefinitionClass.EFFECT_FREEZE}, 1),
+				_skill_definition("neophiliac_first_haste_charge", EffectDefinitionClass.TRIGGER_ON_ENEMY_STATUS_APPLIED, EffectDefinitionClass.EFFECT_CHARGE, get_tier_value(resolved), {"side": "self", "selector": "slowest_items", "count": 1}, {"status_type": EffectDefinitionClass.EFFECT_HASTE}, 1),
+			]
+		"parting_shot":
+			return [_skill_definition("parting_shot_ammo_self_crit", EffectDefinitionClass.TRIGGER_ON_ITEM_USED, EffectDefinitionClass.EFFECT_RUNTIME_BONUS, get_tier_value(resolved), {"side": "self", "selector": "source_item"}, {"event_source_has_ammo": true}, 0, {"bonus_key": "crit_rate"})]
+		"retool":
+			return [_skill_definition("retool_tool_reload_adjacent", EffectDefinitionClass.TRIGGER_ON_TAG_USED, EffectDefinitionClass.EFFECT_RELOAD, get_tier_value(resolved), {"side": "self", "selector": "adjacent_to_source"}, {"tag": "Tool"})]
+		"rigged":
+			return [_skill_definition("rigged_first_item_haste_all", EffectDefinitionClass.TRIGGER_ON_ITEM_USED, EffectDefinitionClass.EFFECT_HASTE, get_tier_value(resolved), {"side": "self", "selector": "all_items"}, {}, 1)]
+		"sharpened_steel":
+			return [_skill_definition("sharpened_steel_weapon_adjacent_crit", EffectDefinitionClass.TRIGGER_ON_TAG_USED, EffectDefinitionClass.EFFECT_RUNTIME_BONUS, get_tier_value(resolved), {"side": "self", "selector": "adjacent_to_source"}, {"tag": "Weapon"}, 0, {"bonus_key": "crit_rate"})]
+		"wake_up_call":
+			return [_skill_definition("wake_up_call_small_haste_status_item", EffectDefinitionClass.TRIGGER_ON_ITEM_USED, EffectDefinitionClass.EFFECT_HASTE, get_tier_value(resolved), {"side": "self", "selector": "matching_any_tag_highest_cooldown", "tags": ["Burn", "Poison", "Freeze"], "count": 1}, {"event_source_size": "small"})]
 		"cosmic_wind":
 			return [_skill_definition("cosmic_wind_on_crit_haste_item", EffectDefinitionClass.TRIGGER_ON_CRIT, EffectDefinitionClass.EFFECT_HASTE, get_tier_value(resolved), {"side": "self", "selector": "slowest_items", "count": 1})]
 		"cryomastery":
@@ -409,13 +498,17 @@ static func _skill_definition(
 	amount: float,
 	target: Dictionary,
 	condition: Dictionary = {},
-	max_triggers_per_fight: int = 0
+	max_triggers_per_fight: int = 0,
+	effect_extra: Dictionary = {}
 ) -> Dictionary:
+	var effect: Dictionary = {"type": effect_type, "amount": amount}
+	for key in effect_extra.keys():
+		effect[key] = effect_extra[key]
 	var definition: Dictionary = {
 		"id": definition_id,
 		"trigger": trigger,
 		"target": target,
-		"effect": {"type": effect_type, "amount": amount},
+		"effect": effect,
 	}
 	if not condition.is_empty():
 		definition["condition"] = condition

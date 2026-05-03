@@ -597,6 +597,25 @@ func _get_player_item_effective_cooldown(item: ItemData) -> float:
 		cooldown *= 1.0 - (_get_player_skill_value("vengeance") / 100.0)
 	if _has_player_skill("diamond_fangs") and item.rarity == BazaarContentClass.RARITY_DIAMOND and _is_small_item(item):
 		cooldown *= 1.0 - (_get_player_skill_value("diamond_fangs") / 100.0)
+	if _has_player_skill("command_ship") and not _matches_player_item_selector(item, "vehicle") and _count_player_items_matching("vehicle") > 0:
+		cooldown *= 1.0 - (_get_player_skill_value("command_ship") / 100.0)
+	if _has_player_skill("friend_zone") and _matches_player_item_selector(item, "friend"):
+		cooldown *= 1.0 - (_get_player_skill_value("friend_zone") / 100.0)
+	if _has_player_skill("full_arsenal"):
+		if _count_player_items_matching("vehicle") > 0:
+			cooldown *= 1.0 - (_get_player_skill_value("full_arsenal") / 100.0)
+		if _count_player_items_matching("weapon") > 0:
+			cooldown *= 1.0 - (_get_player_skill_value("full_arsenal") / 100.0)
+		if _count_player_items_matching("tool") > 0:
+			cooldown *= 1.0 - (_get_player_skill_value("full_arsenal") / 100.0)
+	if _has_player_skill("guardian_s_fury") and _is_weapon_item(item):
+		var hero: HeroData = null if game_manager == null else game_manager.selected_hero
+		if hero != null and hero.current_shield > 0.0:
+			cooldown *= 1.0 - (_get_player_skill_value("guardian_s_fury") / 100.0)
+	if _has_player_skill("hyper_focus") and _matches_player_item_selector(item, "medium") and _has_exactly_one_player_item_matching("medium"):
+		cooldown *= 1.0 - (_get_player_skill_value("hyper_focus") / 100.0)
+	if _has_player_skill("one_shot_one_kill") and _is_weapon_item(item) and _has_exactly_one_player_item_matching("weapon"):
+		cooldown *= 1.0 + (_get_player_skill_value("one_shot_one_kill") / 100.0)
 	var passive_reduction: float = float(_get_passive_combat_stats().get("cd_reduction", 0.0))
 	cooldown *= 1.0 - passive_reduction
 	cooldown -= _get_item_runtime_bonus(item, "cooldown_flat_reduction")
@@ -962,6 +981,13 @@ func _definition_condition_matches(
 	var source_item: ItemData = event_data.get("source_item", null) as ItemData
 	if condition.has("tag") and not _item_has_tag(source_item, str(condition.get("tag", ""))):
 		return false
+	if condition.has("no_event_source_tag") and _item_has_tag(source_item, str(condition.get("no_event_source_tag", ""))):
+		return false
+	if condition.has("event_source_has_ammo"):
+		if source_item == null or source_item.has_ammo_limit() != bool(condition.get("event_source_has_ammo", false)):
+			return false
+	if bool(condition.get("event_source_has_lifesteal", false)) and not _item_has_lifesteal(source_item):
+		return false
 	if condition.has("event_source_size"):
 		var expected_size: String = str(condition.get("event_source_size", "")).to_lower()
 		if source_item == null:
@@ -978,9 +1004,6 @@ func _definition_condition_matches(
 					return false
 			_:
 				return false
-	if condition.has("event_source_has_ammo"):
-		if source_item == null or source_item.has_ammo_limit() != bool(condition.get("event_source_has_ammo", false)):
-			return false
 	if condition.has("status_type"):
 		if str(event_data.get("status_type", "")) != str(condition.get("status_type", "")):
 			return false
@@ -1160,6 +1183,84 @@ func _resolve_effect_targets(
 				for adjacent in _get_adjacent_player_items(owner_item):
 					if adjacent != null:
 						targets.append({"kind": "player_item", "item": adjacent})
+		"source_item":
+			var source_item: ItemData = execution_context.get("source_item", null) as ItemData
+			if source_item != null:
+				targets.append({"kind": "player_item", "item": source_item})
+		"left_of_source":
+			var source_item: ItemData = execution_context.get("source_item", null) as ItemData
+			if inventory != null and source_item != null:
+				var left_item: ItemData = inventory.get_left_adjacent_item(source_item)
+				if left_item != null:
+					targets.append({"kind": "player_item", "item": left_item})
+		"adjacent_to_source":
+			var source_item: ItemData = execution_context.get("source_item", null) as ItemData
+			if source_item != null:
+				for adjacent in _get_adjacent_player_items(source_item):
+					if adjacent != null:
+						targets.append({"kind": "player_item", "item": adjacent})
+		"all_items":
+			if inventory != null:
+				for item in inventory.items:
+					if item != null:
+						targets.append({"kind": "player_item", "item": item})
+		"matching_tag_items", "non_matching_tag_items":
+			var tag: String = str(target_data.get("tag", ""))
+			if inventory != null:
+				for item in inventory.items:
+					if item == null:
+						continue
+					var has_tag: bool = _item_has_tag(item, tag)
+					if (selector == "matching_tag_items" and has_tag) or (selector == "non_matching_tag_items" and not has_tag):
+						targets.append({"kind": "player_item", "item": item})
+		"matching_any_tag_highest_cooldown":
+			var tags: Array = target_data.get("tags", [])
+			var candidates: Array[ItemData] = []
+			if inventory != null:
+				for item in inventory.items:
+					if item == null or item.current_cooldown <= 0.0:
+						continue
+					for tag_variant in tags:
+						if _item_has_tag(item, str(tag_variant)):
+							candidates.append(item)
+							break
+			candidates.sort_custom(func(a: ItemData, b: ItemData) -> bool:
+				return a.current_cooldown > b.current_cooldown
+			)
+			for index in range(mini(count, candidates.size())):
+				targets.append({"kind": "player_item", "item": candidates[index]})
+		"matching_size_highest_cooldown":
+			var size_name: String = str(target_data.get("size", "")).to_lower()
+			var candidates: Array[ItemData] = []
+			if inventory != null:
+				for item in inventory.items:
+					if item != null and _item_size_matches(item, size_name) and item.current_cooldown > 0.0:
+						candidates.append(item)
+			candidates.sort_custom(func(a: ItemData, b: ItemData) -> bool:
+				return a.current_cooldown > b.current_cooldown
+			)
+			for index in range(mini(count, candidates.size())):
+				targets.append({"kind": "player_item", "item": candidates[index]})
+		"smaller_than_source_highest_cooldown":
+			var source_item: ItemData = execution_context.get("source_item", null) as ItemData
+			var source_slots: int = 0 if source_item == null else source_item.get_slot_count()
+			var candidates: Array[ItemData] = []
+			if inventory != null and source_slots > 0:
+				for item in inventory.items:
+					if item != null and item != source_item and item.get_slot_count() < source_slots and item.current_cooldown > 0.0:
+						candidates.append(item)
+			candidates.sort_custom(func(a: ItemData, b: ItemData) -> bool:
+				return a.current_cooldown > b.current_cooldown
+			)
+			for index in range(mini(count, candidates.size())):
+				targets.append({"kind": "player_item", "item": candidates[index]})
+		"ammo_items":
+			if inventory != null:
+				for item in inventory.items:
+					if item != null and item.has_ammo_limit():
+						targets.append({"kind": "player_item", "item": item})
+						if targets.size() >= count:
+							break
 		"matching_tag_highest_cooldown":
 			var tag: String = str(target_data.get("tag", ""))
 			var candidates: Array[ItemData] = []
@@ -1222,6 +1323,7 @@ func _apply_effect_definition(
 	var effect_data: Dictionary = definition.get("effect", {})
 	var effect_type: String = str(effect_data.get("type", ""))
 	var owner_item: ItemData = owner.get("item", null) as ItemData
+	execution_context["source_item"] = event_data.get("source_item", null)
 	if effect_type == EffectDefinitionClass.EFFECT_MULTICAST:
 		return result
 	var amount: float = _resolve_effect_amount(owner_item, effect_data, execution_context)
@@ -1406,6 +1508,22 @@ func _apply_effect_definition(
 				EffectDefinitionClass.EFFECT_CHARGE:
 					pass
 			effect_applied.emit(_owner_effect_name(owner), effect_type, int(round(amount)), str((definition.get("target", {}) as Dictionary).get("side", "self")))
+		EffectDefinitionClass.EFFECT_RUNTIME_BONUS:
+			var bonus_key: String = str(effect_data.get("bonus_key", ""))
+			if bonus_key.is_empty() or amount == 0.0:
+				return result
+			var applied_bonus_count: int = 0
+			for target in targets:
+				if str(target.get("kind", "")) != "player_item":
+					continue
+				var player_item: ItemData = target.get("item", null) as ItemData
+				if player_item == null:
+					continue
+				_add_item_runtime_bonus(player_item, bonus_key, amount)
+				applied_bonus_count += 1
+			if applied_bonus_count <= 0:
+				return result
+			result["executed"] = true
 		EffectDefinitionClass.EFFECT_RELOAD:
 			var reload_amount: int = maxi(int(round(amount)), 1)
 			var reloaded_count: int = 0
@@ -1629,9 +1747,24 @@ func _apply_run_battle_start_status_bonuses() -> void:
 
 func _apply_player_skill_battle_start_effects() -> void:
 	_apply_player_skill_start_item_bonuses()
+	_apply_player_skill_start_status_bonuses()
 	_process_reactive_effect_events([
 		_make_effect_event(EffectDefinitionClass.TRIGGER_ON_BATTLE_START, null)
 	])
+
+func _apply_player_skill_start_status_bonuses() -> void:
+	if _has_player_skill("adaptive_ordinance"):
+		var ammo_count: int = _count_player_items_matching("ammo")
+		if ammo_count > 0:
+			_add_status_to_state(player_status_state, ItemEffectsClass.EFFECT_REGEN, _get_player_skill_value("adaptive_ordinance") * float(ammo_count))
+	if _has_player_skill("waters_of_infinity"):
+		var non_weapon_count: int = 0
+		if inventory != null:
+			for candidate in inventory.items:
+				if candidate != null and not _is_weapon_item(candidate):
+					non_weapon_count += 1
+		if non_weapon_count > 0:
+			_add_status_to_state(player_status_state, ItemEffectsClass.EFFECT_REGEN, _get_player_skill_value("waters_of_infinity") * float(non_weapon_count))
 
 func _apply_player_skill_start_item_bonuses() -> void:
 	if inventory == null:
@@ -1660,6 +1793,8 @@ func _apply_player_skill_start_item_bonuses() -> void:
 		var shield_item: ItemData = _get_edge_matching_player_item("shield", true)
 		if shield_item != null:
 			_add_item_runtime_bonus(shield_item, "shield", _get_player_skill_value("frontal_shielding"))
+	if _has_player_skill("augmented_defenses"):
+		_add_player_skill_bonus_to_items("augmented_defenses", "shield", "shield", 1)
 
 func _get_edge_matching_player_item(selector: String, leftmost: bool) -> ItemData:
 	if inventory == null:
@@ -1766,6 +1901,22 @@ func _matches_player_item_selector(item: ItemData, selector: String) -> bool:
 	match selector:
 		"any":
 			return item != null
+		"ammo":
+			return item != null and item.has_ammo_limit()
+		"aquatic":
+			return _item_has_tag(item, "Aquatic")
+		"friend":
+			return _item_has_tag(item, "Friend")
+		"large":
+			return _item_size_matches(item, "large")
+		"medium":
+			return _item_size_matches(item, "medium")
+		"small":
+			return _item_size_matches(item, "small")
+		"tool":
+			return _item_has_tag(item, "Tool")
+		"vehicle":
+			return _item_has_tag(item, "Vehicle")
 		"burn":
 			return _is_burn_item(item)
 		"heal":
@@ -1780,6 +1931,18 @@ func _matches_player_item_selector(item: ItemData, selector: String) -> bool:
 			return _is_weapon_item(item)
 		_:
 			return false
+
+func _count_player_items_matching(selector: String) -> int:
+	if inventory == null:
+		return 0
+	var count: int = 0
+	for candidate in inventory.items:
+		if candidate is ItemData and _matches_player_item_selector(candidate as ItemData, selector):
+			count += 1
+	return count
+
+func _has_exactly_one_player_item_matching(selector: String) -> bool:
+	return _count_player_items_matching(selector) == 1
 
 func _has_player_skill(skill_id: String) -> bool:
 	return player_skill_map.has(skill_id)
@@ -1805,6 +1968,13 @@ func _get_player_item_skill_damage_bonus(item: ItemData) -> int:
 		return 0
 	var bonus: float = 0.0
 	bonus += _get_player_skill_value("strength")
+	if _is_weapon_item(item):
+		bonus += _get_player_skill_value("augmented_weaponry")
+		if _has_player_skill("all_talk") and game_manager != null and game_manager.selected_hero != null:
+			if int(game_manager.get("player_health")) > int(game_manager.selected_hero.max_hp / 2.0):
+				bonus += _get_player_skill_value("all_talk")
+		if _has_player_skill("one_shot_one_kill") and _has_exactly_one_player_item_matching("weapon"):
+			bonus += float(maxi(item.get_rarity_adjusted_damage(), 0)) * 2.0
 	if _is_edge_weapon_item(item, true):
 		bonus += _get_player_skill_value("left_handed")
 	if _is_edge_weapon_item(item, false):
@@ -1838,6 +2008,12 @@ func _get_player_item_skill_crit_bonus(item: ItemData) -> int:
 		bonus += _get_player_skill_value("critical_aid")
 	if _has_player_skill("flamedancer") and _is_burn_item(item):
 		bonus += _get_player_skill_value("flamedancer")
+	if _has_player_skill("arms_race"):
+		bonus += _get_player_skill_value("arms_race") * float(_count_player_items_matching("weapon"))
+	if _has_player_skill("dual_wield") and _count_player_items_matching("weapon") == 2:
+		bonus += _get_player_skill_value("dual_wield")
+	if _has_player_skill("the_right_tool") and not _matches_player_item_selector(item, "tool"):
+		bonus += _get_player_skill_value("the_right_tool") * float(_count_player_items_matching("tool"))
 	return int(round(bonus))
 
 func _get_other_emerald_poison_bonus(item: ItemData) -> float:
@@ -1994,6 +2170,19 @@ func _is_reagent_item(item: ItemData) -> bool:
 
 func _is_small_item(item: ItemData) -> bool:
 	return item != null and item.get_slot_count() == 1
+
+func _item_size_matches(item: ItemData, size_name: String) -> bool:
+	if item == null:
+		return false
+	match size_name.to_lower():
+		"small", "小":
+			return item.get_slot_count() == 1
+		"medium", "中":
+			return item.get_slot_count() == 2
+		"large", "大":
+			return item.get_slot_count() == 3
+		_:
+			return false
 
 func _is_poison_item(item: ItemData) -> bool:
 	return item != null and (_item_has_tag(item, "Poison") or item.poison_damage > 0.0 or _get_item_runtime_bonus(item, "poison") > 0.0)

@@ -27,6 +27,10 @@ func _run_tests() -> void:
 	test_phasep2_edge_item_and_passive_skill_bonuses()
 	test_phasep2_status_runtime_bonus_skills()
 	test_phasep2_trigger_skills_execute_through_dsl()
+	test_phase90_numeric_passive_skill_bonuses()
+	test_phase90_source_and_adjacent_trigger_skills_execute_through_dsl()
+	test_phase90_size_and_tag_selector_trigger_skills_execute()
+	test_phase90_status_chain_trigger_skills_execute()
 
 func _battle_system() -> Node:
 	return get_node("/root/BattleSystem")
@@ -353,4 +357,184 @@ func test_phasep2_trigger_skills_execute_through_dsl() -> void:
 	_battle_system().call("execute_battle_tick", 0.0)
 	_assert_true(_trace_has("flurry_of_blows_on_weapon_charge_item"), "Flurry of Blows executes through the DSL")
 	_assert_float_eq(charge_target.current_cooldown, 6.0, "Flurry of Blows charges an item after a Weapon use")
+	_battle_system().call("end_battle")
+
+func test_phase90_numeric_passive_skill_bonuses() -> void:
+	var start_status_inv: LinearInventoryClass = LinearInventoryClass.new()
+	var fire_potion: ItemDataClass = _create_item("fire_potion")
+	var noxious_potion: ItemDataClass = _create_item("noxious_potion")
+	var silk_scarf: ItemDataClass = _create_item("silk_scarf")
+	_assert_true(start_status_inv.place_item(fire_potion, 0), "places Fire Potion for Adaptive Ordinance")
+	_assert_true(start_status_inv.place_item(noxious_potion, 1), "places Noxious Potion for Adaptive Ordinance")
+	_assert_true(start_status_inv.place_item(silk_scarf, 2), "places Silk Scarf for Augmented Defenses")
+	_start_battle(["adaptive_ordinance", "waters_of_infinity", "augmented_defenses"], start_status_inv)
+	var player_status: Dictionary = _battle_system().call("get_status_totals", "self")
+	_assert_float_eq(float(player_status.get("regeneration", 0.0)), 64.0, "Adaptive Ordinance and Waters of Infinity add battle-start Regeneration from real board state")
+	_assert_float_eq(_battle_system().call("_get_item_runtime_bonus", silk_scarf, "shield"), 1.0, "Augmented Defenses buffs Shield items at battle start")
+	_battle_system().call("end_battle")
+
+	var crit_damage_inv: LinearInventoryClass = LinearInventoryClass.new()
+	var fang: ItemDataClass = _create_item("fang")
+	var magic_carpet: ItemDataClass = _create_item("magic_carpet")
+	var lighter: ItemDataClass = _create_item("lighter")
+	_assert_true(crit_damage_inv.place_item(fang, 0), "places first Weapon for Arms Race")
+	_assert_true(crit_damage_inv.place_item(magic_carpet, 1), "places second Weapon for Dual Wield")
+	_assert_true(crit_damage_inv.place_item(lighter, 3), "places Tool for The Right Tool")
+	_start_battle(["augmented_weaponry", "all_talk", "arms_race", "dual_wield", "the_right_tool"], crit_damage_inv)
+	_assert_eq(_battle_system().call("_get_player_item_skill_damage_bonus", fang), 26, "Augmented Weaponry and All Talk add weapon damage from health and tags")
+	_assert_eq(_battle_system().call("_get_player_item_skill_crit_bonus", fang), 59, "Arms Race, Dual Wield, and The Right Tool add crit from board composition")
+	_battle_system().call("end_battle")
+
+	var cooldown_inv: LinearInventoryClass = LinearInventoryClass.new()
+	var vehicle_weapon: ItemDataClass = _create_item("magic_carpet")
+	var non_vehicle_weapon: ItemDataClass = _create_item("fang")
+	var tool_item: ItemDataClass = _create_item("lighter")
+	_assert_true(cooldown_inv.place_item(vehicle_weapon, 0), "places Vehicle for Command Ship")
+	_assert_true(cooldown_inv.place_item(non_vehicle_weapon, 2), "places non-Vehicle Weapon for Command Ship")
+	_assert_true(cooldown_inv.place_item(tool_item, 3), "places Tool for Full Arsenal")
+	_start_battle(["command_ship", "full_arsenal"], cooldown_inv)
+	_assert_float_eq(_battle_system().call("_get_player_item_effective_cooldown", non_vehicle_weapon), 2.314, "Command Ship and Full Arsenal reduce cooldown from Vehicle/Weapon/Tool presence", 0.001)
+	_battle_system().call("end_battle")
+
+	var solo_weapon_inv: LinearInventoryClass = LinearInventoryClass.new()
+	var solo_weapon: ItemDataClass = _create_item("fang")
+	_assert_true(solo_weapon_inv.place_item(solo_weapon, 0), "places solo Weapon for One Shot One Kill")
+	_start_battle(["one_shot_one_kill"], solo_weapon_inv)
+	_assert_float_eq(_battle_system().call("_get_player_item_effective_cooldown", solo_weapon), 4.5, "One Shot One Kill increases the only Weapon cooldown")
+	_assert_eq(_battle_system().call("_get_player_item_skill_damage_bonus", solo_weapon), 10, "One Shot One Kill triples damage via +2x base damage bonus")
+	_battle_system().call("end_battle")
+
+func test_phase90_source_and_adjacent_trigger_skills_execute_through_dsl() -> void:
+	var weapon_inv: LinearInventoryClass = LinearInventoryClass.new()
+	var bottled_lightning: ItemDataClass = _create_item("bottled_lightning")
+	var fire_potion: ItemDataClass = _create_item("fire_potion")
+	_assert_true(weapon_inv.place_item(bottled_lightning, 0), "places Ammo Weapon source")
+	_assert_true(weapon_inv.place_item(fire_potion, 1), "places Ammo reload target")
+	_start_battle(["aggressive", "flashy_reload", "parting_shot"], weapon_inv)
+	_game_manager().get("selected_hero").crit_chance = 1.0
+	bottled_lightning.current_cooldown = 0.0
+	fire_potion.current_cooldown = 8.0
+	fire_potion.current_ammo = 0
+	_battle_system().call("execute_battle_tick", 0.0)
+	_assert_true(_trace_has("aggressive_on_weapon_crit_source"), "Aggressive executes through the DSL")
+	_assert_true(_trace_has("flashy_reload_on_crit_reload_ammo"), "Flashy Reload executes through the DSL")
+	_assert_true(_trace_has("parting_shot_ammo_self_crit"), "Parting Shot executes through the DSL")
+	_assert_float_eq(_battle_system().call("_get_item_runtime_bonus", bottled_lightning, "crit_rate"), 7.0, "Aggressive and Parting Shot buff the source item crit rate")
+	_assert_eq(bottled_lightning.get_current_ammo(), 1, "Flashy Reload refills one Ammo item after a crit")
+	_battle_system().call("end_battle")
+
+	var tool_inv: LinearInventoryClass = LinearInventoryClass.new()
+	var fang: ItemDataClass = _create_item("fang")
+	var lighter: ItemDataClass = _create_item("lighter")
+	var noxious_potion: ItemDataClass = _create_item("noxious_potion")
+	_assert_true(tool_inv.place_item(fang, 0), "places Weapon source for Sharpened Steel")
+	_assert_true(tool_inv.place_item(lighter, 1), "places Tool source for Flashy Mechanic and Retool")
+	_assert_true(tool_inv.place_item(noxious_potion, 2), "places adjacent Ammo target for Retool")
+	_start_battle(["flashy_mechanic", "retool", "sharpened_steel"], tool_inv)
+	fang.current_cooldown = 0.0
+	lighter.current_cooldown = 0.0
+	noxious_potion.current_ammo = 0
+	_battle_system().call("execute_battle_tick", 0.0)
+	_assert_true(_trace_has("sharpened_steel_weapon_adjacent_crit"), "Sharpened Steel executes through the DSL")
+	_battle_system().call("end_battle")
+
+	_start_battle(["flashy_mechanic", "retool"], tool_inv)
+	lighter.current_cooldown = 0.0
+	noxious_potion.current_ammo = 0
+	_battle_system().call("execute_battle_tick", 0.0)
+	_assert_true(_trace_has("flashy_mechanic_tool_adjacent_crit"), "Flashy Mechanic executes through the DSL")
+	_assert_true(_trace_has("retool_tool_reload_adjacent"), "Retool executes through the DSL")
+	_assert_float_eq(_battle_system().call("_get_item_runtime_bonus", noxious_potion, "crit_rate"), 3.0, "Flashy Mechanic buffs adjacent item crit rate")
+	_assert_eq(noxious_potion.get_current_ammo(), 1, "Retool reloads an adjacent Ammo item")
+	_battle_system().call("end_battle")
+
+func test_phase90_size_and_tag_selector_trigger_skills_execute() -> void:
+	var friend_inv: LinearInventoryClass = LinearInventoryClass.new()
+	var venomander: ItemDataClass = _create_item("venomander")
+	var fang: ItemDataClass = _create_item("fang")
+	_assert_true(friend_inv.place_item(venomander, 0), "places Friend source")
+	_assert_true(friend_inv.place_item(fang, 1), "places Weapon target")
+	_start_battle(["beautiful_friendship", "rigged"], friend_inv)
+	venomander.current_cooldown = 0.0
+	fang.current_cooldown = 8.0
+	_battle_system().call("execute_battle_tick", 0.0)
+	_assert_true(_trace_has("beautiful_friendship_friend_buffs_weapons"), "Beautiful Friendship executes through the DSL")
+	_assert_true(_trace_has("rigged_first_item_haste_all"), "Rigged executes through the DSL")
+	_assert_float_eq(_battle_system().call("_get_item_runtime_bonus", fang, "damage"), 3.0, "Beautiful Friendship gives Weapons a real damage bonus")
+	_battle_system().call("end_battle")
+
+	var large_inv: LinearInventoryClass = LinearInventoryClass.new()
+	var large_source: ItemDataClass = _create_item("runic_great_axe")
+	var lighter: ItemDataClass = _create_item("lighter")
+	_assert_true(large_inv.place_item(large_source, 0), "places Large source")
+	_assert_true(large_inv.place_item(lighter, 3), "places Small target")
+	_start_battle(["blizzard", "distributed_systems"], large_inv)
+	large_source.current_cooldown = 0.0
+	lighter.current_cooldown = 5.0
+	_battle_system().call("execute_battle_tick", 0.0)
+	_assert_true(_trace_has("blizzard_first_item_freeze_non_weapons"), "Blizzard executes through the DSL")
+	_assert_true(_trace_has("distributed_systems_large_haste_small"), "Distributed Systems executes through the DSL")
+	_assert_float_eq(lighter.current_cooldown, 5.0, "Blizzard freeze and Distributed Systems haste both apply to the Small target")
+	_battle_system().call("end_battle")
+
+	var aquatic_inv: LinearInventoryClass = LinearInventoryClass.new()
+	var pearl: ItemDataClass = _create_item("pearl")
+	var aquatic_weapon: ItemDataClass = _create_item("sharkclaws")
+	_assert_true(aquatic_inv.place_item(pearl, 0), "places Aquatic source")
+	_assert_true(aquatic_inv.place_item(aquatic_weapon, 1), "places Aquatic Weapon haste target")
+	_start_battle(["crashing_waves"], aquatic_inv)
+	pearl.current_cooldown = 0.0
+	aquatic_weapon.current_cooldown = 8.0
+	_battle_system().call("execute_battle_tick", 0.0)
+	_assert_true(_trace_has("crashing_waves_aquatic_haste_weapon"), "Crashing Waves executes through the DSL")
+	_assert_float_eq(aquatic_weapon.current_cooldown, 7.0, "Crashing Waves hastes a Weapon when an Aquatic item is used")
+	_battle_system().call("end_battle")
+
+	var small_inv: LinearInventoryClass = LinearInventoryClass.new()
+	var small_source: ItemDataClass = _create_item("lighter")
+	var large_target: ItemDataClass = _create_item("runic_great_axe")
+	var poison_target: ItemDataClass = _create_item("noxious_potion")
+	_assert_true(small_inv.place_item(small_source, 0), "places Small source for Juggler and Wake Up Call")
+	_assert_true(small_inv.place_item(large_target, 1), "places Large target for Juggler")
+	_assert_true(small_inv.place_item(poison_target, 4), "places status-tag target for Wake Up Call")
+	_start_battle(["juggler", "wake_up_call"], small_inv)
+	small_source.current_cooldown = 0.0
+	large_target.current_cooldown = 9.0
+	poison_target.current_cooldown = 6.0
+	_battle_system().call("execute_battle_tick", 0.0)
+	_assert_true(_trace_has("juggler_small_item_charge_large"), "Juggler executes through the DSL")
+	_assert_true(_trace_has("wake_up_call_small_haste_status_item"), "Wake Up Call executes through the DSL")
+	_assert_float_eq(large_target.current_cooldown, 8.0, "Juggler charges a Large item when a Small item is used")
+	_assert_float_eq(poison_target.current_cooldown, 5.0, "Wake Up Call hastes a Burn/Poison/Freeze item")
+	_battle_system().call("end_battle")
+
+func test_phase90_status_chain_trigger_skills_execute() -> void:
+	var shield_inv: LinearInventoryClass = LinearInventoryClass.new()
+	var silk_scarf: ItemDataClass = _create_item("silk_scarf")
+	var lighter: ItemDataClass = _create_item("lighter")
+	_assert_true(shield_inv.place_item(silk_scarf, 0), "places Shield source for Electrified Hull")
+	_assert_true(shield_inv.place_item(lighter, 2), "places charge target for shield triggers")
+	_start_battle(["electrified_hull", "jack_of_all_trades"], shield_inv)
+	silk_scarf.current_cooldown = 0.0
+	lighter.current_cooldown = 12.0
+	_battle_system().call("execute_battle_tick", 0.0)
+	_assert_true(_trace_has("electrified_hull_on_shield_charge"), "Electrified Hull executes through the DSL")
+	_assert_true(_trace_has("jack_of_all_trades_first_item_charge"), "Jack of All Trades executes through the DSL")
+	_assert_float_eq(lighter.current_cooldown, 10.0, "Shield and first-item triggers charge a real item")
+	_battle_system().call("end_battle")
+
+	var poison_inv: LinearInventoryClass = LinearInventoryClass.new()
+	var noxious_potion: ItemDataClass = _create_item("noxious_potion")
+	var fang: ItemDataClass = _create_item("fang")
+	_assert_true(poison_inv.place_item(noxious_potion, 0), "places Poison source for Neophiliac")
+	_assert_true(poison_inv.place_item(fang, 1), "places charge target for Neophiliac")
+	_start_battle(["anything_to_win", "assault_focus", "neophiliac"], poison_inv)
+	noxious_potion.current_cooldown = 0.0
+	fang.current_cooldown = 7.0
+	_battle_system().call("execute_battle_tick", 0.0)
+	_assert_true(_trace_has("anything_to_win_non_weapon_burn"), "Anything to Win burn executes through the DSL")
+	_assert_true(_trace_has("anything_to_win_non_weapon_poison"), "Anything to Win poison executes through the DSL")
+	_assert_true(_trace_has("assault_focus_non_weapon_slow_source"), "Assault Focus executes through the DSL")
+	_assert_true(_trace_has("neophiliac_first_poison_charge"), "Neophiliac reacts to Poison through the DSL")
+	_assert_float_eq(fang.current_cooldown, 5.0, "Neophiliac charges a real item after Poison is applied")
 	_battle_system().call("end_battle")

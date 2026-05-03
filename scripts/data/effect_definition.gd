@@ -31,6 +31,7 @@ const EFFECT_FREEZE: String = "freeze"
 const EFFECT_CHARGE: String = "charge"
 const EFFECT_RELOAD: String = "reload"
 const EFFECT_AMMO: String = "ammo"
+const EFFECT_RUNTIME_BONUS: String = "runtime_bonus"
 const EFFECT_MULTICAST: String = "multicast"
 
 const _PRIORITY_KEYWORD_MATCHERS := {
@@ -45,6 +46,7 @@ const _PRIORITY_KEYWORD_MATCHERS := {
 	EFFECT_FREEZE: ["freeze"],
 	EFFECT_CHARGE: ["charge"],
 	EFFECT_RELOAD: ["reload"],
+	EFFECT_RUNTIME_BONUS: ["gain", "gains", "have +", "has +"],
 	EFFECT_MULTICAST: ["multicast"],
 }
 
