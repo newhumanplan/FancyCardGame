@@ -17,9 +17,13 @@ func _ready() -> void:
 func _run_tests() -> void:
 	test_battle_system_uses_selected_hero_skill_set()
 	test_deadly_eye_adds_weapon_crit_bonus()
+	test_strength_and_edge_weapon_skills_add_damage_bonus()
+	test_start_skills_add_poison_and_regeneration_item_bonuses()
 	test_heated_shells_adds_burn_when_ammo_item_is_used()
+	test_lash_out_and_regenerative_apply_battle_start_statuses()
 	test_paralytic_poison_freezes_enemy_item_on_first_poison()
 	test_slow_burn_charges_a_burn_item_when_you_slow()
+	test_rush_and_pyromania_trigger_through_effect_dsl()
 
 func _battle_system() -> Node:
 	return get_node("/root/BattleSystem")
@@ -61,6 +65,12 @@ func _assert_eq(actual, expected, label: String) -> void:
 func _assert_float_eq(actual: float, expected: float, label: String, tolerance: float = 0.001) -> void:
 	_assert_true(absf(actual - expected) <= tolerance, "%s | expected=%.3f actual=%.3f" % [label, expected, actual])
 
+func _trace_has(definition_id: String) -> bool:
+	for entry in _battle_system().call("get_effect_execution_trace"):
+		if str(entry.get("definition_id", "")) == definition_id:
+			return true
+	return false
+
 func _print_summary() -> void:
 	print("SUMMARY: %d/%d passed" % [_passed, _total])
 	get_tree().quit(1 if _passed < _total else 0)
@@ -91,6 +101,37 @@ func test_deadly_eye_adds_weapon_crit_bonus() -> void:
 	_assert_float_eq(support_crit_rate, 0.05, "Deadly Eye leaves non-weapon crit rate unchanged")
 	_battle_system().call("end_battle")
 
+func test_strength_and_edge_weapon_skills_add_damage_bonus() -> void:
+	var inv: LinearInventoryClass = LinearInventoryClass.new()
+	var left_fang: ItemDataClass = _create_item("fang")
+	var right_fang: ItemDataClass = _create_item("basilisk_fang", BazaarContentClass.RARITY_GOLD)
+	_assert_true(inv.place_item(left_fang, 0), "places left weapon")
+	_assert_true(inv.place_item(right_fang, 1), "places right weapon")
+	_start_battle([
+		{"id": "strength", "tier": "Bronze"},
+		{"id": "left_handed", "tier": "Bronze"},
+		{"id": "right_handed", "tier": "Bronze"},
+	], inv)
+
+	_assert_eq(_battle_system().call("_get_player_item_skill_damage_bonus", left_fang), 30, "Strength plus Left Handed buff the leftmost weapon")
+	_assert_eq(_battle_system().call("_get_player_item_skill_damage_bonus", right_fang), 30, "Strength plus Right Handed buff the rightmost weapon")
+	_battle_system().call("end_battle")
+
+func test_start_skills_add_poison_and_regeneration_item_bonuses() -> void:
+	var inv: LinearInventoryClass = LinearInventoryClass.new()
+	var noxious_potion: ItemDataClass = _create_item("noxious_potion")
+	var quill_and_ink: ItemDataClass = _create_item("quill_and_ink")
+	_assert_true(inv.place_item(noxious_potion, 0), "places Poison item")
+	_assert_true(inv.place_item(quill_and_ink, 1), "places Regeneration item")
+	_start_battle([
+		{"id": "initial_dose", "tier": "Bronze"},
+		{"id": "vital_reserve", "tier": "Bronze"},
+	], inv)
+
+	_assert_float_eq(_battle_system().call("_get_item_runtime_bonus", noxious_potion, "poison"), 2.0, "Initial Dose buffs the leftmost Poison item at battle start")
+	_assert_float_eq(_battle_system().call("_get_item_runtime_bonus", quill_and_ink, "regeneration"), 2.0, "Vital Reserve buffs the rightmost Regeneration item at battle start")
+	_battle_system().call("end_battle")
+
 func test_heated_shells_adds_burn_when_ammo_item_is_used() -> void:
 	var inv: LinearInventoryClass = LinearInventoryClass.new()
 	var fire_potion: ItemDataClass = _create_item("fire_potion")
@@ -102,6 +143,17 @@ func test_heated_shells_adds_burn_when_ammo_item_is_used() -> void:
 	var enemy_status: Dictionary = _battle_system().call("get_status_totals", "enemy")
 	_assert_float_eq(float(enemy_status.get("burn", 0.0)), 7.0, "Heated Shells adds extra burn before the first burn decay tick")
 	_assert_eq(monster.current_hp, 92, "burn damage is processed during the same combat tick")
+	_battle_system().call("end_battle")
+
+func test_lash_out_and_regenerative_apply_battle_start_statuses() -> void:
+	var inv: LinearInventoryClass = LinearInventoryClass.new()
+	_start_battle(["lash_out", "regenerative"], inv)
+	var enemy_status: Dictionary = _battle_system().call("get_status_totals", "enemy")
+	var player_status: Dictionary = _battle_system().call("get_status_totals", "self")
+	_assert_float_eq(float(enemy_status.get("poison", 0.0)), 3.0, "Lash Out applies enemy Poison at battle start")
+	_assert_float_eq(float(player_status.get("regeneration", 0.0)), 10.0, "Regenerative applies self Regeneration at battle start")
+	_assert_true(_trace_has("lash_out_battle_start_poison"), "Lash Out battle-start trigger executes through the DSL")
+	_assert_true(_trace_has("regenerative_battle_start_regeneration"), "Regenerative battle-start trigger executes through the DSL")
 	_battle_system().call("end_battle")
 
 func test_paralytic_poison_freezes_enemy_item_on_first_poison() -> void:
@@ -141,4 +193,22 @@ func test_slow_burn_charges_a_burn_item_when_you_slow() -> void:
 
 	_battle_system().call("execute_battle_tick", 0.5)
 	_assert_float_eq(lighter.current_cooldown, 3.0, "Slow Burn charges a Burn item after a Slow trigger")
+	_battle_system().call("end_battle")
+
+func test_rush_and_pyromania_trigger_through_effect_dsl() -> void:
+	var inv: LinearInventoryClass = LinearInventoryClass.new()
+	var fang: ItemDataClass = _create_item("fang")
+	var large_item: ItemDataClass = _create_item("poppy_field", BazaarContentClass.RARITY_SILVER)
+	_assert_true(inv.place_item(fang, 0), "places Weapon target for Rush")
+	_assert_true(inv.place_item(large_item, 1), "places Large non-Weapon item for Pyromania")
+	_start_battle(["rush", "pyromania"], inv)
+	fang.current_cooldown = 5.0
+	large_item.current_cooldown = 0.0
+
+	_battle_system().call("execute_battle_tick", 0.0)
+	var enemy_status: Dictionary = _battle_system().call("get_status_totals", "enemy")
+	_assert_float_eq(large_item.current_cooldown, 8.0, "Rush hastes the highest-cooldown Weapon after the first item use")
+	_assert_float_eq(float(enemy_status.get("burn", 0.0)), 10.0, "Pyromania burns when a Large item is used")
+	_assert_true(_trace_has("rush_first_item_haste_weapon"), "Rush trigger executes through the DSL")
+	_assert_true(_trace_has("pyromania_on_large_item_burn"), "Pyromania trigger executes through the DSL")
 	_battle_system().call("end_battle")

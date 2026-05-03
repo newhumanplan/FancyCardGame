@@ -21,6 +21,9 @@ func _run_tests() -> void:
 	test_listener_traces_cover_poison_charge_shield_and_haste()
 	test_multicast_traces_execute_through_dsl()
 	test_skill_trigger_traces_execute_through_dsl()
+	test_phasec_battle_start_skills_execute_through_dsl()
+	test_phasec_item_use_skills_execute_through_dsl()
+	test_phasec_numeric_skills_affect_runtime_values()
 	test_reload_and_unsupported_warnings_are_explicit()
 
 func _battle_system() -> Node:
@@ -256,6 +259,56 @@ func test_skill_trigger_traces_execute_through_dsl() -> void:
 	_battle_system().call("execute_battle_tick", 0.0)
 	_assert_true(_trace_has("slow_burn_on_slow_charge"), "Slow Burn executes through the DSL")
 	_assert_float_eq(slow_target.current_cooldown, 3.0, "Slow Burn still charges a Burn item after a Slow trigger")
+	_battle_system().call("end_battle")
+
+func test_phasec_battle_start_skills_execute_through_dsl() -> void:
+	var inv: LinearInventoryClass = LinearInventoryClass.new()
+	_start_battle(["lash_out", "insect_bite", "regenerative", "valley_fever"], inv)
+
+	_assert_true(_trace_has("lash_out_battle_start_poison"), "Lash Out battle-start poison executes through DSL")
+	_assert_true(_trace_has("insect_bite_battle_start_self_poison"), "Insect Bite battle-start self poison executes through DSL")
+	_assert_true(_trace_has("regenerative_battle_start_regeneration"), "Regenerative battle-start regen executes through DSL")
+	_assert_true(_trace_has("valley_fever_battle_start_self_burn"), "Valley Fever battle-start self burn executes through DSL")
+	_assert_float_eq(float(_battle_system().call("get_status_totals", "enemy").get("poison", 0.0)), 3.0, "Lash Out applies enemy poison at battle start")
+	_assert_float_eq(float(_battle_system().call("get_status_totals", "self").get("poison", 0.0)), 2.0, "Insect Bite applies self poison at battle start")
+	_assert_float_eq(float(_battle_system().call("get_status_totals", "self").get("regeneration", 0.0)), 10.0, "Regenerative applies self regeneration at battle start")
+	_assert_float_eq(float(_battle_system().call("get_status_totals", "self").get("burn", 0.0)), 2.0, "Valley Fever applies self burn at battle start")
+	_battle_system().call("end_battle")
+
+func test_phasec_item_use_skills_execute_through_dsl() -> void:
+	var inv: LinearInventoryClass = LinearInventoryClass.new()
+	var fang: ItemDataClass = _create_item("fang")
+	_assert_true(inv.place_item(fang, 0), "places Fang for PhaseC item-use skill triggers")
+	var monster: MonsterDataClass = MonsterDataClass.new()
+	monster.monster_name = "Skill Trigger Trace"
+	monster.max_hp = 100
+	monster.current_hp = 100
+	monster.monster_items = [{"name": "Target Dummy", "damage": 10, "cooldown": 4.0}]
+	_start_battle(["small_refresh", "unwavering", "rust"], inv, monster)
+	var hero = _game_manager().get("selected_hero")
+	_game_manager().set("player_health", hero.max_hp - 20)
+	_set_ready(fang)
+
+	_battle_system().call("execute_battle_tick", 0.0)
+	_assert_true(_trace_has("small_refresh_on_small_item_heal"), "Small Refresh item-use heal executes through DSL")
+	_assert_true(_trace_has("unwavering_on_item_used_shield"), "Unwavering item-use shield executes through DSL")
+	_assert_true(_trace_has("rust_first_item_slow_enemy"), "Rust first-use slow executes through DSL")
+	_assert_eq(_game_manager().get("player_health"), hero.max_hp - 15, "Small Refresh heals after a small item use")
+	_assert_float_eq(hero.current_shield, 20.0, "Unwavering grants shield after item use")
+	_assert_float_eq(float(monster.monster_items[0].get("current_cooldown", 0.0)), 7.0, "Rust slows an enemy item on first item use")
+	_battle_system().call("end_battle")
+
+func test_phasec_numeric_skills_affect_runtime_values() -> void:
+	var inv: LinearInventoryClass = LinearInventoryClass.new()
+	var fire_potion: ItemDataClass = _create_item("fire_potion")
+	var fang: ItemDataClass = _create_item("fang")
+	_assert_true(inv.place_item(fire_potion, 0), "places Fire Potion for ammo skill runtime")
+	_assert_true(inv.place_item(fang, 1), "places Fang for damage skill runtime")
+	_start_battle(["gunner", "ammo_stash", "strength", "left_handed", "right_handed"], inv)
+
+	var base_ammo: int = fire_potion.ammo
+	_assert_eq(_battle_system().call("_get_player_item_effective_max_ammo", fire_potion), base_ammo + 2, "Gunner and Ammo Stash increase max ammo")
+	_assert_eq(_battle_system().call("_get_player_item_skill_damage_bonus", fang), 50, "Strength and edge-handed skills add weapon damage")
 	_battle_system().call("end_battle")
 
 func test_reload_and_unsupported_warnings_are_explicit() -> void:

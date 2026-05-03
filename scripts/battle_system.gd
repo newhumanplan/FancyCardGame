@@ -91,6 +91,7 @@ func start_battle(monster: MonsterData, inv: LinearInventory) -> void:
 	_reset_player_item_cooldowns(true)
 	_log_effect_support_warnings()
 	_apply_player_start_item_effects()
+	_apply_player_skill_battle_start_effects()
 	if current_monster != null:
 		if current_monster.ai != null:
 			current_monster.ai.apply_to_monster_items(current_monster)
@@ -524,14 +525,19 @@ func _after_player_item_used(item: ItemData, context: Dictionary) -> void:
 	var haste_events: int = int(context.get("haste_proc_count", 0))
 	if poison_events > 0:
 		_handle_player_status_reference(ItemEffectsClass.EFFECT_POISON, poison_events)
+		_apply_player_skill_status_runtime_bonuses(ItemEffectsClass.EFFECT_POISON, poison_events)
 	if burn_events > 0:
 		_handle_player_status_reference(ItemEffectsClass.EFFECT_BURN, burn_events)
+		_apply_player_skill_status_runtime_bonuses(ItemEffectsClass.EFFECT_BURN, burn_events)
 	if slow_events > 0:
 		_handle_player_status_reference(ItemEffectsClass.EFFECT_SLOW, slow_events)
+		_apply_player_skill_status_runtime_bonuses(ItemEffectsClass.EFFECT_SLOW, slow_events)
 	if freeze_events > 0:
 		_handle_player_status_reference(ItemEffectsClass.EFFECT_FREEZE, freeze_events)
+		_apply_player_skill_status_runtime_bonuses(ItemEffectsClass.EFFECT_FREEZE, freeze_events)
 	if haste_events > 0:
 		_handle_player_status_reference(ItemEffectsClass.EFFECT_HASTE, haste_events)
+		_apply_player_skill_status_runtime_bonuses(ItemEffectsClass.EFFECT_HASTE, haste_events)
 
 func _after_monster_item_used(item_index: int) -> void:
 	if current_monster == null:
@@ -589,12 +595,14 @@ func _get_player_item_effective_max_ammo(item: ItemData) -> int:
 	if item == null:
 		return 0
 	var max_ammo: int = maxi(item.ammo, 0)
-	if inventory == null or not _is_potion_item(item):
+	if not item.has_ammo_limit():
 		return max_ammo
-	var right_item: ItemData = inventory.get_right_adjacent_item(item)
-	if right_item != null and right_item.source_id == "tazidian_dagger":
-		max_ammo += int(_get_rarity_value(right_item, [1, 2, 3, 4], 1.0))
+	if inventory != null and _is_potion_item(item):
+		var right_item: ItemData = inventory.get_right_adjacent_item(item)
+		if right_item != null and right_item.source_id == "tazidian_dagger":
+			max_ammo += int(_get_rarity_value(right_item, [1, 2, 3, 4], 1.0))
 	max_ammo += int(round(_get_player_skill_value("gunner")))
+	max_ammo += int(round(_get_player_skill_value("ammo_stash")))
 	return max_ammo
 
 func _get_player_item_crit_rate(item: ItemData, hero_crit_rate: float) -> float:
@@ -1583,6 +1591,68 @@ func _apply_player_start_item_effects() -> void:
 		})
 		print("☠️ [%s] 开战时对自己施加中毒 +%d" % [item.item_name, int(poison_amount)])
 
+func _apply_player_skill_battle_start_effects() -> void:
+	_apply_player_skill_start_item_bonuses()
+	_process_reactive_effect_events([
+		_make_effect_event(EffectDefinitionClass.TRIGGER_ON_BATTLE_START, null)
+	])
+
+func _apply_player_skill_start_item_bonuses() -> void:
+	if inventory == null:
+		return
+	if _has_player_skill("initial_dose"):
+		var poison_item: ItemData = _get_edge_matching_player_item("poison", true)
+		if poison_item != null:
+			_add_item_runtime_bonus(poison_item, "poison", _get_player_skill_value("initial_dose"))
+	if _has_player_skill("vital_reserve"):
+		var regen_item: ItemData = _get_edge_matching_player_item("regeneration", false)
+		if regen_item != null:
+			_add_item_runtime_bonus(regen_item, "regeneration", _get_player_skill_value("vital_reserve"))
+
+func _get_edge_matching_player_item(selector: String, leftmost: bool) -> ItemData:
+	if inventory == null:
+		return null
+	var items: Array = inventory.items.duplicate()
+	if not leftmost:
+		items.reverse()
+	for candidate in items:
+		if candidate is ItemData and _matches_player_item_selector(candidate as ItemData, selector):
+			return candidate as ItemData
+	return null
+
+func _apply_player_skill_status_runtime_bonuses(status_type: String, trigger_count: int) -> void:
+	if inventory == null or trigger_count <= 0:
+		return
+	match status_type:
+		ItemEffectsClass.EFFECT_BURN:
+			_add_player_skill_bonus_to_items("tracer_fire", "any", "crit_rate", trigger_count)
+		ItemEffectsClass.EFFECT_POISON:
+			pass
+		ItemEffectsClass.EFFECT_REGEN:
+			_add_player_skill_bonus_to_items("purifying_flame", "burn", "burn", trigger_count)
+		ItemEffectsClass.EFFECT_SLOW:
+			_add_player_skill_bonus_to_items("slow_and_steady", "weapon", "damage", trigger_count)
+			_add_player_skill_bonus_to_items("slowed_targets", "any", "crit_rate", trigger_count)
+			_add_player_skill_bonus_to_items("trained", "weapon", "damage", trigger_count)
+		ItemEffectsClass.EFFECT_FREEZE:
+			_add_player_skill_bonus_to_items("snowstorm", "weapon", "damage", trigger_count)
+			_add_player_skill_bonus_to_items("reaching_the_summit", "any", "crit_rate", trigger_count)
+		ItemEffectsClass.EFFECT_HASTE:
+			if _has_player_skill("time_to_tinker"):
+				var hero: HeroData = null if game_manager == null else game_manager.selected_hero
+				if hero != null:
+					hero.add_shield(_get_player_skill_value("time_to_tinker") * float(trigger_count))
+
+func _add_player_skill_bonus_to_items(skill_id: String, selector: String, bonus_key: String, trigger_count: int) -> void:
+	if not _has_player_skill(skill_id) or trigger_count <= 0:
+		return
+	var bonus: float = _get_player_skill_value(skill_id) * float(trigger_count)
+	if bonus <= 0.0:
+		return
+	for candidate in inventory.items:
+		if candidate is ItemData and _matches_player_item_selector(candidate as ItemData, selector):
+			_add_item_runtime_bonus(candidate as ItemData, bonus_key, bonus)
+
 func _apply_player_skill_item_use_triggers(item: ItemData, context: Dictionary) -> void:
 	if item == null:
 		return
@@ -1641,8 +1711,16 @@ func _charge_matching_player_item(selector: String, seconds: float) -> bool:
 
 func _matches_player_item_selector(item: ItemData, selector: String) -> bool:
 	match selector:
+		"any":
+			return item != null
 		"burn":
 			return _is_burn_item(item)
+		"poison":
+			return _is_poison_item(item)
+		"regeneration":
+			return _is_regen_item(item)
+		"shield":
+			return _is_shield_item(item)
 		"weapon":
 			return _is_weapon_item(item)
 		_:
@@ -1668,9 +1746,21 @@ func _increment_skill_counter(skill_id: String, amount: int = 1) -> int:
 	return int(player_skill_counters.get(skill_id, current_value))
 
 func _get_player_item_skill_damage_bonus(item: ItemData) -> int:
-	if item == null:
+	if item == null or not _is_weapon_item(item):
 		return 0
-	return 0
+	var bonus: float = 0.0
+	bonus += _get_player_skill_value("strength")
+	if _is_edge_weapon_item(item, true):
+		bonus += _get_player_skill_value("left_handed")
+	if _is_edge_weapon_item(item, false):
+		bonus += _get_player_skill_value("right_handed")
+	return int(round(bonus))
+
+func _is_edge_weapon_item(item: ItemData, leftmost: bool) -> bool:
+	if inventory == null or item == null or not _is_weapon_item(item):
+		return false
+	var edge_weapon: ItemData = _get_edge_matching_player_item("weapon", leftmost)
+	return edge_weapon == item
 
 func _get_player_item_skill_shield_bonus(item: ItemData) -> int:
 	if item == null or item.shield <= 0:
@@ -1846,6 +1936,9 @@ func _is_burn_item(item: ItemData) -> bool:
 
 func _is_regen_item(item: ItemData) -> bool:
 	return item != null and (_item_has_tag(item, "Regen") or item.regeneration > 0.0 or _get_item_runtime_bonus(item, "regeneration") > 0.0)
+
+func _is_shield_item(item: ItemData) -> bool:
+	return item != null and (_item_has_tag(item, "Shield") or item.shield > 0)
 
 func _item_has_tag(item: ItemData, tag: String) -> bool:
 	if item == null:

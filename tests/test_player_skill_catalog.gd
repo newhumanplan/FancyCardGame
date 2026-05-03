@@ -14,7 +14,9 @@ func _ready() -> void:
 
 func _run_tests() -> void:
 	test_registered_skill_ids_have_explicit_catalog_status()
-	test_registered_skill_expectations_match_phase1_runtime()
+	test_registered_skill_expectations_match_runtime()
+	test_runtime_coverage_reaches_phase_c_target()
+	test_priority_skill_effect_definitions_are_explicit()
 	test_known_wiki_skills_are_never_unknown()
 	test_deadly_eye_and_gunner_tier_values_match_runtime_expectations()
 
@@ -62,19 +64,19 @@ func test_registered_skill_ids_have_explicit_catalog_status() -> void:
 			"registered skill has explicit catalog coverage: %s" % skill_id
 		)
 
-func test_registered_skill_expectations_match_phase1_runtime() -> void:
+func test_registered_skill_expectations_match_runtime() -> void:
 	var report: Dictionary = PlayerSkillCatalogClass.get_coverage_report()
 	var implemented_registered_ids: Array = report.get("implemented_registered_ids", [])
 	var unsupported_registered_ids: Array = report.get("unsupported_registered_ids", [])
 	_assert_eq(
 		implemented_registered_ids,
 		["deadly_eye", "fiery", "improved_toxins", "keen_eye", "large_appetites", "quick_defenses", "toughness"],
-		"Phase1 registered skill implementations are the validated runtime-backed set"
+		"registered skill implementations remain the validated runtime-backed set"
 	)
 	_assert_eq(
 		unsupported_registered_ids,
 		["initial_chill"],
-		"Phase1 leaves only Initial Chill explicitly unsupported from skills_config"
+		"registered skill coverage leaves only Initial Chill explicitly unsupported from skills_config"
 	)
 	var initial_chill: Dictionary = PlayerSkillCatalogClass.get_skill_entry("initial_chill")
 	_assert_eq(
@@ -82,6 +84,70 @@ func test_registered_skill_expectations_match_phase1_runtime() -> void:
 		"phase1_freeze_bonus_runtime_not_verified",
 		"Initial Chill unsupported reason is explicit"
 	)
+
+func test_runtime_coverage_reaches_phase_c_target() -> void:
+	var report: Dictionary = PlayerSkillCatalogClass.get_coverage_report()
+	var implemented_ids: Array = report.get("implemented_ids", [])
+	_assert_true(
+		int(report.get("implemented_count", 0)) >= 35,
+		"PhaseC runtime-backed skill count reaches at least 35"
+	)
+	for skill_id in [
+		"ammo_stash",
+		"heated_shells",
+		"initial_dose",
+		"invigorating_cold",
+		"lash_out",
+		"left_handed",
+		"paralytic_poison",
+		"poison_tyrant",
+		"pyromania",
+		"rush",
+		"slow_burn",
+		"strength",
+		"time_to_tinker",
+		"unwavering",
+		"vital_reserve",
+	]:
+		_assert_true(
+			implemented_ids.has(skill_id),
+			"PhaseC priority skill is runtime-backed: %s" % skill_id
+		)
+
+func test_priority_skill_effect_definitions_are_explicit() -> void:
+	var expected_definitions := {
+		"heated_shells": "heated_shells_on_ammo_burn",
+		"insect_bite": "insect_bite_battle_start_self_poison",
+		"invigorating_cold": "invigorating_cold_on_freeze_haste_items",
+		"lash_out": "lash_out_battle_start_poison",
+		"paralytic_poison": "paralytic_poison_on_first_poison_freeze",
+		"poison_tyrant": "poison_tyrant_on_poison_regeneration",
+		"pyromania": "pyromania_on_large_item_burn",
+		"regenerative": "regenerative_battle_start_regeneration",
+		"rush": "rush_first_item_haste_weapon",
+		"rust": "rust_first_item_slow_enemy",
+		"shored_up": "shored_up_on_heal_charge_shield_item",
+		"slow_burn": "slow_burn_on_slow_charge",
+		"small_refresh": "small_refresh_on_small_item_heal",
+		"time_to_tinker": "time_to_tinker_on_haste_shield",
+		"tools_of_the_trade": "tools_of_the_trade_on_tool_haste_tool",
+		"toxic_friendship": "toxic_friendship_on_friend_poison",
+		"trickle_down_economics": "trickle_down_economics_on_large_item_haste",
+		"unwavering": "unwavering_on_item_used_shield",
+		"valley_fever": "valley_fever_battle_start_self_burn",
+		"void_energy": "void_energy_on_burn_charge_shield_item",
+		"void_rage": "void_rage_on_burn_haste_item",
+		"warm_hugs": "warm_hugs_on_friend_burn",
+	}
+	for skill_id in expected_definitions.keys():
+		var definitions: Array[Dictionary] = PlayerSkillCatalogClass.get_effect_definitions(skill_id)
+		var definition_ids: Array[String] = []
+		for definition in definitions:
+			definition_ids.append(str(definition.get("id", "")))
+		_assert_true(
+			definition_ids.has(str(expected_definitions[skill_id])),
+			"PhaseC trigger skill has explicit DSL definition: %s" % skill_id
+		)
 
 func test_known_wiki_skills_are_never_unknown() -> void:
 	var report: Dictionary = PlayerSkillCatalogClass.get_coverage_report()

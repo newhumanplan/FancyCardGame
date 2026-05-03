@@ -33,6 +33,11 @@ const _NUMERIC_SKILL_RULES := {
 		"starting_tier": "silver",
 		"build_skill_data": false,
 	},
+	"ammo_stash": {
+		"values": [1.0, 2.0, 3.0],
+		"starting_tier": "silver",
+		"build_skill_data": false,
+	},
 	"improved_toxins": {
 		"effect_type": SkillDataClass.EffectType.POISON,
 		"values": [1.0, 2.0, 3.0, 4.0],
@@ -58,6 +63,66 @@ const _NUMERIC_SKILL_RULES := {
 		"values": [500.0, 1000.0, 1500.0, 2000.0],
 		"starting_tier": "bronze",
 	},
+	"strength": {
+		"values": [10.0, 15.0, 20.0, 25.0],
+		"starting_tier": "bronze",
+		"build_skill_data": false,
+	},
+	"left_handed": {
+		"values": [20.0, 30.0, 40.0, 50.0],
+		"starting_tier": "bronze",
+		"build_skill_data": false,
+	},
+	"right_handed": {
+		"values": [20.0, 30.0, 40.0, 50.0],
+		"starting_tier": "bronze",
+		"build_skill_data": false,
+	},
+	"initial_dose": {
+		"values": [2.0, 4.0, 6.0, 8.0],
+		"starting_tier": "bronze",
+		"build_skill_data": false,
+	},
+	"vital_reserve": {
+		"values": [2.0, 4.0, 6.0, 8.0],
+		"starting_tier": "bronze",
+		"build_skill_data": false,
+	},
+	"reaching_the_summit": {
+		"values": [3.0, 6.0],
+		"starting_tier": "gold",
+		"build_skill_data": false,
+	},
+	"purifying_flame": {
+		"values": [1.0, 2.0],
+		"starting_tier": "gold",
+		"build_skill_data": false,
+	},
+	"slow_and_steady": {
+		"values": [2.0, 4.0, 6.0],
+		"starting_tier": "silver",
+		"build_skill_data": false,
+	},
+	"slowed_targets": {
+		"values": [1.0, 2.0, 3.0],
+		"starting_tier": "silver",
+		"build_skill_data": false,
+	},
+	"snowstorm": {
+		"values": [2.0, 4.0, 6.0, 8.0],
+		"starting_tier": "bronze",
+		"build_skill_data": false,
+	},
+	"tracer_fire": {
+		"values": [1.0, 2.0, 3.0],
+		"starting_tier": "silver",
+		"build_skill_data": false,
+	},
+	"trained": {
+		"values": [5.0, 10.0, 15.0, 20.0],
+		"starting_tier": "bronze",
+		"build_skill_data": false,
+	},
 }
 
 const _TRIGGER_SKILL_RULES := {
@@ -65,15 +130,36 @@ const _TRIGGER_SKILL_RULES := {
 		"values": [2.0, 3.0, 4.0],
 		"starting_tier": "silver",
 	},
+	"insect_bite": {"values": [2.0], "starting_tier": "diamond"},
+	"invigorating_cold": {"values": [2.0], "counts": [1.0, 2.0, 3.0], "starting_tier": "silver"},
+	"lash_out": {"values": [3.0, 6.0, 9.0, 12.0], "starting_tier": "bronze"},
 	"paralytic_poison": {
 		"values": [2.0, 3.0, 4.0],
 		"starting_tier": "silver",
 	},
+	"paralyzing_rush": {"values": [1.0, 2.0], "starting_tier": "gold"},
+	"poison_tyrant": {"values": [2.0, 4.0, 6.0, 8.0], "starting_tier": "bronze"},
+	"pyromania": {"values": [10.0, 15.0], "starting_tier": "gold"},
+	"regenerative": {"values": [10.0, 20.0, 30.0], "starting_tier": "silver"},
+	"rush": {"values": [3.0, 4.0, 5.0, 6.0], "starting_tier": "bronze"},
+	"rust": {"values": [3.0, 4.0, 5.0, 6.0], "starting_tier": "bronze"},
+	"shored_up": {"values": [1.0], "starting_tier": "diamond"},
 	"slow_burn": {
 		"limits": [5.0, 10.0],
 		"charge_seconds": [1.0, 1.0],
 		"starting_tier": "gold",
 	},
+	"small_refresh": {"values": [5.0, 10.0, 15.0, 20.0], "starting_tier": "bronze"},
+	"thick_hide": {"values": [1.0], "starting_tier": "diamond"},
+	"time_to_tinker": {"values": [10.0, 20.0, 30.0, 40.0], "starting_tier": "bronze"},
+	"tools_of_the_trade": {"values": [1.0, 1.0], "limits": [5.0, 10.0], "starting_tier": "gold"},
+	"toxic_friendship": {"values": [1.0, 2.0], "starting_tier": "gold"},
+	"trickle_down_economics": {"values": [3.0, 4.0], "starting_tier": "gold"},
+	"unwavering": {"values": [20.0, 40.0], "starting_tier": "gold"},
+	"valley_fever": {"values": [2.0], "starting_tier": "diamond"},
+	"void_energy": {"values": [1.0], "starting_tier": "diamond"},
+	"void_rage": {"values": [1.0, 2.0], "starting_tier": "gold"},
+	"warm_hugs": {"values": [2.0, 3.0], "starting_tier": "gold"},
 }
 
 const _EXPLICIT_UNSUPPORTED_SKILL_RULES := {
@@ -189,46 +275,75 @@ static func get_effect_definitions(skill_ref: Variant) -> Array[Dictionary]:
 	var skill_id: String = str(resolved.get("id", ""))
 	match skill_id:
 		"heated_shells":
-			return [{
-				"id": "heated_shells_on_ammo_burn",
-				"trigger": EffectDefinitionClass.TRIGGER_ON_ITEM_USED,
-				"condition": {"event_source_has_ammo": true},
-				"target": {"side": "enemy", "selector": "hero"},
-				"effect": {
-					"type": EffectDefinitionClass.EFFECT_BURN,
-					"amount": get_tier_value(resolved),
-				},
-			}]
+			return [_skill_definition("heated_shells_on_ammo_burn", EffectDefinitionClass.TRIGGER_ON_ITEM_USED, EffectDefinitionClass.EFFECT_BURN, get_tier_value(resolved), {"side": "enemy", "selector": "hero"}, {"event_source_has_ammo": true})]
+		"insect_bite":
+			return [_skill_definition("insect_bite_battle_start_self_poison", EffectDefinitionClass.TRIGGER_ON_BATTLE_START, EffectDefinitionClass.EFFECT_POISON, get_tier_value(resolved), {"side": "self", "selector": "hero"})]
+		"invigorating_cold":
+			return [_skill_definition("invigorating_cold_on_freeze_haste_items", EffectDefinitionClass.TRIGGER_ON_ENEMY_STATUS_APPLIED, EffectDefinitionClass.EFFECT_HASTE, get_tier_value(resolved), {"side": "self", "selector": "slowest_items", "count": int(round(get_tier_value(resolved, "counts")))}, {"status_type": EffectDefinitionClass.EFFECT_FREEZE}, 1)]
+		"lash_out":
+			return [_skill_definition("lash_out_battle_start_poison", EffectDefinitionClass.TRIGGER_ON_BATTLE_START, EffectDefinitionClass.EFFECT_POISON, get_tier_value(resolved), {"side": "enemy", "selector": "hero"})]
 		"paralytic_poison":
-			return [{
-				"id": "paralytic_poison_on_first_poison_freeze",
-				"trigger": EffectDefinitionClass.TRIGGER_ON_ENEMY_STATUS_APPLIED,
-				"condition": {"status_type": EffectDefinitionClass.EFFECT_POISON},
-				"target": {"side": "enemy", "selector": "slowest_items", "count": 1},
-				"effect": {
-					"type": EffectDefinitionClass.EFFECT_FREEZE,
-					"amount": get_tier_value(resolved),
-				},
-				"max_triggers_per_fight": 1,
-			}]
+			return [_skill_definition("paralytic_poison_on_first_poison_freeze", EffectDefinitionClass.TRIGGER_ON_ENEMY_STATUS_APPLIED, EffectDefinitionClass.EFFECT_FREEZE, get_tier_value(resolved), {"side": "enemy", "selector": "slowest_items", "count": 1}, {"status_type": EffectDefinitionClass.EFFECT_POISON}, 1)]
+		"paralyzing_rush":
+			return [_skill_definition("paralyzing_rush_on_slow_haste_weapon", EffectDefinitionClass.TRIGGER_ON_ENEMY_STATUS_APPLIED, EffectDefinitionClass.EFFECT_HASTE, get_tier_value(resolved), {"side": "self", "selector": "matching_tag_highest_cooldown", "tag": "Weapon", "count": 1}, {"status_type": EffectDefinitionClass.EFFECT_SLOW})]
+		"poison_tyrant":
+			return [_skill_definition("poison_tyrant_on_poison_regeneration", EffectDefinitionClass.TRIGGER_ON_ENEMY_STATUS_APPLIED, EffectDefinitionClass.EFFECT_REGENERATION, get_tier_value(resolved), {"side": "self", "selector": "hero"}, {"status_type": EffectDefinitionClass.EFFECT_POISON})]
+		"pyromania":
+			return [_skill_definition("pyromania_on_large_item_burn", EffectDefinitionClass.TRIGGER_ON_ITEM_USED, EffectDefinitionClass.EFFECT_BURN, get_tier_value(resolved), {"side": "enemy", "selector": "hero"}, {"event_source_size": "large"})]
+		"regenerative":
+			return [_skill_definition("regenerative_battle_start_regeneration", EffectDefinitionClass.TRIGGER_ON_BATTLE_START, EffectDefinitionClass.EFFECT_REGENERATION, get_tier_value(resolved), {"side": "self", "selector": "hero"})]
+		"rush":
+			return [_skill_definition("rush_first_item_haste_weapon", EffectDefinitionClass.TRIGGER_ON_ITEM_USED, EffectDefinitionClass.EFFECT_HASTE, get_tier_value(resolved), {"side": "self", "selector": "matching_tag_highest_cooldown", "tag": "Weapon", "count": 1}, {}, 1)]
+		"rust":
+			return [_skill_definition("rust_first_item_slow_enemy", EffectDefinitionClass.TRIGGER_ON_ITEM_USED, EffectDefinitionClass.EFFECT_SLOW, get_tier_value(resolved), {"side": "enemy", "selector": "slowest_items", "count": 1}, {}, 1)]
+		"shored_up":
+			return [_skill_definition("shored_up_on_heal_charge_shield_item", EffectDefinitionClass.TRIGGER_ON_HEAL, EffectDefinitionClass.EFFECT_CHARGE, get_tier_value(resolved), {"side": "self", "selector": "matching_tag_highest_cooldown", "tag": "Shield", "count": 1})]
 		"slow_burn":
-			return [{
-				"id": "slow_burn_on_slow_charge",
-				"trigger": EffectDefinitionClass.TRIGGER_ON_ENEMY_STATUS_APPLIED,
-				"condition": {"status_type": EffectDefinitionClass.EFFECT_SLOW},
-				"target": {
-					"side": "self",
-					"selector": "matching_tag_highest_cooldown",
-					"tag": "Burn",
-					"count": 1,
-				},
-				"effect": {
-					"type": EffectDefinitionClass.EFFECT_CHARGE,
-					"amount": get_tier_value(resolved, "charge_seconds"),
-				},
-				"max_triggers_per_fight": int(round(get_tier_value(resolved, "limits"))),
-			}]
+			return [_skill_definition("slow_burn_on_slow_charge", EffectDefinitionClass.TRIGGER_ON_ENEMY_STATUS_APPLIED, EffectDefinitionClass.EFFECT_CHARGE, get_tier_value(resolved, "charge_seconds"), {"side": "self", "selector": "matching_tag_highest_cooldown", "tag": "Burn", "count": 1}, {"status_type": EffectDefinitionClass.EFFECT_SLOW}, int(round(get_tier_value(resolved, "limits"))))]
+		"small_refresh":
+			return [_skill_definition("small_refresh_on_small_item_heal", EffectDefinitionClass.TRIGGER_ON_ITEM_USED, EffectDefinitionClass.EFFECT_HEAL, get_tier_value(resolved), {"side": "self", "selector": "hero"}, {"event_source_size": "small"})]
+		"thick_hide":
+			return [_skill_definition("thick_hide_on_slow_charge_item", EffectDefinitionClass.TRIGGER_ON_ENEMY_STATUS_APPLIED, EffectDefinitionClass.EFFECT_CHARGE, get_tier_value(resolved), {"side": "self", "selector": "slowest_items", "count": 1}, {"status_type": EffectDefinitionClass.EFFECT_SLOW})]
+		"time_to_tinker":
+			return [_skill_definition("time_to_tinker_on_haste_shield", EffectDefinitionClass.TRIGGER_ON_ENEMY_STATUS_APPLIED, EffectDefinitionClass.EFFECT_SHIELD, get_tier_value(resolved), {"side": "self", "selector": "hero"}, {"status_type": EffectDefinitionClass.EFFECT_HASTE})]
+		"tools_of_the_trade":
+			return [_skill_definition("tools_of_the_trade_on_tool_haste_tool", EffectDefinitionClass.TRIGGER_ON_TAG_USED, EffectDefinitionClass.EFFECT_HASTE, get_tier_value(resolved), {"side": "self", "selector": "matching_tag_highest_cooldown", "tag": "Tool", "count": 1}, {"tag": "Tool"}, int(round(get_tier_value(resolved, "limits"))))]
+		"toxic_friendship":
+			return [_skill_definition("toxic_friendship_on_friend_poison", EffectDefinitionClass.TRIGGER_ON_TAG_USED, EffectDefinitionClass.EFFECT_POISON, get_tier_value(resolved), {"side": "enemy", "selector": "hero"}, {"tag": "Friend"})]
+		"trickle_down_economics":
+			return [_skill_definition("trickle_down_economics_on_large_item_haste", EffectDefinitionClass.TRIGGER_ON_ITEM_USED, EffectDefinitionClass.EFFECT_HASTE, get_tier_value(resolved), {"side": "self", "selector": "slowest_other_items", "count": 1}, {"event_source_size": "large"})]
+		"unwavering":
+			return [_skill_definition("unwavering_on_item_used_shield", EffectDefinitionClass.TRIGGER_ON_ITEM_USED, EffectDefinitionClass.EFFECT_SHIELD, get_tier_value(resolved), {"side": "self", "selector": "hero"})]
+		"valley_fever":
+			return [_skill_definition("valley_fever_battle_start_self_burn", EffectDefinitionClass.TRIGGER_ON_BATTLE_START, EffectDefinitionClass.EFFECT_BURN, get_tier_value(resolved), {"side": "self", "selector": "hero"})]
+		"void_energy":
+			return [_skill_definition("void_energy_on_burn_charge_shield_item", EffectDefinitionClass.TRIGGER_ON_ENEMY_STATUS_APPLIED, EffectDefinitionClass.EFFECT_CHARGE, get_tier_value(resolved), {"side": "self", "selector": "matching_tag_highest_cooldown", "tag": "Shield", "count": 1}, {"status_type": EffectDefinitionClass.EFFECT_BURN})]
+		"void_rage":
+			return [_skill_definition("void_rage_on_burn_haste_item", EffectDefinitionClass.TRIGGER_ON_ENEMY_STATUS_APPLIED, EffectDefinitionClass.EFFECT_HASTE, get_tier_value(resolved), {"side": "self", "selector": "slowest_items", "count": 1}, {"status_type": EffectDefinitionClass.EFFECT_BURN})]
+		"warm_hugs":
+			return [_skill_definition("warm_hugs_on_friend_burn", EffectDefinitionClass.TRIGGER_ON_TAG_USED, EffectDefinitionClass.EFFECT_BURN, get_tier_value(resolved), {"side": "enemy", "selector": "hero"}, {"tag": "Friend"})]
 	return []
+
+static func _skill_definition(
+	definition_id: String,
+	trigger: String,
+	effect_type: String,
+	amount: float,
+	target: Dictionary,
+	condition: Dictionary = {},
+	max_triggers_per_fight: int = 0
+) -> Dictionary:
+	var definition: Dictionary = {
+		"id": definition_id,
+		"trigger": trigger,
+		"target": target,
+		"effect": {"type": effect_type, "amount": amount},
+	}
+	if not condition.is_empty():
+		definition["condition"] = condition
+	if max_triggers_per_fight > 0:
+		definition["max_triggers_per_fight"] = max_triggers_per_fight
+	return definition
 
 static func get_effect_warnings(skill_ref: Variant) -> Array[String]:
 	var resolved: Dictionary = _resolve_catalog_entry(skill_ref)
