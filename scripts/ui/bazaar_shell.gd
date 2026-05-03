@@ -394,6 +394,7 @@ func _add_upper_placeholder(text: String) -> void:
 
 func _clear_children(node: Node) -> void:
 	for child in node.get_children():
+		node.remove_child(child)
 		child.queue_free()
 
 func _on_option_pressed(index: int) -> void:

@@ -15,6 +15,7 @@ const ItemAcquisitionClass = preload("res://scripts/data/item_acquisition.gd")
 const BazaarContentClass = preload("res://scripts/data/bazaar_content.gd")
 const PvpGhostServiceClass = preload("res://scripts/services/pvp_ghost_service.gd")
 const GhostSnapshotEditorClass = preload("res://scripts/ui/ghost_snapshot_editor.gd")
+const FUTURA_ART_PATH: String = "res://assets/art/events/wiki/futura.png"
 
 ## 玩家背包引用（指向 InventoryUI 的 inventory，避免两套独立系统）
 var player_inventory: LinearInventoryClass = null  # 已废弃，改用 $InventoryUI.get_inventory()
@@ -95,6 +96,7 @@ var is_in_hero_selection: bool = true
 var current_event_type: String = ""
 var active_merchant_view: Control = null
 var active_ghost_editor: Control = null
+var _active_special_choice_mode: String = ""
 
 func _ready() -> void:
 	# 隐藏全屏UI（避免遮挡英雄选择）
@@ -323,6 +325,9 @@ func _on_event_option_3_selected() -> void:
 	_handle_event_selection_by_index(2)
 
 func _handle_event_selection_by_index(index: int) -> void:
+	if _has_active_special_choice():
+		_handle_special_choice_by_index(index)
+		return
 	# 通知 GameFlow 记录选择
 	GameFlowService.handle_event_selection(index)
 	var event_type: String = GameFlowService.get_event_type_at(index)
@@ -340,6 +345,39 @@ func _handle_event_selection_by_index(index: int) -> void:
 			_execute_random_event()
 		_:
 			_execute_random_event()
+
+func _has_active_special_choice() -> bool:
+	return not _active_special_choice_mode.is_empty()
+
+func _show_special_choice(options: Array[Dictionary], mode: String) -> void:
+	_active_special_choice_mode = mode
+	bazaar_shell.show_run_shell()
+	bazaar_shell.refresh_static_panels()
+	active_merchant_view = null
+	if hero_bar_layer:
+		hero_bar_layer.visible = true
+	event_panel.visible = false
+	bazaar_shell.show_time_select(options)
+	_refresh_shell_editor_action()
+
+func _handle_special_choice_by_index(index: int) -> void:
+	var special_mode: String = _active_special_choice_mode
+	if special_mode.is_empty():
+		return
+	_hide_event_panel()
+	_clear_special_choice_mode()
+	match special_mode:
+		"futura_last_chance":
+			match index:
+				0:
+					_on_futura_bounty()
+				1:
+					_on_futura_crossroads()
+				2:
+					_on_futura_legacy()
+
+func _clear_special_choice_mode() -> void:
+	_active_special_choice_mode = ""
 
 ## ============ 事件执行 ============
 
@@ -840,30 +878,32 @@ func _on_ghost_editor_validation_failed(errors: Array[String]) -> void:
 ## ============ Futura 事件系统 ============
 
 func _on_futura_triggered() -> void:
-	_hide_event_panel()
-	# 用现有 EventPanel 显示3个 Futura 选项
-	event_option_1.text = "🔮 Fate's Bounty: +20 Gold"
-	event_option_1.visible = true
-	event_option_2.text = "🔮 Fate's Crossroads: 随机附魔"
-	event_option_2.visible = true
-	event_option_3.text = "🔮 Fate's Legacy: 升级铜/银物品到金级"
-	event_option_3.visible = true
-	# 临时替换按钮回调为 Futura 选项
-	if event_option_1.pressed.is_connected(_on_event_option_1_selected):
-		event_option_1.pressed.disconnect(_on_event_option_1_selected)
-	if event_option_2.pressed.is_connected(_on_event_option_2_selected):
-		event_option_2.pressed.disconnect(_on_event_option_2_selected)
-	if event_option_3.pressed.is_connected(_on_event_option_3_selected):
-		event_option_3.pressed.disconnect(_on_event_option_3_selected)
-	event_option_1.pressed.connect(_on_futura_bounty)
-	event_option_2.pressed.connect(_on_futura_crossroads)
-	event_option_3.pressed.connect(_on_futura_legacy)
+	var options: Array[Dictionary] = [
+		{
+			"text": "Fate's Bounty",
+			"summary": "+20 Gold",
+			"type": "special_event",
+			"art_path": FUTURA_ART_PATH,
+		},
+		{
+			"text": "Fate's Crossroads",
+			"summary": "随机附魔",
+			"type": "special_event",
+			"art_path": FUTURA_ART_PATH,
+		},
+		{
+			"text": "Fate's Legacy",
+			"summary": "升级铜/银物品到金级",
+			"type": "special_event",
+			"art_path": FUTURA_ART_PATH,
+		},
+	]
+	_show_special_choice(options, "futura_last_chance")
 	print("⭐ Futura 事件触发!")
 
 func _on_futura_bounty() -> void:
 	GameManager.add_gold(20)
 	print("🔮 Fate's Bounty: +20 Gold")
-	_restore_event_connections()
 	_auto_advance_hour()
 
 func _on_futura_crossroads() -> void:
@@ -871,7 +911,6 @@ func _on_futura_crossroads() -> void:
 	if GameManager.selected_hero:
 		GameManager.selected_hero.crit_chance += 0.03
 	print("🔮 Fate's Crossroads: 随机附魔 (暴击+3%%)")
-	_restore_event_connections()
 	_auto_advance_hour()
 
 func _on_futura_legacy() -> void:
@@ -879,23 +918,7 @@ func _on_futura_legacy() -> void:
 	if GameManager.selected_hero:
 		GameManager.selected_hero.crit_chance += 0.05
 	print("🔮 Fate's Legacy: 升级物品品质 (暴击+5%%)")
-	_restore_event_connections()
 	_auto_advance_hour()
-
-func _restore_event_connections() -> void:
-	event_panel.visible = false
-	if event_option_1.pressed.is_connected(_on_futura_bounty):
-		event_option_1.pressed.disconnect(_on_futura_bounty)
-	if event_option_2.pressed.is_connected(_on_futura_crossroads):
-		event_option_2.pressed.disconnect(_on_futura_crossroads)
-	if event_option_3.pressed.is_connected(_on_futura_legacy):
-		event_option_3.pressed.disconnect(_on_futura_legacy)
-	if not event_option_1.pressed.is_connected(_on_event_option_1_selected):
-		event_option_1.pressed.connect(_on_event_option_1_selected)
-	if not event_option_2.pressed.is_connected(_on_event_option_2_selected):
-		event_option_2.pressed.connect(_on_event_option_2_selected)
-	if not event_option_3.pressed.is_connected(_on_event_option_3_selected):
-		event_option_3.pressed.connect(_on_event_option_3_selected)
 
 ## ============ 按钮回调（备用） ============
 
