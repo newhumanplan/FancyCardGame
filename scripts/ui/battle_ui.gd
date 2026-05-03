@@ -795,7 +795,7 @@ func _create_pvp_player_bar() -> void:
 	var hero_avatar: TextureRect = TextureRect.new()
 	hero_avatar.name = "HeroAvatar"
 	var hero_path := PVP_AVATAR_WARRIOR
-	if GameManager.selected_hero != null and GameManager.selected_hero.hero_type == 1:
+	if game_manager != null and game_manager.selected_hero != null and game_manager.selected_hero.hero_type == 1:
 		hero_path = PVP_AVATAR_MAGE
 	hero_avatar.texture = load(hero_path)
 	hero_avatar.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
