@@ -95,6 +95,8 @@ var is_pvp: bool = false
 ## 战斗结果缓存
 var _last_battle_won: bool = false
 var _last_gold_reward: int = 0
+var _battle_log_messages: Array[String] = []
+var _last_replay_summary: Dictionary = {}
 
 ## 战斗状态
 var is_battle_active: bool = false
@@ -231,6 +233,8 @@ func _on_effect_applied(item_name: String, effect_type: String, value: int, targ
 func start_battle(monster: MonsterDataClass = null, pvp: bool = false, enemy_atk_bonus: int = 0) -> void:
 	is_pvp = pvp
 	current_ghost_snapshot = null
+	_battle_log_messages.clear()
+	_last_replay_summary.clear()
 	battle_timer = 0.0
 	elapsed_since_last_tick = 0.0
 	_pvp_resize_timer = 0.0
@@ -1762,6 +1766,7 @@ func _update_hp_bar_color(hp_bar: ProgressBar) -> void:
 ## ============ 日志 ============
 
 func _log(message: String) -> void:
+	_battle_log_messages.append(message)
 	if pvp_battle_log != null:
 		pvp_battle_log.append_text(message + "\n")
 		pvp_battle_log.scroll_to_line(pvp_battle_log.get_line_count() - 1)
@@ -1797,6 +1802,7 @@ func _on_battle_win() -> void:
 		continue_button.visible = true
 
 	_log("🎉 战斗胜利!")
+	_capture_replay_summary(true, "opponent_defeated")
 	battle_system.end_battle()
 	_update_pvp_cooldown_overlays()
 	if inventory != null:
@@ -1823,6 +1829,7 @@ func _on_battle_lose() -> void:
 		continue_button.visible = true
 
 	_log("💀 战斗失败!")
+	_capture_replay_summary(false, "player_defeated")
 	battle_system.end_battle()
 	_update_pvp_cooldown_overlays()
 	if inventory != null:
@@ -1834,6 +1841,33 @@ func _on_continue_pressed() -> void:
 
 func get_battle_system() -> Node:
 	return battle_system
+
+func get_last_replay_summary() -> Dictionary:
+	return _last_replay_summary.duplicate(true)
+
+func _capture_replay_summary(won: bool, result_reason: String) -> void:
+	if not is_pvp:
+		_last_replay_summary.clear()
+		return
+	var trace: Array = []
+	if battle_system != null and battle_system.has_method("get_effect_execution_trace"):
+		trace = battle_system.call("get_effect_execution_trace")
+	var player_health: int = 0
+	var player_shield: float = 0.0
+	if game_manager != null:
+		player_health = int(game_manager.get("player_health"))
+		if game_manager.selected_hero != null:
+			player_shield = float(game_manager.selected_hero.get("current_shield"))
+	_last_replay_summary = PvpGhostServiceClass.build_battle_replay_summary(
+		current_ghost_snapshot,
+		current_monster,
+		trace,
+		_battle_log_messages,
+		won,
+		result_reason,
+		player_health,
+		player_shield
+	)
 
 ## ============ PvP 辅助 ============
 

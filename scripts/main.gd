@@ -677,6 +677,24 @@ func _start_battle() -> void:
 
 	print("开始怪物战斗!")
 
+func _summarize_pvp_match_report(match_report: Dictionary) -> Dictionary:
+	var snapshot = match_report.get("snapshot", null)
+	var snapshot_id: String = ""
+	if snapshot != null:
+		snapshot_id = str(snapshot.get("snapshot_id"))
+	return {
+		"snapshot_id": snapshot_id,
+		"source": str(match_report.get("source", "")),
+		"fallback_reason": str(match_report.get("fallback_reason", match_report.get("local_fallback_reason", ""))),
+		"local_fallback_reason": str(match_report.get("local_fallback_reason", "")),
+		"match_score": int(match_report.get("match_score", 0)),
+		"power_band_match": bool(match_report.get("power_band_match", false)),
+		"candidate_count": int(match_report.get("candidate_count", 0)),
+		"rotation_band_count": int(match_report.get("rotation_band_count", 0)),
+		"target_profile": match_report.get("target_profile", {}),
+		"selected_profile": match_report.get("selected_profile", {}),
+	}
+
 func _start_pvp_battle() -> void:
 	if GameManager.selected_hero == null:
 		print("错误: 未选择英雄!")
@@ -697,15 +715,18 @@ func _start_pvp_battle() -> void:
 	if not bool(saved_snapshot.get("success", false)):
 		push_warning("PvP local player snapshot capture failed: %s" % JSON.stringify(saved_snapshot.get("errors", [])))
 
-	var snapshot = PvpGhostServiceClass.pick_snapshot_for_day(
-		GameManager.current_day,
+	var match_report: Dictionary = PvpGhostServiceClass.pick_snapshot_for_opponent(
+		player_snapshot,
 		PvpGhostServiceClass.DEFAULT_CURATED_PATH,
-		player_snapshot.power_score,
 		PvpGhostServiceClass.DEFAULT_LOCAL_PLAYTEST_DIR,
 		player_snapshot.snapshot_id
 	)
+	var snapshot = match_report.get("snapshot", null)
 	if snapshot != null and not snapshot.snapshot_id.is_empty():
+		print("PvP ghost match: %s" % JSON.stringify(_summarize_pvp_match_report(match_report)))
 		battle_ui.start_ghost_battle(snapshot)
+		if battle_ui.current_monster != null:
+			battle_ui.current_monster.reward["match_report"] = _summarize_pvp_match_report(match_report)
 	else:
 		var enemy_bonus = randi() % 5 + 1
 		battle_ui.start_battle(null, true, enemy_bonus)
@@ -725,6 +746,14 @@ func _on_battle_ended(won: bool, gold_reward: int) -> void:
 		_get_stash_inventory()
 	)
 	var settled_gold: int = int(result.get("gold_reward", gold_reward))
+	if battle_ui.is_pvp and battle_ui.has_method("get_last_replay_summary"):
+		var replay_summary: Dictionary = battle_ui.call("get_last_replay_summary")
+		if not replay_summary.is_empty():
+			var saved_replay: Dictionary = PvpGhostServiceClass.save_battle_replay_summary(replay_summary)
+			if bool(saved_replay.get("success", false)):
+				print("PvP replay summary saved: %s" % str(saved_replay.get("path", "")))
+			else:
+				push_warning("PvP replay summary save failed: %s" % JSON.stringify(saved_replay.get("errors", [])))
 	print("战斗结束: 胜利=%s, 金币=%d" % [won, settled_gold])
 	_update_ui()
 	if bool(result.get("run_won", false)):

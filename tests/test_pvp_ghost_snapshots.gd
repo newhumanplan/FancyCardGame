@@ -20,8 +20,11 @@ func _run_tests() -> void:
 	test_seed_pool_loads_days_1_to_10()
 	test_power_score_is_roughly_monotonic_by_day()
 	test_local_playtest_snapshot_files_validate_as_ghost_schema()
+	test_power_profile_and_index_include_match_dimensions()
+	test_local_match_report_scores_and_rotates_same_band_candidates()
 	test_local_power_bucket_match_precedes_curated_fallback()
 	test_curated_fallback_when_no_local_power_band_match()
+	test_battle_replay_summary_extracts_major_drivers()
 	await test_curated_editor_entry_opens_from_bazaar_shell()
 	await test_pvp_battle_uses_ghost_snapshot_path()
 
@@ -179,6 +182,45 @@ func test_local_playtest_snapshot_files_validate_as_ghost_schema() -> void:
 		_assert_eq(loaded[0].source, PvpGhostServiceClass.LOCAL_SOURCE, "local snapshot source is marked local only")
 	_remove_tree(store_dir)
 
+func test_power_profile_and_index_include_match_dimensions() -> void:
+	var store_dir: String = "user://ghost_pool_test/profile"
+	_remove_tree(store_dir)
+	var snapshot = _make_local_snapshot("profile_seed", 6, 0, "P50", "mak", 2, "fiery")
+	var saved: Dictionary = PvpGhostServiceClass.save_local_snapshot(snapshot, store_dir)
+	_assert_true(bool(saved.get("success", false)), "profile fixture saves")
+	var loaded: Array[GhostSnapshotClass] = PvpGhostServiceClass.load_local_snapshots(store_dir)
+	_assert_eq(loaded.size(), 1, "profile fixture reloads")
+	if not loaded.is_empty():
+		var profile: Dictionary = PvpGhostServiceClass.build_power_profile(loaded[0])
+		_assert_eq(int(profile.get("day", 0)), 6, "power profile tracks day")
+		_assert_eq(str(profile.get("hero_id", "")), "mak", "power profile tracks hero")
+		_assert_eq(int(profile.get("skill_count", 0)), 2, "power profile tracks skill count")
+		_assert_eq(int(profile.get("enchantment_count", 0)), 1, "power profile tracks enchantment count")
+		_assert_true(str(profile.get("match_bucket", "")).contains("D06-L06-mak"), "match bucket includes day level and hero")
+	var index_text: String = FileAccess.get_file_as_string("%s/index.json" % store_dir)
+	_assert_true(index_text.contains("match_profile"), "local index exposes match profile for debug/report output")
+	_assert_true(index_text.contains("match_bucket"), "local index exposes match bucket for debug/report output")
+	_remove_tree(store_dir)
+
+func test_local_match_report_scores_and_rotates_same_band_candidates() -> void:
+	var store_dir: String = "user://ghost_pool_test/rotation"
+	_remove_tree(store_dir)
+	var player = _make_local_snapshot("current_player", 5, 0, "P50", "mak", 1, "")
+	player.power_score = PvpGhostServiceClass.calculate_power_score(player)
+	player.power_bucket = PvpGhostServiceClass.calculate_power_bucket(player.power_score)
+	var saved_a: Dictionary = PvpGhostServiceClass.save_local_snapshot(_make_local_snapshot("local_a", 5, 0, "P50", "mak", 1, ""), store_dir)
+	var saved_b: Dictionary = PvpGhostServiceClass.save_local_snapshot(_make_local_snapshot("local_b", 5, 0, "P50", "mak", 1, ""), store_dir)
+	_assert_true(bool(saved_a.get("success", false)) and bool(saved_b.get("success", false)), "rotation fixtures save")
+	var report_a: Dictionary = PvpGhostServiceClass.pick_snapshot_for_opponent(player, PvpGhostServiceClass.DEFAULT_CURATED_PATH, store_dir, "current_player", 0)
+	var report_b: Dictionary = PvpGhostServiceClass.pick_snapshot_for_opponent(player, PvpGhostServiceClass.DEFAULT_CURATED_PATH, store_dir, "current_player", 1)
+	var picked_a = report_a.get("snapshot", null)
+	var picked_b = report_b.get("snapshot", null)
+	_assert_eq(str(report_a.get("source", "")), PvpGhostServiceClass.LOCAL_SOURCE, "match report selects local source")
+	_assert_true(bool(report_a.get("power_band_match", false)), "match report marks same power band")
+	_assert_eq(int(report_a.get("rotation_band_count", 0)), 2, "nearby same-band candidates are eligible for rotation")
+	_assert_true(picked_a != null and picked_b != null and str(picked_a.snapshot_id) != str(picked_b.snapshot_id), "selection seed varies opponents inside the matching band")
+	_remove_tree(store_dir)
+
 func test_local_power_bucket_match_precedes_curated_fallback() -> void:
 	var store_dir: String = "user://ghost_pool_test/match"
 	_remove_tree(store_dir)
@@ -202,16 +244,43 @@ func test_curated_fallback_when_no_local_power_band_match() -> void:
 	var only_current = _make_local_snapshot("current_player", 5, 1180, "P50")
 	var saved: Dictionary = PvpGhostServiceClass.save_local_snapshot(only_current, store_dir)
 	_assert_true(bool(saved.get("success", false)), "current-player local snapshot fixture saves")
-	var picked = PvpGhostServiceClass.pick_snapshot_for_day(
+	var report: Dictionary = PvpGhostServiceClass.pick_snapshot_for_day_report(
 		5,
 		PvpGhostServiceClass.DEFAULT_CURATED_PATH,
 		1190,
 		store_dir,
 		"current_player"
 	)
-	_assert_true(picked.snapshot_id != "current_player", "current player snapshot is excluded from opponent selection")
+	var picked = report.get("snapshot", null)
+	_assert_true(picked != null and picked.snapshot_id != "current_player", "current player snapshot is excluded from opponent selection")
 	_assert_eq(picked.source, GhostSnapshotClass.DEFAULT_SOURCE, "curated fallback is used when local match only contains current player")
+	_assert_true(str(report.get("local_fallback_reason", "")).begins_with("no_local_candidates"), "curated fallback report includes local mismatch reason")
 	_remove_tree(store_dir)
+
+func test_battle_replay_summary_extracts_major_drivers() -> void:
+	var snapshot = _make_local_snapshot("replay_seed", 5, 1180, "P50")
+	var monster = PvpGhostServiceClass.ghost_snapshot_to_monster(snapshot)
+	monster.current_hp = 0
+	monster.current_shield = 8.0
+	var logs: Array[String] = [
+		"⚔️ 战斗开始! Mak 出现!",
+		"🗡️ [Lighter] 触发！造成 12 伤害",
+		"👹 [Mak] 的 [Cinders] 触发！造成 5 伤害",
+		"🛡️ [Shield] 触发！获得 10 护盾",
+		"🎉 战斗胜利!",
+	]
+	var trace: Array = [{"effect_type": "damage", "amount": 12.0, "target_count": 1}]
+	var summary: Dictionary = PvpGhostServiceClass.build_battle_replay_summary(snapshot, monster, trace, logs, true, "opponent_defeated", 44, 3.0)
+	_assert_eq(str(summary.get("snapshot_id", "")), "replay_seed", "replay summary keeps snapshot id")
+	_assert_eq(str(summary.get("result_reason", "")), "opponent_defeated", "replay summary records result reason")
+	_assert_true((summary.get("key_triggers", []) as Array).size() >= 3, "replay summary records key triggers")
+	_assert_true((summary.get("major_drivers", []) as Array).size() >= 2, "replay summary explains major outcome drivers")
+	var replay_dir: String = "user://ghost_pool_test/replays"
+	_remove_tree(replay_dir)
+	var saved: Dictionary = PvpGhostServiceClass.save_battle_replay_summary(summary, replay_dir)
+	_assert_true(bool(saved.get("success", false)), "replay summary persists locally")
+	_assert_true(str(saved.get("path", "")).begins_with("%s/day05" % replay_dir), "replay summary path is grouped by day")
+	_remove_tree(replay_dir)
 
 func test_curated_editor_entry_opens_from_bazaar_shell() -> void:
 	var main: Control = await _instantiate_main_scene()
@@ -259,22 +328,32 @@ func test_pvp_battle_uses_ghost_snapshot_path() -> void:
 	main.queue_free()
 	await _drain_frames(2)
 
-func _make_local_snapshot(snapshot_id: String, day: int, power_score: int, power_bucket: String):
+func _make_local_snapshot(
+	snapshot_id: String,
+	day: int,
+	power_score: int,
+	power_bucket: String,
+	hero_id: String = "mak",
+	skill_count: int = 1,
+	enchantment: String = ""
+):
 	var snapshot = GhostSnapshotClass.new()
 	snapshot.snapshot_id = snapshot_id
 	snapshot.day = day
 	snapshot.hour = 5
-	snapshot.hero_id = "mak"
-	snapshot.hero_name = "Mak"
+	snapshot.hero_id = hero_id
+	snapshot.hero_name = PvpGhostServiceClass.get_hero_display_name(hero_id)
 	snapshot.level = day
 	snapshot.slot_capacity = 6
 	snapshot.prestige = 20
 	snapshot.max_health = 120 + day * 10
 	snapshot.health = snapshot.max_health
 	snapshot.regeneration = 0.0
-	var skills: Array[Dictionary] = [{"id": "fiery", "tier": "bronze"}]
+	var skills: Array[Dictionary] = []
+	for index in range(maxi(skill_count, 0)):
+		skills.append({"id": "fiery" if index == 0 else "rush", "tier": "bronze"})
 	var items: Array[Dictionary] = [
-		{"item_id": "lighter", "tier": "bronze", "size": 1, "slot_index": 0, "enchantment": "", "cooldown": 4.0, "ammo": 0, "charges": 0},
+		{"item_id": "lighter", "tier": "bronze", "size": 1, "slot_index": 0, "enchantment": enchantment, "cooldown": 4.0, "ammo": 0, "charges": 0},
 		{"item_id": "cinders", "tier": "bronze", "size": 1, "slot_index": 1, "enchantment": "", "cooldown": 0.0, "ammo": 0, "charges": 0},
 	]
 	snapshot.skills = skills

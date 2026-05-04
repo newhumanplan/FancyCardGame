@@ -16,9 +16,12 @@ const DEFAULT_CURATED_PATH: String = "res://data/pvp_ghost/curated_archetypes.js
 const DEFAULT_LOCAL_PLAYTEST_DIR: String = "user://ghost_pool/playtest"
 const DEFAULT_EDITOR_VERSION: String = "curated-editor-v1"
 const DEFAULT_LOCAL_GENERATOR_VERSION: String = "local-playtest-v1"
+const DEFAULT_REPLAY_VERSION: String = "pvp-replay-summary-v1"
 const FILE_SCHEMA_VERSION: int = 1
 const DEFAULT_POWER_BUCKET: String = "P10"
 const LOCAL_SOURCE: String = "local_playtest"
+const DEFAULT_REPLAY_DIR: String = "user://ghost_pool/replays"
+const LOCAL_MATCH_BAND_SCORE: int = 220
 
 const TIER_BRONZE: String = "bronze"
 const TIER_SILVER: String = "silver"
@@ -601,75 +604,148 @@ static func pick_snapshot_for_day(
 	path: String = DEFAULT_CURATED_PATH,
 	target_power_score: int = -1,
 	local_store_dir: String = DEFAULT_LOCAL_PLAYTEST_DIR,
-	exclude_snapshot_id: String = ""
+	exclude_snapshot_id: String = "",
+	selection_seed: int = -1
 ) -> GhostSnapshotClass:
-	var local_match: GhostSnapshotClass = pick_local_snapshot_for_day(
+	var report: Dictionary = pick_snapshot_for_day_report(
+		day,
+		path,
+		target_power_score,
+		local_store_dir,
+		exclude_snapshot_id,
+		selection_seed
+	)
+	return report.get("snapshot", GhostSnapshotClass.new()) as GhostSnapshotClass
+
+static func pick_snapshot_for_day_report(
+	day: int,
+	path: String = DEFAULT_CURATED_PATH,
+	target_power_score: int = -1,
+	local_store_dir: String = DEFAULT_LOCAL_PLAYTEST_DIR,
+	exclude_snapshot_id: String = "",
+	selection_seed: int = -1,
+	target_snapshot: GhostSnapshotClass = null
+) -> Dictionary:
+	var target_profile: Dictionary = _build_target_match_profile(day, target_power_score, target_snapshot)
+	var local_report: Dictionary = pick_local_snapshot_for_day_report(
 		day,
 		target_power_score,
 		local_store_dir,
-		exclude_snapshot_id
+		exclude_snapshot_id,
+		selection_seed,
+		target_profile
 	)
-	if local_match != null and not local_match.snapshot_id.is_empty():
-		return local_match
+	var local_snapshot: GhostSnapshotClass = local_report.get("snapshot", GhostSnapshotClass.new()) as GhostSnapshotClass
+	if local_snapshot != null and not local_snapshot.snapshot_id.is_empty():
+		local_report["source"] = LOCAL_SOURCE
+		return local_report
 
-	var snapshots: Array[GhostSnapshotClass] = load_seed_snapshots(path)
-	if snapshots.is_empty():
-		return GhostSnapshotClass.new()
+	var curated_report: Dictionary = _pick_curated_snapshot_report(day, path, selection_seed, target_profile)
+	curated_report["local_fallback_reason"] = str(local_report.get("fallback_reason", "no_local_candidates"))
+	return curated_report
 
-	var same_day: Array[GhostSnapshotClass] = []
-	for snapshot in snapshots:
-		if snapshot.day == day:
-			same_day.append(snapshot)
-	if not same_day.is_empty():
-		return same_day[int(same_day.size() / 2)].duplicate_snapshot()
-
-	var closest: GhostSnapshotClass = snapshots[0]
-	var closest_distance: int = abs(day - closest.day)
-	for snapshot in snapshots:
-		var distance: int = abs(day - snapshot.day)
-		if distance < closest_distance:
-			closest = snapshot
-			closest_distance = distance
-	return closest.duplicate_snapshot()
+static func pick_snapshot_for_opponent(
+	player_snapshot: GhostSnapshotClass,
+	path: String = DEFAULT_CURATED_PATH,
+	local_store_dir: String = DEFAULT_LOCAL_PLAYTEST_DIR,
+	exclude_snapshot_id: String = "",
+	selection_seed: int = -1
+) -> Dictionary:
+	if player_snapshot == null:
+		return pick_snapshot_for_day_report(1, path, -1, local_store_dir, exclude_snapshot_id, selection_seed)
+	var excluded_id: String = exclude_snapshot_id
+	if excluded_id.is_empty():
+		excluded_id = player_snapshot.snapshot_id
+	return pick_snapshot_for_day_report(
+		player_snapshot.day,
+		path,
+		player_snapshot.power_score,
+		local_store_dir,
+		excluded_id,
+		selection_seed,
+		player_snapshot
+	)
 
 static func pick_local_snapshot_for_day(
 	day: int,
 	target_power_score: int = -1,
 	store_dir: String = DEFAULT_LOCAL_PLAYTEST_DIR,
-	exclude_snapshot_id: String = ""
+	exclude_snapshot_id: String = "",
+	selection_seed: int = -1
 ) -> GhostSnapshotClass:
+	var report: Dictionary = pick_local_snapshot_for_day_report(
+		day,
+		target_power_score,
+		store_dir,
+		exclude_snapshot_id,
+		selection_seed
+	)
+	return report.get("snapshot", GhostSnapshotClass.new()) as GhostSnapshotClass
+
+static func pick_local_snapshot_for_day_report(
+	day: int,
+	target_power_score: int = -1,
+	store_dir: String = DEFAULT_LOCAL_PLAYTEST_DIR,
+	exclude_snapshot_id: String = "",
+	selection_seed: int = -1,
+	target_profile: Dictionary = {}
+) -> Dictionary:
 	var snapshots: Array[GhostSnapshotClass] = load_local_snapshots(store_dir)
-	var target_bucket: String = calculate_power_bucket(target_power_score) if target_power_score >= 0 else ""
-	var candidates: Array[GhostSnapshotClass] = []
+	var profile: Dictionary = target_profile.duplicate(true)
+	if profile.is_empty():
+		profile = _build_target_match_profile(day, target_power_score, null)
+	var target_bucket: String = str(profile.get("power_bucket", ""))
+	var same_day_candidates: Array[GhostSnapshotClass] = []
+	var scored: Array[Dictionary] = []
 	for snapshot in snapshots:
 		if int(snapshot.day) != day:
 			continue
 		if not exclude_snapshot_id.is_empty() and snapshot.snapshot_id == exclude_snapshot_id:
 			continue
-		if not target_bucket.is_empty() and snapshot.power_bucket != target_bucket:
-			continue
-		candidates.append(snapshot)
-	if candidates.is_empty() and not target_bucket.is_empty():
-		for snapshot in snapshots:
-			if int(snapshot.day) != day:
-				continue
-			if not exclude_snapshot_id.is_empty() and snapshot.snapshot_id == exclude_snapshot_id:
-				continue
-			candidates.append(snapshot)
-	if candidates.is_empty():
-		return GhostSnapshotClass.new()
+		same_day_candidates.append(snapshot)
+		var candidate_profile: Dictionary = build_power_profile(snapshot)
+		var match_score: int = _calculate_match_score(candidate_profile, profile)
+		scored.append({
+			"snapshot": snapshot,
+			"score": match_score,
+			"profile": candidate_profile,
+			"bucket_match": target_bucket.is_empty() or str(candidate_profile.get("power_bucket", "")) == target_bucket,
+		})
+	if scored.is_empty():
+		return {
+			"snapshot": GhostSnapshotClass.new(),
+			"source": LOCAL_SOURCE,
+			"fallback_reason": "no_local_candidates_for_day:%d" % day,
+			"target_profile": profile,
+			"candidate_count": 0,
+		}
 
-	var target_score: int = target_power_score
-	if target_score < 0:
-		target_score = int(candidates[int(candidates.size() / 2)].power_score)
-	var best: GhostSnapshotClass = candidates[0]
-	var best_distance: int = abs(int(best.power_score) - target_score)
-	for snapshot in candidates:
-		var distance: int = abs(int(snapshot.power_score) - target_score)
-		if distance < best_distance:
-			best = snapshot
-			best_distance = distance
-	return best.duplicate_snapshot()
+	scored.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		if int(a.get("score", 0)) == int(b.get("score", 0)):
+			return str((a.get("snapshot") as GhostSnapshotClass).snapshot_id) < str((b.get("snapshot") as GhostSnapshotClass).snapshot_id)
+		return int(a.get("score", 0)) < int(b.get("score", 0))
+	)
+	var best_score: int = int(scored[0].get("score", 0))
+	var band: Array[Dictionary] = []
+	for entry in scored:
+		if int(entry.get("score", 0)) - best_score <= LOCAL_MATCH_BAND_SCORE:
+			band.append(entry)
+	var chosen_index: int = _selection_index(band.size(), selection_seed, day, target_power_score, exclude_snapshot_id)
+	var chosen: Dictionary = band[chosen_index]
+	var chosen_snapshot: GhostSnapshotClass = chosen.get("snapshot") as GhostSnapshotClass
+	return {
+		"snapshot": chosen_snapshot.duplicate_snapshot(),
+		"source": LOCAL_SOURCE,
+		"fallback_reason": "",
+		"target_profile": profile,
+		"selected_profile": chosen.get("profile", {}),
+		"match_score": int(chosen.get("score", 0)),
+		"power_band_match": bool(chosen.get("bucket_match", false)),
+		"candidate_count": scored.size(),
+		"same_day_candidate_count": same_day_candidates.size(),
+		"rotation_band_count": band.size(),
+		"selection_seed": selection_seed,
+	}
 
 static func ghost_snapshot_to_monster(snapshot: GhostSnapshotClass) -> MonsterDataClass:
 	var monster: MonsterDataClass = MonsterDataClass.new()
@@ -726,26 +802,81 @@ static func calculate_power_score(snapshot: GhostSnapshotClass) -> int:
 	if snapshot == null:
 		return 0
 
+	var profile: Dictionary = build_power_profile(snapshot)
 	var score: float = 0.0
-	score += float(snapshot.day) * 110.0
-	score += float(snapshot.level) * 75.0
+	score += float(profile.get("day", 1)) * 110.0
+	score += float(profile.get("level", 1)) * 75.0
 	score += float(snapshot.max_health) * 1.6
 	score += float(snapshot.health) * 0.35
 	score += float(snapshot.prestige) * 8.0
 	score += snapshot.regeneration * 28.0
-
-	for skill_entry in snapshot.skills:
-		score += _skill_power_value(skill_entry)
-	for item_entry in snapshot.items:
-		score += _item_power_value(item_entry)
-
-	var used_slots: int = 0
-	for item_entry in snapshot.items:
-		used_slots += int(item_entry.get("size", 1))
+	score += float(profile.get("skill_value", 0.0))
+	score += float(profile.get("board_value", 0.0))
 	if snapshot.slot_capacity > 0:
-		score += clampf(float(used_slots) / float(snapshot.slot_capacity), 0.0, 1.0) * 70.0
-
+		score += clampf(float(profile.get("used_slots", 0)) / float(snapshot.slot_capacity), 0.0, 1.0) * 70.0
+	score += float(profile.get("skill_count", 0)) * 12.0
+	score += float(profile.get("enchantment_count", 0)) * 35.0
 	return int(round(score))
+
+static func build_power_profile(snapshot: GhostSnapshotClass) -> Dictionary:
+	var profile: Dictionary = {
+		"day": 1,
+		"level": 1,
+		"hero_id": "",
+		"power_score": 0,
+		"power_bucket": DEFAULT_POWER_BUCKET,
+		"board_value": 0,
+		"skill_value": 0,
+		"skill_count": 0,
+		"item_count": 0,
+		"used_slots": 0,
+		"slot_capacity": 0,
+		"enchantment_count": 0,
+		"enchantments": [],
+		"match_bucket": "",
+	}
+	if snapshot == null:
+		profile["match_bucket"] = _compose_match_bucket(profile)
+		return profile
+	var board_value: float = 0.0
+	var used_slots: int = 0
+	var enchantments: Array[String] = []
+	for item_entry in snapshot.items:
+		board_value += _item_power_value(item_entry)
+		used_slots += int(item_entry.get("size", 1))
+		var enchantment: String = str(item_entry.get("enchantment", "")).to_lower()
+		if not enchantment.is_empty() and not enchantments.has(enchantment):
+			enchantments.append(enchantment)
+	var skill_value: float = 0.0
+	for skill_entry in snapshot.skills:
+		skill_value += _skill_power_value(skill_entry)
+	var score: int = int(snapshot.power_score)
+	if score <= 0:
+		score = int(round(
+			float(snapshot.day) * 110.0
+			+ float(snapshot.level) * 75.0
+			+ float(snapshot.max_health) * 1.6
+			+ float(snapshot.health) * 0.35
+			+ float(snapshot.prestige) * 8.0
+			+ snapshot.regeneration * 28.0
+			+ skill_value
+			+ board_value
+		))
+	profile["day"] = snapshot.day
+	profile["level"] = snapshot.level
+	profile["hero_id"] = snapshot.hero_id
+	profile["power_score"] = score
+	profile["power_bucket"] = calculate_power_bucket(score)
+	profile["board_value"] = int(round(board_value))
+	profile["skill_value"] = int(round(skill_value))
+	profile["skill_count"] = snapshot.skills.size()
+	profile["item_count"] = snapshot.items.size()
+	profile["used_slots"] = used_slots
+	profile["slot_capacity"] = snapshot.slot_capacity
+	profile["enchantment_count"] = enchantments.size()
+	profile["enchantments"] = enchantments
+	profile["match_bucket"] = _compose_match_bucket(profile)
+	return profile
 
 static func calculate_power_bucket(power_score: int) -> String:
 	if power_score >= 2100:
@@ -963,6 +1094,298 @@ static func _item_power_value(item_entry: Dictionary) -> float:
 	score += float(EnchantmentCatalogClass.get_power_bonus(str(item_entry.get("enchantment", ""))))
 	return score
 
+static func build_battle_replay_summary(
+	snapshot: GhostSnapshotClass,
+	monster: MonsterDataClass,
+	effect_trace: Array,
+	battle_logs: Array[String],
+	won: bool,
+	result_reason: String,
+	player_health: int,
+	player_shield: float = 0.0
+) -> Dictionary:
+	var trace_summary: Dictionary = _summarize_effect_trace(effect_trace)
+	var log_summary: Dictionary = _summarize_battle_logs(battle_logs)
+	var opponent_health: int = 0
+	var opponent_shield: float = 0.0
+	if monster != null:
+		opponent_health = int(monster.current_hp)
+		opponent_shield = float(monster.get("current_shield")) if "current_shield" in monster else 0.0
+	return {
+		"schema_version": 1,
+		"summary_version": DEFAULT_REPLAY_VERSION,
+		"created_at": Time.get_datetime_string_from_system(false, true),
+		"snapshot_id": "" if snapshot == null else snapshot.snapshot_id,
+		"opponent_name": "" if monster == null else monster.monster_name,
+		"source": "" if snapshot == null else snapshot.source,
+		"day": 0 if snapshot == null else snapshot.day,
+		"hero_id": "" if snapshot == null else snapshot.hero_id,
+		"power_score": 0 if snapshot == null else snapshot.power_score,
+		"power_bucket": "" if snapshot == null else snapshot.power_bucket,
+		"match_profile": {} if snapshot == null else build_power_profile(snapshot),
+		"won": won,
+		"result_reason": result_reason,
+		"final_state": {
+			"player_health": player_health,
+			"player_shield": int(round(player_shield)),
+			"opponent_health": opponent_health,
+			"opponent_shield": int(round(opponent_shield)),
+		},
+		"key_triggers": log_summary.get("key_triggers", []),
+		"source_totals": log_summary.get("source_totals", {}),
+		"effect_totals": trace_summary.get("effect_totals", {}),
+		"major_drivers": _build_major_drivers(log_summary, trace_summary, won, result_reason),
+		"log_excerpt": _tail_strings(battle_logs, 8),
+	}
+
+static func save_battle_replay_summary(
+	summary: Dictionary,
+	store_dir: String = DEFAULT_REPLAY_DIR
+) -> Dictionary:
+	if summary.is_empty():
+		return {"success": false, "saved": false, "errors": ["missing_summary"], "path": ""}
+	var day: int = maxi(int(summary.get("day", 1)), 1)
+	var directory_path: String = "%s/day%02d" % [store_dir, day]
+	var ensure_result: Dictionary = _ensure_user_directory(directory_path)
+	if not bool(ensure_result.get("success", false)):
+		return ensure_result
+	var snapshot_id: String = _sanitize_file_token(str(summary.get("snapshot_id", "pvp_replay")))
+	if snapshot_id.is_empty():
+		snapshot_id = "pvp_replay"
+	var timestamp: String = _sanitize_file_token(Time.get_datetime_string_from_system(false, true))
+	var file_path: String = "%s/%s_%s.json" % [directory_path, snapshot_id, timestamp]
+	var file: FileAccess = FileAccess.open(file_path, FileAccess.WRITE)
+	if file == null:
+		return {"success": false, "saved": false, "errors": ["write_open_failed:%s" % file_path], "path": file_path}
+	file.store_string(JSON.stringify(summary, "\t"))
+	file.close()
+	return {"success": true, "saved": true, "path": file_path, "summary": summary}
+
+static func _pick_curated_snapshot_report(
+	day: int,
+	path: String,
+	selection_seed: int,
+	target_profile: Dictionary
+) -> Dictionary:
+	var snapshots: Array[GhostSnapshotClass] = load_seed_snapshots(path)
+	if snapshots.is_empty():
+		return {
+			"snapshot": GhostSnapshotClass.new(),
+			"source": GhostSnapshotClass.DEFAULT_SOURCE,
+			"fallback_reason": "curated_pool_empty",
+			"target_profile": target_profile,
+			"candidate_count": 0,
+		}
+	var same_day: Array[GhostSnapshotClass] = []
+	for snapshot in snapshots:
+		if snapshot.day == day:
+			same_day.append(snapshot)
+	var pool: Array[GhostSnapshotClass] = same_day if not same_day.is_empty() else snapshots
+	var scored: Array[Dictionary] = []
+	for snapshot in pool:
+		var profile: Dictionary = build_power_profile(snapshot)
+		scored.append({"snapshot": snapshot, "profile": profile, "score": _calculate_match_score(profile, target_profile)})
+	scored.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		if int(a.get("score", 0)) == int(b.get("score", 0)):
+			return int((a.get("snapshot") as GhostSnapshotClass).day) < int((b.get("snapshot") as GhostSnapshotClass).day)
+		return int(a.get("score", 0)) < int(b.get("score", 0))
+	)
+	var chosen_index: int = _selection_index(mini(scored.size(), 3), selection_seed, day, int(target_profile.get("power_score", -1)), "curated")
+	var chosen: Dictionary = scored[chosen_index]
+	var chosen_snapshot: GhostSnapshotClass = chosen.get("snapshot") as GhostSnapshotClass
+	return {
+		"snapshot": chosen_snapshot.duplicate_snapshot(),
+		"source": GhostSnapshotClass.DEFAULT_SOURCE,
+		"fallback_reason": "no_local_power_match_curated_fallback" if not same_day.is_empty() else "no_same_day_curated_using_closest_day",
+		"target_profile": target_profile,
+		"selected_profile": chosen.get("profile", {}),
+		"match_score": int(chosen.get("score", 0)),
+		"power_band_match": str((chosen.get("profile", {}) as Dictionary).get("power_bucket", "")) == str(target_profile.get("power_bucket", "")),
+		"candidate_count": pool.size(),
+		"selection_seed": selection_seed,
+	}
+
+static func _build_target_match_profile(day: int, target_power_score: int, target_snapshot: GhostSnapshotClass) -> Dictionary:
+	if target_snapshot != null:
+		return build_power_profile(target_snapshot)
+	var score: int = target_power_score if target_power_score >= 0 else 0
+	var profile: Dictionary = {
+		"day": day,
+		"level": day,
+		"hero_id": "",
+		"power_score": score,
+		"power_bucket": calculate_power_bucket(score) if score > 0 else "",
+		"board_value": 0,
+		"skill_value": 0,
+		"skill_count": 0,
+		"item_count": 0,
+		"used_slots": 0,
+		"slot_capacity": LinearInventoryClass.TOTAL_SLOTS,
+		"enchantment_count": 0,
+		"enchantments": [],
+	}
+	profile["match_bucket"] = _compose_match_bucket(profile)
+	return profile
+
+static func _calculate_match_score(candidate_profile: Dictionary, target_profile: Dictionary) -> int:
+	var score: int = 0
+	score += abs(int(candidate_profile.get("power_score", 0)) - int(target_profile.get("power_score", 0)))
+	score += abs(int(candidate_profile.get("day", 1)) - int(target_profile.get("day", 1))) * 500
+	score += abs(int(candidate_profile.get("level", 1)) - int(target_profile.get("level", 1))) * 90
+	score += abs(int(candidate_profile.get("board_value", 0)) - int(target_profile.get("board_value", 0))) / 3
+	score += abs(int(candidate_profile.get("skill_count", 0)) - int(target_profile.get("skill_count", 0))) * 45
+	score += abs(int(candidate_profile.get("enchantment_count", 0)) - int(target_profile.get("enchantment_count", 0))) * 55
+	if not str(target_profile.get("hero_id", "")).is_empty() and str(candidate_profile.get("hero_id", "")) != str(target_profile.get("hero_id", "")):
+		score += 70
+	if not str(target_profile.get("power_bucket", "")).is_empty() and str(candidate_profile.get("power_bucket", "")) != str(target_profile.get("power_bucket", "")):
+		score += 300
+	return score
+
+static func _selection_index(count: int, selection_seed: int, day: int, target_power_score: int, token: String) -> int:
+	if count <= 1:
+		return 0
+	var seed: int = selection_seed
+	if seed < 0:
+		seed = Time.get_ticks_msec()
+	seed += day * 97 + target_power_score * 13 + _stable_string_hash(token)
+	return abs(seed) % count
+
+static func _compose_match_bucket(profile: Dictionary) -> String:
+	return "D%02d-L%02d-%s-%s-B%03d-S%02d-E%02d" % [
+		int(profile.get("day", 1)),
+		int(profile.get("level", 1)),
+		str(profile.get("hero_id", "any")),
+		str(profile.get("power_bucket", DEFAULT_POWER_BUCKET)),
+		int(profile.get("board_value", 0)) / 100,
+		int(profile.get("skill_count", 0)),
+		int(profile.get("enchantment_count", 0)),
+	]
+
+static func _summarize_effect_trace(effect_trace: Array) -> Dictionary:
+	var totals: Dictionary = {}
+	for entry in effect_trace:
+		if not entry is Dictionary:
+			continue
+		var trace: Dictionary = entry as Dictionary
+		var effect_type: String = str(trace.get("effect_type", ""))
+		if effect_type.is_empty():
+			continue
+		totals[effect_type] = float(totals.get(effect_type, 0.0)) + float(trace.get("amount", 0.0)) * maxf(float(trace.get("target_count", 1)), 1.0)
+	return {"effect_totals": totals}
+
+static func _summarize_battle_logs(battle_logs: Array[String]) -> Dictionary:
+	var source_totals: Dictionary = {"damage": {}, "heal": {}, "shield": {}, "status": {}}
+	var key_triggers: Array[Dictionary] = []
+	for line in battle_logs:
+		var source_name: String = _extract_between(line, "[", "]")
+		if source_name.is_empty():
+			source_name = "battle"
+		var damage: int = _extract_number_before(line, "伤害")
+		var heal: int = _extract_number_before(line, "生命")
+		var shield: int = _extract_number_before(line, "护盾")
+		var poison: int = _extract_number_before(line, "中毒")
+		var burn: int = _extract_number_before(line, "燃烧")
+		if damage > 0:
+			_add_source_total(source_totals["damage"], source_name, damage)
+		if heal > 0:
+			_add_source_total(source_totals["heal"], source_name, heal)
+		if shield > 0:
+			_add_source_total(source_totals["shield"], source_name, shield)
+		if poison > 0:
+			_add_source_total(source_totals["status"], "%s:poison" % source_name, poison)
+		if burn > 0:
+			_add_source_total(source_totals["status"], "%s:burn" % source_name, burn)
+		if damage > 0 or heal > 0 or shield > 0 or poison > 0 or burn > 0:
+			key_triggers.append({
+				"source": source_name,
+				"damage": damage,
+				"heal": heal,
+				"shield": shield,
+				"poison": poison,
+				"burn": burn,
+				"line": line,
+			})
+	return {"source_totals": source_totals, "key_triggers": _top_trigger_entries(key_triggers, 8)}
+
+static func _build_major_drivers(log_summary: Dictionary, trace_summary: Dictionary, won: bool, result_reason: String) -> Array[String]:
+	var drivers: Array[String] = []
+	drivers.append("result:%s" % result_reason)
+	var source_totals: Dictionary = log_summary.get("source_totals", {}) as Dictionary
+	for category in ["damage", "heal", "shield", "status"]:
+		var totals: Dictionary = source_totals.get(category, {}) as Dictionary
+		var top: String = _top_total_key(totals)
+		if not top.is_empty():
+			drivers.append("%s:%s=%s" % [category, top, str(totals[top])])
+	var effect_totals: Dictionary = trace_summary.get("effect_totals", {}) as Dictionary
+	var top_effect: String = _top_total_key(effect_totals)
+	if not top_effect.is_empty():
+		drivers.append("effect:%s=%s" % [top_effect, str(effect_totals[top_effect])])
+	if drivers.size() == 1:
+		drivers.append("outcome:%s" % ("player_survived" if won else "player_defeated"))
+	return drivers
+
+static func _add_source_total(totals: Dictionary, source_name: String, amount: int) -> void:
+	if source_name.is_empty() or amount <= 0:
+		return
+	totals[source_name] = int(totals.get(source_name, 0)) + amount
+
+static func _top_trigger_entries(entries: Array[Dictionary], limit: int) -> Array[Dictionary]:
+	entries.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		var a_total: int = int(a.get("damage", 0)) + int(a.get("heal", 0)) + int(a.get("shield", 0)) + int(a.get("poison", 0)) + int(a.get("burn", 0))
+		var b_total: int = int(b.get("damage", 0)) + int(b.get("heal", 0)) + int(b.get("shield", 0)) + int(b.get("poison", 0)) + int(b.get("burn", 0))
+		return a_total > b_total
+	)
+	var result: Array[Dictionary] = []
+	for index in range(mini(entries.size(), limit)):
+		result.append(entries[index].duplicate(true))
+	return result
+
+static func _top_total_key(totals: Dictionary) -> String:
+	var best_key: String = ""
+	var best_value: float = -1.0
+	for key in totals.keys():
+		var value: float = float(totals[key])
+		if value > best_value:
+			best_key = str(key)
+			best_value = value
+	return best_key
+
+static func _tail_strings(values: Array[String], limit: int) -> Array[String]:
+	var result: Array[String] = []
+	var start_index: int = maxi(values.size() - limit, 0)
+	for index in range(start_index, values.size()):
+		result.append(values[index])
+	return result
+
+static func _extract_between(text: String, left: String, right: String) -> String:
+	var start: int = text.find(left)
+	if start < 0:
+		return ""
+	var end: int = text.find(right, start + left.length())
+	if end < 0:
+		return ""
+	return text.substr(start + left.length(), end - start - left.length())
+
+static func _extract_number_before(text: String, marker: String) -> int:
+	var marker_index: int = text.find(marker)
+	if marker_index < 0:
+		return 0
+	var index: int = marker_index - 1
+	while index >= 0 and text[index] == " ":
+		index -= 1
+	var end_index: int = index
+	while index >= 0 and text[index] >= "0" and text[index] <= "9":
+		index -= 1
+	if end_index < index + 1:
+		return 0
+	return int(text.substr(index + 1, end_index - index))
+
+static func _stable_string_hash(value: String) -> int:
+	var hash_value: int = 0
+	for index in range(value.length()):
+		hash_value = int((hash_value * 31 + value.unicode_at(index)) & 0x7fffffff)
+	return hash_value
+
 static func _tier_to_rarity(tier_name: String) -> int:
 	return int(TIER_TO_RARITY.get(_normalize_tier_name(tier_name), BazaarContentClass.RARITY_BRONZE))
 
@@ -1072,6 +1495,7 @@ static func _rebuild_local_snapshot_index(store_dir: String) -> void:
 	var snapshots: Array[GhostSnapshotClass] = load_local_snapshots(store_dir)
 	var entries: Array[Dictionary] = []
 	for snapshot in snapshots:
+		var profile: Dictionary = build_power_profile(snapshot)
 		entries.append({
 			"snapshot_id": snapshot.snapshot_id,
 			"day": snapshot.day,
@@ -1079,7 +1503,13 @@ static func _rebuild_local_snapshot_index(store_dir: String) -> void:
 			"source": snapshot.source,
 			"power_score": snapshot.power_score,
 			"power_bucket": snapshot.power_bucket,
+			"match_bucket": str(profile.get("match_bucket", "")),
+			"match_profile": profile,
 			"hero_id": snapshot.hero_id,
+			"level": snapshot.level,
+			"board_value": int(profile.get("board_value", 0)),
+			"skill_count": int(profile.get("skill_count", 0)),
+			"enchantment_count": int(profile.get("enchantment_count", 0)),
 			"created_at": snapshot.created_at,
 		})
 	var ensure_result: Dictionary = _ensure_user_directory(store_dir)
