@@ -508,10 +508,6 @@ func _after_player_item_used(item: ItemData, context: Dictionary) -> void:
 	if item == null or int(context.get("use_count", 0)) <= 0:
 		return
 	var use_count: int = int(context.get("use_count", 0))
-	if item.source_id == "fungal_spores":
-		_apply_fungal_spores_bonus(item, use_count)
-	if item.source_id == "mortar_pestle":
-		_apply_mortar_pestle_bonus(item, use_count)
 	if item.source_id == "magic_carpet" and int(context.get("crit_count", 0)) > 0:
 		_add_item_runtime_bonus(item, "cooldown_flat_reduction", float(context.get("crit_count", 0)))
 
@@ -1327,6 +1323,11 @@ func _resolve_effect_targets(
 						targets.append({"kind": "player_item", "item": item})
 						if targets.size() >= count:
 							break
+		"lifesteal_weapon_items":
+			if inventory != null:
+				for item in inventory.items:
+					if item != null and _is_weapon_item(item) and _item_has_lifesteal(item):
+						targets.append({"kind": "player_item", "item": item})
 		"matching_tag_highest_cooldown":
 			var tag: String = str(target_data.get("tag", ""))
 			var candidates: Array[ItemData] = []
@@ -1588,14 +1589,19 @@ func _apply_effect_definition(
 			if bonus_key.is_empty() or amount == 0.0:
 				return result
 			var applied_bonus_count: int = 0
+			var is_permanent: bool = str(effect_data.get("scope", "combat")) == "permanent" or bool(effect_data.get("permanent", false))
 			for target in targets:
 				if str(target.get("kind", "")) != "player_item":
 					continue
 				var player_item: ItemData = target.get("item", null) as ItemData
 				if player_item == null:
 					continue
-				_add_item_runtime_bonus(player_item, bonus_key, amount)
-				applied_bonus_count += 1
+				if is_permanent:
+					if _apply_permanent_item_bonus(player_item, bonus_key, amount):
+						applied_bonus_count += 1
+				else:
+					_add_item_runtime_bonus(player_item, bonus_key, amount)
+					applied_bonus_count += 1
 			if applied_bonus_count <= 0:
 				return result
 			result["executed"] = true
@@ -1656,6 +1662,30 @@ func _owner_effect_name(owner: Dictionary) -> String:
 		return owner_item.item_name
 	var skill_entry: Dictionary = owner.get("skill_ref", {})
 	return PlayerSkillCatalogClass.get_skill_display_name(skill_entry)
+
+func _apply_permanent_item_bonus(item: ItemData, key: String, value: float) -> bool:
+	if item == null or value == 0.0:
+		return false
+	match key:
+		EffectDefinitionClass.EFFECT_DAMAGE:
+			item.damage = maxi(item.damage + int(round(value)), 0)
+		EffectDefinitionClass.EFFECT_SHIELD:
+			item.shield = maxi(item.shield + int(round(value)), 0)
+		EffectDefinitionClass.EFFECT_HEAL:
+			item.heal = maxi(item.heal + int(round(value)), 0)
+		EffectDefinitionClass.EFFECT_POISON:
+			item.poison_damage = maxf(item.poison_damage + value, 0.0)
+		EffectDefinitionClass.EFFECT_BURN:
+			item.burn_damage = maxf(item.burn_damage + value, 0.0)
+		EffectDefinitionClass.EFFECT_REGENERATION:
+			item.regeneration = maxf(item.regeneration + value, 0.0)
+		"crit_rate":
+			item.crit_chance = maxf(item.crit_chance + value / 100.0, 0.0)
+		EffectDefinitionClass.EFFECT_AMMO:
+			item.ammo = maxi(item.ammo + int(round(value)), 0)
+		_:
+			return false
+	return true
 
 func _get_item_runtime_bonus(item: ItemData, key: String) -> float:
 	if item == null:

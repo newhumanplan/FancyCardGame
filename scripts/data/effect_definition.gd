@@ -202,6 +202,7 @@ static func build_item_effects(item: ItemDataClass) -> Array[Dictionary]:
 	match item.source_id:
 		"adrenaline_shot":
 			handled_keywords[EFFECT_RELOAD] = true
+			handled_keywords[EFFECT_RUNTIME_BONUS] = true
 			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_CRIT, EFFECT_RELOAD, {"side": "self", "selector": "this_item"}, {"type": EFFECT_RELOAD, "amount": 1}, {"event_source_is_owner": true}))
 		"aludel":
 			handled_keywords[EFFECT_MULTICAST] = true
@@ -281,9 +282,18 @@ static func build_item_effects(item: ItemDataClass) -> Array[Dictionary]:
 				"target": {"side": "self", "selector": "hero"},
 				"effect": {"type": EFFECT_SHIELD, "amount_from": "source.shield"},
 			})
+		"emerald":
+			handled_keywords[EFFECT_RUNTIME_BONUS] = true
 		"floor_spike":
 			handled_keywords[EFFECT_CHARGE] = true
 			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_TAG_USED, EFFECT_CHARGE, {"side": "self", "selector": "this_item"}, {"type": EFFECT_CHARGE, "amount": 1}, {"tag": "Weapon"}))
+		"fungal_spores":
+			handled_keywords[EFFECT_RUNTIME_BONUS] = true
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_COOLDOWN_READY, EFFECT_RUNTIME_BONUS, {"side": "self", "selector": "matching_tag_items", "tag": "Poison"}, {"type": EFFECT_RUNTIME_BONUS, "bonus_key": EFFECT_POISON, "amount_by_rarity": [2, 3, 4, 5], "scope": "combat"}))
+		"fireflies":
+			handled_keywords[EFFECT_RUNTIME_BONUS] = true
+		"frozen_flame":
+			handled_keywords[EFFECT_RUNTIME_BONUS] = true
 		"gatling_gun":
 			handled_keywords[EFFECT_MULTICAST] = true
 			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_COOLDOWN_READY, EFFECT_MULTICAST, {"side": "self", "selector": "this_item"}, {"type": EFFECT_MULTICAST, "amount": 1}))
@@ -302,12 +312,27 @@ static func build_item_effects(item: ItemDataClass) -> Array[Dictionary]:
 				"target": {"side": "self", "selector": "this_item"},
 				"effect": {"type": EFFECT_RELOAD, "amount": 1},
 			})
+		"ice_claw":
+			handled_keywords[EFFECT_RUNTIME_BONUS] = true
+		"leeches":
+			handled_keywords[EFFECT_RUNTIME_BONUS] = true
 		"lightbulb":
 			handled_keywords[EFFECT_CHARGE] = true
 			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_COOLDOWN_READY, EFFECT_CHARGE, {"side": "self", "selector": "right_matching_tag", "tag": "Tech"}, {"type": EFFECT_CHARGE, "amount": 1}))
+		"magic_carpet":
+			handled_keywords[EFFECT_RUNTIME_BONUS] = true
+		"magnus_femur":
+			handled_keywords[EFFECT_RUNTIME_BONUS] = true
+		"mortar_pestle", "mortar_and_pestle":
+			handled_keywords[EFFECT_RUNTIME_BONUS] = true
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_COOLDOWN_READY, EFFECT_RUNTIME_BONUS, {"side": "self", "selector": "lifesteal_weapon_items"}, {"type": EFFECT_RUNTIME_BONUS, "bonus_key": EFFECT_DAMAGE, "amount_by_rarity": [10, 15, 20, 25], "scope": "combat"}))
+		"nightshade":
+			handled_keywords[EFFECT_RUNTIME_BONUS] = true
 		"nitro":
 			handled_keywords[EFFECT_CHARGE] = true
 			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_COOLDOWN_READY, EFFECT_CHARGE, {"side": "self", "selector": "slowest_other_items", "count": 1}, {"type": EFFECT_CHARGE, "amount_by_rarity": [1, 2, 3, 4]}))
+		"refractor":
+			handled_keywords[EFFECT_RUNTIME_BONUS] = true
 		"revolver":
 			handled_keywords[EFFECT_RELOAD] = true
 			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_CRIT, EFFECT_RELOAD, {"side": "self", "selector": "this_item"}, {"type": EFFECT_RELOAD, "amount": 2}, {"event_source_is_owner": true}))
@@ -325,9 +350,12 @@ static func build_item_effects(item: ItemDataClass) -> Array[Dictionary]:
 			handled_keywords[EFFECT_MULTICAST] = true
 			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_COOLDOWN_READY, EFFECT_MULTICAST, {"side": "self", "selector": "this_item"}, {"type": EFFECT_MULTICAST, "amount": 1}))
 			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_CRIT, EFFECT_CHARGE, {"side": "self", "selector": "this_item"}, {"type": EFFECT_CHARGE, "amount": 1}, {"event_source_not_owner": true}))
+		"ruby":
+			handled_keywords[EFFECT_RUNTIME_BONUS] = true
 		"satchel":
 			handled_keywords[EFFECT_RELOAD] = true
 			handled_keywords[EFFECT_REGENERATION] = true
+			handled_keywords[EFFECT_RUNTIME_BONUS] = true
 			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_COOLDOWN_READY, EFFECT_RELOAD, {"side": "self", "selector": "ammo_items", "count": 2}, {"type": EFFECT_RELOAD, "amount": 1}))
 			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_RELOAD, EFFECT_REGENERATION, {"side": "self", "selector": "hero"}, {"type": EFFECT_REGENERATION, "amount": 2}))
 		"smelling_salts":
@@ -351,8 +379,12 @@ static func build_item_effects(item: ItemDataClass) -> Array[Dictionary]:
 		"tesla_coil":
 			handled_keywords[EFFECT_CHARGE] = true
 			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_TAG_USED, EFFECT_CHARGE, {"side": "self", "selector": "slowest_items", "count": 1}, {"type": EFFECT_CHARGE, "amount": 1}, {"tag": "Tech", "event_source_is_owner_or_adjacent": true}))
+		"succulents":
+			handled_keywords[EFFECT_RUNTIME_BONUS] = true
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_COOLDOWN_READY, EFFECT_RUNTIME_BONUS, {"side": "self", "selector": "this_item"}, {"type": EFFECT_RUNTIME_BONUS, "bonus_key": EFFECT_HEAL, "amount_by_rarity": [1, 2, 3, 4], "scope": "permanent"}, {}, "after_consume"))
 		"tazidian_dagger":
 			handled_keywords[EFFECT_AMMO] = true
+			handled_keywords[EFFECT_RUNTIME_BONUS] = true
 			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_BATTLE_START, EFFECT_AMMO, {"side": "self", "selector": "left_item"}, {"type": EFFECT_AMMO, "amount_by_rarity": [1, 2, 3, 4]}))
 		"apothecary":
 			handled_keywords[EFFECT_CHARGE] = true
@@ -422,6 +454,9 @@ static func build_item_effects(item: ItemDataClass) -> Array[Dictionary]:
 			})
 
 	_append_non_combat_hook_definitions(definitions, handled_keywords, item)
+	var runtime_bonus_path: String = _runtime_bonus_runtime_path(item.source_id)
+	if not runtime_bonus_path.is_empty() and not _definitions_handle_effect(definitions, EFFECT_RUNTIME_BONUS):
+		definitions.append(_runtime_bonus_marker(item.source_id, runtime_bonus_path))
 	return definitions
 
 static func _append_non_combat_hook_definitions(definitions: Array[Dictionary], handled_keywords: Dictionary, item: ItemDataClass) -> void:
@@ -487,18 +522,23 @@ static func _append_non_combat_hook_definitions(definitions: Array[Dictionary], 
 	match item.source_id:
 		"calcinator":
 			handled_keywords[EFFECT_BURN] = true
-			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_TRANSFORM, EFFECT_BURN, {"selector": "this_item", "event_source_tag": "Reagent"}, {"type": EFFECT_BURN, "amount_by_rarity": [3, 5, 7, 9]}))
+			handled_keywords[EFFECT_RUNTIME_BONUS] = true
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_TRANSFORM, EFFECT_RUNTIME_BONUS, {"selector": "this_item", "event_source_tag": "Reagent"}, {"type": EFFECT_RUNTIME_BONUS, "bonus_key": EFFECT_BURN, "amount_by_rarity": [3, 5, 7, 9], "scope": "permanent"}))
 		"retort":
 			handled_keywords[EFFECT_POISON] = true
-			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_TRANSFORM, EFFECT_POISON, {"selector": "this_item", "event_source_tag": "Reagent"}, {"type": EFFECT_POISON, "amount_by_rarity": [3, 5, 7, 9]}))
+			handled_keywords[EFFECT_RUNTIME_BONUS] = true
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_TRANSFORM, EFFECT_RUNTIME_BONUS, {"selector": "this_item", "event_source_tag": "Reagent"}, {"type": EFFECT_RUNTIME_BONUS, "bonus_key": EFFECT_POISON, "amount_by_rarity": [3, 5, 7, 9], "scope": "permanent"}))
 		"the_tome_of_yyahan":
 			handled_keywords[EFFECT_REGENERATION] = true
-			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_TRANSFORM, EFFECT_REGENERATION, {"selector": "this_item", "event_source_tag": "Reagent"}, {"type": EFFECT_REGENERATION, "amount_by_rarity": [4, 10, 15]}))
+			handled_keywords[EFFECT_RUNTIME_BONUS] = true
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_TRANSFORM, EFFECT_RUNTIME_BONUS, {"selector": "this_item", "event_source_tag": "Reagent"}, {"type": EFFECT_RUNTIME_BONUS, "bonus_key": EFFECT_REGENERATION, "amount_by_rarity": [4, 10, 15], "scope": "permanent"}))
 
 static func _append_sell_service_hook_definitions(definitions: Array[Dictionary], handled_keywords: Dictionary, item: ItemDataClass) -> void:
 	if item == null:
 		return
 	var source_id: String = item.source_id.to_lower()
+	if source_id in ["bluenanas", "chocolate_bar", "coconut", "green_gumball", "vial_of_blood", "arken_s_ring", "eagle_talisman", "agility_boots", "blue_gumball", "feather", "gunpowder", "gearnola_bar", "rocket_boots", "snowflake"]:
+		handled_keywords[EFFECT_RUNTIME_BONUS] = true
 	if source_id in ["bluenanas", "chocolate_bar", "coconut", "green_gumball"]:
 		definitions.append(_hook_definition(source_id, TRIGGER_ON_SELL, "max_health", {"selector": "hero"}, {"type": "max_health"}))
 	if source_id == "vial_of_blood":
@@ -555,7 +595,38 @@ static func _append_sell_service_hook_definitions(definitions: Array[Dictionary]
 	if source_id == "thieves_guild_medallion":
 		definitions.append(_hook_definition(source_id, TRIGGER_ON_SELL, "service_unlock", {"selector": "run"}, {"type": "service_unlock", "service_id": "thieves_guild"}))
 
-static func _hook_definition(source_id: String, trigger: String, effect_name: String, target: Dictionary, effect: Dictionary, condition: Dictionary = {}) -> Dictionary:
+static func _definitions_handle_effect(definitions: Array[Dictionary], effect_type: String) -> bool:
+	for definition_variant in definitions:
+		if not definition_variant is Dictionary:
+			continue
+		var effect_data: Dictionary = (definition_variant as Dictionary).get("effect", {})
+		if str(effect_data.get("type", "")) == effect_type:
+			return true
+	return false
+
+static func _runtime_bonus_marker(source_id: String, runtime_path: String) -> Dictionary:
+	return {
+		"id": "%s_runtime_bonus_supported" % source_id,
+		"trigger": "",
+		"target": {"selector": "runtime_service"},
+		"effect": {"type": EFFECT_RUNTIME_BONUS, "runtime_path": runtime_path},
+	}
+
+static func _runtime_bonus_runtime_path(source_id: String) -> String:
+	match source_id:
+		"emerald", "ruby":
+			return "BattleSystem passive combat aura"
+		"nightshade", "leeches", "refractor", "fireflies", "frozen_flame", "ice_claw", "magnus_femur", "magic_carpet":
+			return "BattleSystem reactive combat runtime bonus"
+		"bluenanas", "chocolate_bar", "coconut", "green_gumball", "vial_of_blood", "arken_s_ring", "eagle_talisman", "agility_boots", "blue_gumball", "feather", "gunpowder", "gearnola_bar", "rocket_boots", "snowflake":
+			return "SellService permanent sell mutation"
+		"satchel":
+			return "ItemAcquisition permanent Potion buy mutation and BattleSystem reload regen"
+		"tazidian_dagger", "boiling_flask":
+			return "BattleSystem item aura runtime bonus"
+	return ""
+
+static func _hook_definition(source_id: String, trigger: String, effect_name: String, target: Dictionary, effect: Dictionary, condition: Dictionary = {}, timing: String = "") -> Dictionary:
 	var definition: Dictionary = {
 		"id": "%s_%s_%s" % [source_id, trigger, effect_name],
 		"trigger": trigger,
@@ -564,6 +635,8 @@ static func _hook_definition(source_id: String, trigger: String, effect_name: St
 	}
 	if not condition.is_empty():
 		definition["condition"] = condition
+	if not timing.is_empty():
+		definition["timing"] = timing
 	return definition
 
 static func _transform_enchantment_for_item(source_id: String) -> String:
