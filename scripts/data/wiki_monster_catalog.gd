@@ -585,6 +585,7 @@ const SUPPLEMENTAL_MONSTER_ITEM_NAMES: Dictionary = {
 	"butterfly_swords": "Butterfly Swords",
 	"bushel": "Bushel",
 	"caltrops": "Caltrops",
+	"admiral": "Admiral",
 	"cannonball": "Cannonball",
 	"captain": "Captain",
 	"cargo_shorts": "Cargo Shorts",
@@ -595,6 +596,7 @@ const SUPPLEMENTAL_MONSTER_ITEM_NAMES: Dictionary = {
 	"chris_army_knife": "Chris Army Knife",
 	"chum": "Chum",
 	"clamera": "Clamera",
+	"cleaver": "Cleaver",
 	"clockwork_blade": "Clockwork Blade",
 	"cog": "Cog",
 	"concealed_dagger": "Concealed Dagger",
@@ -611,6 +613,7 @@ const SUPPLEMENTAL_MONSTER_ITEM_NAMES: Dictionary = {
 	"ouroborus_statue": "Ouroborus Statue",
 	"s_nest": "S Nest",
 	"s_ring": "S Ring",
+	"s_wheel": "S Wheel",
 	"shoeblade": "Shoeblade",
 }
 

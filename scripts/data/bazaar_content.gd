@@ -90,6 +90,13 @@ const KARNOK_BAZAARDB_ITEMS: Array[Dictionary] = [
 	{"id": "steel_bramble", "name": "Steel Bramble", "size": "Small", "starting_tier": "Silver", "cost": [4, 8, 16], "cooldown": [], "tags": ["Tool", "Rage"], "effect": "When your enemy uses an item, gain 1/2/3 Rage.", "source_url": "https://bazaardb.gg/card/153116qd98x9gvjvq0flg2xst4s/Steel-Bramble"},
 ]
 
+const REACHABLE_EXTRA_REWARD_ITEM_IDS: Array[String] = [
+	"ornithopter", "wanted_poster", "catfish", "revolver", "pearl", "pufferfish",
+	"dooltron", "cog", "flamberge", "hot_sauce", "ice_cubes", "coolant",
+	"genie_lamp", "chocolate_bar", "mortar_pestle", "powder_flask", "pelt",
+	"bear_claws", "magic_carpet", "cosmic_amulet", "cinders", "upgrade_hammer",
+]
+
 const DAY1_EVENT_SPECS: Array[Dictionary] = [
 	{"id": "a_strange_mushroom", "name": "A Strange Mushroom", "icon": "*", "day": "1-2", "min_day": 1, "max_day": 2, "rarity": "Bronze", "weight": 10, "summary": "Mak can brew a small Silver-tier Potion."},
 	{"id": "armory", "name": "Armory", "icon": "W", "day": "1+", "min_day": 1, "max_day": 0, "rarity": "Silver", "weight": 8, "summary": "Get a free Weapon."},
@@ -391,6 +398,101 @@ static func get_hero_item_specs(hero_type: HeroDataClass.HeroType) -> Array[Dict
 			specs.append(spec)
 	return specs
 
+static func get_reachable_item_effect_coverage_report() -> Dictionary:
+	var ids: Dictionary = {}
+	var sources: Dictionary = {}
+	for profile in HERO_PROFILE_SPECS:
+		var hero_type: HeroDataClass.HeroType = profile.get("type", HeroDataClass.HeroType.MAK)
+		for spec in get_hero_item_specs(hero_type):
+			_add_reachable_item_source(spec, "hero:%s" % str(profile.get("id", "hero")), ids, sources)
+	for monster_spec in WikiMonsterCatalogClass.get_monster_specs():
+		for item_entry in _get_monster_item_entries(monster_spec):
+			var item_id: String = str(item_entry.get("id", ""))
+			if not item_id.is_empty():
+				_add_reachable_item_id(item_id, "monster:%s" % str(monster_spec.get("id", "monster")), ids, sources)
+		for reward_entry in _get_monster_reward_item_pool(monster_spec):
+			var reward_item_id: String = str(reward_entry.get("id", ""))
+			if not reward_item_id.is_empty():
+				_add_reachable_item_id(reward_item_id, "monster_reward:%s" % str(monster_spec.get("id", "monster")), ids, sources)
+	for item_id in REACHABLE_EXTRA_REWARD_ITEM_IDS:
+		_add_reachable_item_id(item_id, "event_reward", ids, sources)
+
+	var warning_items: Array[Dictionary] = []
+	var warning_family_counts: Dictionary = {}
+	var unknown_item_ids: Array[String] = []
+	var unknown_warning_families: Array[String] = []
+	var warning_total: int = 0
+	var implemented_total: int = 0
+	var sorted_item_ids: Array = ids.keys()
+	sorted_item_ids.sort()
+	for item_id in sorted_item_ids:
+		var item: ItemDataClass = create_item(str(item_id), RARITY_BRONZE)
+		if item == null:
+			unknown_item_ids.append(str(item_id))
+			continue
+		if item.effect_warnings.is_empty():
+			implemented_total += 1
+			continue
+		var warning_entries: Array[Dictionary] = []
+		for warning in item.effect_warnings:
+			var warning_text: String = str(warning)
+			warning_total += 1
+			var family_key: String = _item_warning_family_key(warning_text)
+			warning_family_counts[family_key] = int(warning_family_counts.get(family_key, 0)) + 1
+			if not EffectDefinitionClass.is_known_item_warning_family(warning_text) and not unknown_warning_families.has(family_key):
+				unknown_warning_families.append(family_key)
+			warning_entries.append({
+				"warning": warning_text,
+				"reason": EffectDefinitionClass.get_item_warning_reason(item, warning_text),
+			})
+		warning_items.append({
+			"id": item.source_id,
+			"name": item.item_name,
+			"sources": _sorted_string_array(sources.get(item.source_id, [])),
+			"warnings": warning_entries,
+		})
+	unknown_item_ids.sort()
+	unknown_warning_families.sort()
+	return {
+		"total_item_ids": ids.size(),
+		"implemented_item_total": implemented_total,
+		"warning_item_total": warning_items.size(),
+		"warning_entry_total": warning_total,
+		"warning_family_counts": warning_family_counts,
+		"warning_items": warning_items,
+		"unknown_item_total": unknown_item_ids.size(),
+		"unknown_items": unknown_item_ids,
+		"unknown_effect_categories": unknown_warning_families,
+	}
+
+static func _item_warning_family_key(warning: String) -> String:
+	var parts: PackedStringArray = warning.split(":")
+	if parts.size() >= 3:
+		return "%s:%s" % [parts[0], parts[2]]
+	return warning
+
+static func _add_reachable_item_source(spec: Dictionary, source: String, ids: Dictionary, sources: Dictionary) -> void:
+	var item_id: String = str(spec.get("id", ""))
+	if item_id.is_empty():
+		return
+	_add_reachable_item_id(item_id, source, ids, sources)
+
+static func _add_reachable_item_id(item_id: String, source: String, ids: Dictionary, sources: Dictionary) -> void:
+	if item_id.is_empty():
+		return
+	ids[item_id] = true
+	var source_list: Array = sources.get(item_id, [])
+	if not source_list.has(source):
+		source_list.append(source)
+	sources[item_id] = source_list
+
+static func _sorted_string_array(values: Array) -> Array[String]:
+	var sorted: Array[String] = []
+	for value in values:
+		sorted.append(str(value))
+	sorted.sort()
+	return sorted
+
 static func get_hero_skill_ids(hero_type: HeroDataClass.HeroType) -> Array[String]:
 	var ids: Array[String] = []
 	for spec in get_hero_skill_specs(hero_type):
@@ -685,6 +787,9 @@ static func item_to_monster_item(item_data: ItemDataClass) -> Dictionary:
 
 static func _find_item_spec(item_id: String) -> Dictionary:
 	for spec in get_mak_item_specs():
+		if str(spec.get("id", "")) == item_id:
+			return spec
+	for spec in KARNOK_BAZAARDB_ITEMS:
 		if str(spec.get("id", "")) == item_id:
 			return spec
 	for spec in SHARED_ITEM_SPECS:

@@ -57,6 +57,29 @@ const _HOOK_KEYWORD_MATCHERS := {
 	TRIGGER_ON_TRANSFORM: ["when this is transformed", "when you transform"],
 }
 
+const _SUPPORTED_ITEM_WARNING_EFFECTS := [
+	EFFECT_DAMAGE,
+	EFFECT_SHIELD,
+	EFFECT_HEAL,
+	EFFECT_BURN,
+	EFFECT_POISON,
+	EFFECT_REGENERATION,
+	EFFECT_SLOW,
+	EFFECT_HASTE,
+	EFFECT_FREEZE,
+	EFFECT_CHARGE,
+	EFFECT_RELOAD,
+	EFFECT_RUNTIME_BONUS,
+	EFFECT_MULTICAST,
+]
+
+const _SUPPORTED_ITEM_WARNING_TRIGGERS := [
+	TRIGGER_ON_SELL,
+	TRIGGER_ON_BUY,
+	TRIGGER_ON_HOUR_START,
+	TRIGGER_ON_TRANSFORM,
+]
+
 static func build_item_effects(item: ItemDataClass) -> Array[Dictionary]:
 	var definitions: Array[Dictionary] = []
 	var handled_keywords: Dictionary = {}
@@ -328,6 +351,7 @@ static func build_item_effects(item: ItemDataClass) -> Array[Dictionary]:
 	return definitions
 
 static func _append_non_combat_hook_definitions(definitions: Array[Dictionary], handled_keywords: Dictionary, item: ItemDataClass) -> void:
+	_append_sell_service_hook_definitions(definitions, handled_keywords, item)
 	match item.source_id:
 		"catalyst":
 			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_SELL, "transform", {"selector": "leftmost_small"}, {"type": "transform", "selector": "leftmost_small"}))
@@ -371,6 +395,45 @@ static func _append_non_combat_hook_definitions(definitions: Array[Dictionary], 
 		"the_tome_of_yyahan":
 			handled_keywords[EFFECT_REGENERATION] = true
 			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_TRANSFORM, EFFECT_REGENERATION, {"selector": "this_item", "event_source_tag": "Reagent"}, {"type": EFFECT_REGENERATION, "amount_by_rarity": [4, 10, 15]}))
+
+static func _append_sell_service_hook_definitions(definitions: Array[Dictionary], handled_keywords: Dictionary, item: ItemDataClass) -> void:
+	if item == null:
+		return
+	var source_id: String = item.source_id.to_lower()
+	if source_id in ["bluenanas", "chocolate_bar", "coconut", "green_gumball"]:
+		definitions.append(_hook_definition(source_id, TRIGGER_ON_SELL, "max_health", {"selector": "hero"}, {"type": "max_health"}))
+	if source_id == "vial_of_blood":
+		definitions.append(_hook_definition(source_id, TRIGGER_ON_SELL, "xp", {"selector": "hero"}, {"type": "xp"}))
+	if source_id == "arken_s_ring":
+		definitions.append(_hook_definition(source_id, TRIGGER_ON_SELL, "prestige", {"selector": "run"}, {"type": "prestige"}))
+	if source_id in ["eagle_talisman", "agility_boots", "blue_gumball"]:
+		definitions.append(_hook_definition(source_id, TRIGGER_ON_SELL, "crit", {"selector": "items"}, {"type": "crit"}))
+	if source_id in ["magnifying_glass", "old_sword", "rune_axe", "sharpening_stone", "junkyard_club", "lifting_gloves", "red_gumball"]:
+		handled_keywords[EFFECT_DAMAGE] = true
+		definitions.append(_hook_definition(source_id, TRIGGER_ON_SELL, EFFECT_DAMAGE, {"selector": "weapon_items"}, {"type": EFFECT_DAMAGE}))
+	if source_id in ["marble_scalemail", "scrap", "yellow_gumball"]:
+		handled_keywords[EFFECT_SHIELD] = true
+		definitions.append(_hook_definition(source_id, TRIGGER_ON_SELL, EFFECT_SHIELD, {"selector": "shield_items"}, {"type": EFFECT_SHIELD}))
+	if source_id in ["hot_springs", "junkyard_repairbot", "med_kit"]:
+		handled_keywords[EFFECT_HEAL] = true
+		definitions.append(_hook_definition(source_id, TRIGGER_ON_SELL, EFFECT_HEAL, {"selector": "heal_items"}, {"type": EFFECT_HEAL}))
+	if source_id in ["cinders", "salamander_pup"]:
+		handled_keywords[EFFECT_BURN] = true
+		definitions.append(_hook_definition(source_id, TRIGGER_ON_SELL, EFFECT_BURN, {"selector": "burn_items"}, {"type": EFFECT_BURN}))
+	if source_id in ["extract", "trained_spider"]:
+		handled_keywords[EFFECT_POISON] = true
+		definitions.append(_hook_definition(source_id, TRIGGER_ON_SELL, EFFECT_POISON, {"selector": "poison_items"}, {"type": EFFECT_POISON}))
+	if source_id in ["citrus", "gland"]:
+		handled_keywords[EFFECT_REGENERATION] = true
+		definitions.append(_hook_definition(source_id, TRIGGER_ON_SELL, EFFECT_REGENERATION, {"selector": "hero"}, {"type": EFFECT_REGENERATION}))
+	if source_id in ["clockwork_blades", "insect_wing"]:
+		definitions.append(_hook_definition(source_id, TRIGGER_ON_SELL, "cooldown_reduction", {"selector": "all_items"}, {"type": "cooldown_reduction"}))
+	if source_id == "gunpowder":
+		definitions.append(_hook_definition(source_id, TRIGGER_ON_SELL, EFFECT_AMMO, {"selector": "leftmost_ammo"}, {"type": EFFECT_AMMO}))
+	if source_id in ["upgrade_hammer", "magician_s_top_hat"]:
+		definitions.append(_hook_definition(source_id, TRIGGER_ON_SELL, "upgrade", {"selector": "leftmost_item"}, {"type": "upgrade"}))
+	if source_id == "safe":
+		definitions.append(_hook_definition(source_id, TRIGGER_ON_SELL, "grant_item", {"selector": "inventory"}, {"type": "grant_item", "item_id": "spare_change"}))
 
 static func _hook_definition(source_id: String, trigger: String, effect_name: String, target: Dictionary, effect: Dictionary) -> Dictionary:
 	return {
@@ -456,6 +519,49 @@ static func collect_item_warnings(
 				warnings.append("unsupported_item_effect:%s:%s" % [item.source_id, keyword])
 				break
 	return warnings
+
+static func get_item_warning_reason(item: ItemDataClass, warning: String) -> String:
+	var parts: PackedStringArray = str(warning).split(":")
+	var family: String = parts[0] if parts.size() > 0 else ""
+	var detail: String = parts[2] if parts.size() > 2 else ""
+	var item_id: String = "" if item == null else item.source_id
+	if family == "unsupported_item_trigger":
+		match detail:
+			TRIGGER_ON_SELL:
+				return "sell hook has no dedicated SellService mapping yet for %s" % item_id
+			TRIGGER_ON_BUY:
+				return "buy hook has no ItemAcquisition mapping yet for %s" % item_id
+			TRIGGER_ON_HOUR_START:
+				return "day/hour-start generation or spend behavior needs a RunState/ItemAcquisition mapping for %s" % item_id
+			TRIGGER_ON_TRANSFORM:
+				return "transform hook needs a SellService transform mapping for %s" % item_id
+		return "trigger family is recognized but not implemented for this item"
+	if family == "unsupported_item_effect":
+		match detail:
+			EFFECT_RUNTIME_BONUS:
+				return "conditional or permanent stat scaling requires item-specific runtime-bonus semantics"
+			EFFECT_MULTICAST:
+				return "multicast text needs item-specific trigger and cap semantics"
+			EFFECT_CHARGE:
+				return "charge target/trigger is ambiguous without item-specific selector support"
+			EFFECT_RELOAD:
+				return "reload target/trigger is ambiguous without ammo selector support"
+			EFFECT_DAMAGE, EFFECT_SHIELD, EFFECT_HEAL, EFFECT_BURN, EFFECT_POISON, EFFECT_REGENERATION, EFFECT_SLOW, EFFECT_HASTE, EFFECT_FREEZE:
+				return "base value is parsed only when source numeric fields are present; text-only scaling still needs item-specific semantics"
+		return "effect family is recognized but unsupported for this item"
+	return "warning family is unknown to the item warning reporter"
+
+static func is_known_item_warning_family(warning: String) -> bool:
+	var parts: PackedStringArray = str(warning).split(":")
+	if parts.size() < 3:
+		return false
+	var family: String = parts[0]
+	var detail: String = parts[2]
+	if family == "unsupported_item_trigger":
+		return detail in _SUPPORTED_ITEM_WARNING_TRIGGERS
+	if family == "unsupported_item_effect":
+		return detail in _SUPPORTED_ITEM_WARNING_EFFECTS
+	return false
 
 static func _append_root_value_effect(
 	definitions: Array[Dictionary],
