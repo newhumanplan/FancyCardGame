@@ -54,6 +54,8 @@ static func run_balance_suite(config: Dictionary = {}) -> Dictionary:
 		"coverage": coverage,
 		"acceptance": _build_acceptance(runs, coverage, soft_locks),
 		"aggregate": _build_aggregate(runs),
+		"option_variety": _build_option_variety(runs),
+		"event_coverage_report": EventManagerClass.new().get_event_gameplay_coverage_report(),
 		"outliers": outliers,
 		"soft_locks": soft_locks,
 		"runs": runs,
@@ -90,6 +92,7 @@ static func simulate_run(config: Dictionary = {}) -> Dictionary:
 		"coverage": _new_coverage(),
 		"curves": [],
 		"action_log": [],
+		"option_variety": {"event_ids": {}, "service_ids": {}, "merchant_ids": {}, "build_hour_signatures": {}},
 		"inventory_pressure_probe": force_inventory_pressure,
 		"last_chance_probe": force_last_chance_probe,
 	}
@@ -106,6 +109,7 @@ static func simulate_run(config: Dictionary = {}) -> Dictionary:
 		var hour: int = RunStateService.current_hour
 		var day: int = RunStateService.current_day
 		var options: Array[Dictionary] = event_manager.generate_options(hour, day)
+		_record_option_variety(run, options)
 		if options.is_empty():
 			_add_soft_lock(run, "no_options", "Day %d Hour %d generated no options" % [day, hour])
 			run["terminal_state"] = "soft_lock"
@@ -409,11 +413,76 @@ static func _merge_coverage(coverage: Dictionary, run: Dictionary) -> void:
 		counts[key] = int(counts.get(key, 0)) + int(run_counts.get(key, 0))
 	coverage["counts"] = counts
 
+static func _record_option_variety(run: Dictionary, options: Array[Dictionary]) -> void:
+	var variety: Dictionary = run.get("option_variety", {})
+	if variety.is_empty():
+		variety = {"event_ids": {}, "service_ids": {}, "merchant_ids": {}, "build_hour_signatures": {}}
+	var event_ids: Dictionary = variety.get("event_ids", {})
+	var service_ids: Dictionary = variety.get("service_ids", {})
+	var merchant_ids: Dictionary = variety.get("merchant_ids", {})
+	var signature_parts: Array[String] = []
+	for option in options:
+		var option_type: String = str(option.get("type", ""))
+		match option_type:
+			"random_event":
+				var event_id: String = str(option.get("event_id", ""))
+				if not event_id.is_empty():
+					event_ids[event_id] = true
+					signature_parts.append("event:%s" % event_id)
+			"service_vendor":
+				var service_id: String = str(option.get("service_id", ""))
+				if not service_id.is_empty():
+					service_ids[service_id] = true
+					signature_parts.append("service:%s" % service_id)
+			"shop":
+				var merchant_id: String = str(option.get("merchant_id", ""))
+				if not merchant_id.is_empty():
+					merchant_ids[merchant_id] = true
+					signature_parts.append("shop:%s" % merchant_id)
+	if not signature_parts.is_empty():
+		signature_parts.sort()
+		var signatures: Dictionary = variety.get("build_hour_signatures", {})
+		var signature: String = "|".join(signature_parts)
+		signatures[signature] = int(signatures.get(signature, 0)) + 1
+		variety["build_hour_signatures"] = signatures
+	variety["event_ids"] = event_ids
+	variety["service_ids"] = service_ids
+	variety["merchant_ids"] = merchant_ids
+	run["option_variety"] = variety
+
+static func _build_option_variety(runs: Array[Dictionary]) -> Dictionary:
+	var event_ids: Dictionary = {}
+	var service_ids: Dictionary = {}
+	var merchant_ids: Dictionary = {}
+	var signatures: Dictionary = {}
+	for run in runs:
+		var variety: Dictionary = run.get("option_variety", {})
+		for event_id in (variety.get("event_ids", {}) as Dictionary).keys():
+			event_ids[event_id] = true
+		for service_id in (variety.get("service_ids", {}) as Dictionary).keys():
+			service_ids[service_id] = true
+		for merchant_id in (variety.get("merchant_ids", {}) as Dictionary).keys():
+			merchant_ids[merchant_id] = true
+		var run_signatures: Dictionary = variety.get("build_hour_signatures", {})
+		for signature in run_signatures.keys():
+			signatures[signature] = int(signatures.get(signature, 0)) + int(run_signatures[signature])
+	return {
+		"unique_event_ids": event_ids.size(),
+		"unique_service_ids": service_ids.size(),
+		"unique_merchant_ids": merchant_ids.size(),
+		"unique_build_hour_signatures": signatures.size(),
+		"event_ids": event_ids.keys(),
+		"service_ids": service_ids.keys(),
+		"merchant_ids": merchant_ids.keys(),
+	}
+
 static func _build_acceptance(runs: Array[Dictionary], coverage: Dictionary, soft_locks: Array[Dictionary]) -> Dictionary:
 	var missing: Array[String] = []
 	for phase in MAJOR_PHASES:
 		if not bool(coverage.get(phase, false)):
 			missing.append(phase)
+	var variety: Dictionary = _build_option_variety(runs)
+	var event_report: Dictionary = EventManagerClass.new().get_event_gameplay_coverage_report()
 	return {
 		"seed_run_count_ok": runs.size() >= 20 and runs.size() <= 50,
 		"no_crash_or_soft_lock": soft_locks.is_empty(),
@@ -422,6 +491,8 @@ static func _build_acceptance(runs: Array[Dictionary], coverage: Dictionary, sof
 		"last_chance_reached": bool(coverage.get("last_chance", false)),
 		"curves_reported": true,
 		"outliers_flagged": true,
+		"event_coverage_70_plus": int(event_report.get("implemented_total", 0)) >= 70,
+		"build_hour_option_variety_ok": int(variety.get("unique_event_ids", 0)) >= 10 and int(variety.get("unique_service_ids", 0)) >= 6,
 		"deterministic_headless_entry": "tests/test_run_simulator_balance_gate.gd",
 	}
 
@@ -544,12 +615,28 @@ static func _build_markdown_report(report: Dictionary) -> String:
 	lines.append("- no_crash_or_soft_lock: `%s`" % str(acceptance.get("no_crash_or_soft_lock", false)))
 	lines.append("- major_phases_covered: `%s`" % str(acceptance.get("major_phases_covered", false)))
 	lines.append("- last_chance_reached: `%s`" % str(acceptance.get("last_chance_reached", false)))
+	lines.append("- event_coverage_70_plus: `%s`" % str(acceptance.get("event_coverage_70_plus", false)))
+	lines.append("- build_hour_option_variety_ok: `%s`" % str(acceptance.get("build_hour_option_variety_ok", false)))
 	lines.append("")
 	lines.append("## Coverage")
 	lines.append("")
 	var counts: Dictionary = coverage.get("counts", {})
 	for phase in ["merchant", "service_vendor", "event", "pve", "pvp", "reward_choice", "level_up", "last_chance"]:
 		lines.append("- %s: `%s` count `%d`" % [phase, str(coverage.get(phase, false)), int(counts.get(phase, 0))])
+	lines.append("")
+	var event_report: Dictionary = report.get("event_coverage_report", {})
+	lines.append("## Event Gameplay Coverage")
+	lines.append("")
+	lines.append("- implemented: `%d/%d`" % [int(event_report.get("implemented_total", 0)), int(event_report.get("total", 0))])
+	lines.append("- unsupported: `%d`" % int(event_report.get("unsupported_total", 0)))
+	var variety: Dictionary = report.get("option_variety", {})
+	lines.append("")
+	lines.append("## Build-Hour Option Variety")
+	lines.append("")
+	lines.append("- unique_event_ids: `%d`" % int(variety.get("unique_event_ids", 0)))
+	lines.append("- unique_service_ids: `%d`" % int(variety.get("unique_service_ids", 0)))
+	lines.append("- unique_merchant_ids: `%d`" % int(variety.get("unique_merchant_ids", 0)))
+	lines.append("- unique_build_hour_signatures: `%d`" % int(variety.get("unique_build_hour_signatures", 0)))
 	lines.append("")
 	lines.append("## Aggregate Curves")
 	lines.append("")

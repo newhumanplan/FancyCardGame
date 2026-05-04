@@ -34,6 +34,14 @@ func test_seeded_balance_suite_completes_and_writes_report() -> void:
 	_assert_true(bool(acceptance.get("major_phases_covered", false)), "all required major phases are covered")
 	_assert_true(bool(acceptance.get("curves_reported", false)), "economy and health curves are reported")
 	_assert_true(bool(acceptance.get("outliers_flagged", false)), "outlier detection is explicitly reported")
+	_assert_true(bool(acceptance.get("event_coverage_70_plus", false)), "event coverage gate is reported")
+	_assert_true(bool(acceptance.get("build_hour_option_variety_ok", false)), "build-hour option variety gate is reported")
+
+	var event_report: Dictionary = report.get("event_coverage_report", {})
+	_assert_true(int(event_report.get("implemented_total", 0)) >= 70, "event coverage report reaches 70+ implemented cases")
+	var variety: Dictionary = report.get("option_variety", {})
+	_assert_true(int(variety.get("unique_event_ids", 0)) >= 10, "balance report includes varied event ids")
+	_assert_true(int(variety.get("unique_service_ids", 0)) >= 6, "balance report includes all service vendors")
 
 	var coverage: Dictionary = report.get("coverage", {})
 	for phase in ["merchant", "service_vendor", "event", "pve", "pvp", "reward_choice", "level_up"]:

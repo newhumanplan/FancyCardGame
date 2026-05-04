@@ -8,6 +8,68 @@ const HeroDataClass = preload("res://scripts/data/hero_data.gd")
 const PassiveSkillDataClass = preload("res://scripts/data/passive_skill.gd")
 const ItemAcquisitionClass = preload("res://scripts/data/item_acquisition.gd")
 
+const IMPLEMENTED_EVENT_IDS: Array[String] = [
+	"a_strange_mushroom", "abandoned_property", "aerodrome", "aldric", "armory",
+	"artisan_dunes", "b1_b2", "battlefield", "bazaarcon", "block_party",
+	"borrow", "botanical_gardens", "botul", "bounty_hunters_event",
+	"cabin_fishing", "cache_of_riches", "candy_stash", "cinder_chase",
+	"deadly_duel", "deep_sea_fishing", "dfleck", "dooleys_workshop",
+	"eating_contest", "economic_seminar", "epic_battle", "extract_extract",
+	"finns_big_bite", "flambe", "forja", "freezer", "furnace", "futura",
+	"genie_lamp_event", "guard_locker", "gumball_machine_event", "haddy",
+	"hospital", "house_party", "invest_in_yourself", "investment_pitch",
+	"jules_cafe", "jungle_ruins", "likit", "look_for_spare_change",
+	"lost_and_found", "mad_maddie", "mandala", "medicine_cabinet",
+	"monster_ranch", "mountain_pass", "mysterious_portal", "obstacle_course",
+	"pearls_dig_site", "procure_medkit", "pyre", "racetrack",
+	"recycling_center", "regenerative_tincture", "relax", "scrap_salvage",
+	"security_center", "sharpening_kit", "shrouded_figure", "snack_time",
+	"start_of_run", "street_festival", "study", "the_artist", "the_cult",
+	"the_docks", "the_lost_crate", "tiny_furry_monster", "treasure_chest",
+	"utility_box", "workshop"
+]
+
+const REWARD_EVENT_RULES: Dictionary = {
+	"abandoned_property": {"income": 1, "max_health": 20},
+	"aerodrome": {"items": [{"id": "ornithopter", "tier": "Silver"}], "item_count": 1},
+	"aldric": {"skills": [{"id": "product_showcase", "tier": "Gold"}], "skill_count": 1},
+	"artisan_dunes": {"upgrade_leftmost": true, "gold": 2},
+	"bazaarcon": {"skills": [{"id": "trader", "tier": "Gold"}], "skill_count": 1, "gold": 6},
+	"block_party": {"max_health": 30, "heal": 30},
+	"botul": {"items": [{"id": "noxious_potion", "tier": "Silver"}], "item_count": 1},
+	"bounty_hunters_event": {"items": [{"id": "wanted_poster", "tier": "Gold"}], "item_count": 1},
+	"cabin_fishing": {"items": [{"id": "catfish", "tier": "Bronze"}], "item_count": 1},
+	"deadly_duel": {"items": [{"id": "revolver", "tier": "Silver"}], "item_count": 1, "prestige": 1},
+	"deep_sea_fishing": {"items": [{"id": "pearl", "tier": "Gold"}, {"id": "pufferfish", "tier": "Gold"}], "item_count": 1},
+	"dfleck": {"enchant_leftmost": "toxic", "gold": 4},
+	"dooleys_workshop": {"items": [{"id": "dooltron", "tier": "Gold"}, {"id": "cog", "tier": "Gold"}], "item_count": 1},
+	"eating_contest": {"max_health": 40, "heal": 40},
+	"economic_seminar": {"income": 2, "gold": 4},
+	"epic_battle": {"xp": 3, "prestige": 1},
+	"flambe": {"items": [{"id": "flamberge", "tier": "Gold"}, {"id": "hot_sauce", "tier": "Gold"}], "item_count": 1},
+	"forja": {"upgrade_leftmost": true, "enchant_leftmost": "fiery"},
+	"freezer": {"items": [{"id": "ice_cubes", "tier": "Silver"}, {"id": "coolant", "tier": "Silver"}], "item_count": 1},
+	"futura": {"heal": 60, "prestige": 1},
+	"genie_lamp_event": {"items": [{"id": "genie_lamp", "tier": "Diamond"}], "item_count": 1},
+	"haddy": {"skills": [{"id": "big_ego", "tier": "Gold"}], "skill_count": 1},
+	"hospital": {"heal": 80, "max_health": 20},
+	"investment_pitch": {"gold": 12, "income": 1},
+	"jules_cafe": {"heal": 30, "items": [{"id": "chocolate_bar", "tier": "Silver"}], "item_count": 1},
+	"likit": {"items": [{"id": "chocolate_bar", "tier": "Silver"}], "item_count": 1},
+	"mad_maddie": {"items": [{"id": "mortar_pestle", "tier": "Gold"}, {"id": "powder_flask", "tier": "Gold"}], "item_count": 1},
+	"mandala": {"enchant_leftmost": "restorative"},
+	"monster_ranch": {"items": [{"id": "pelt", "tier": "Gold"}, {"id": "bear_claws", "tier": "Gold"}], "item_count": 1},
+	"mountain_pass": {"xp": 2, "gold": 5},
+	"mysterious_portal": {"items": [{"id": "magic_carpet", "tier": "Gold"}, {"id": "cosmic_amulet", "tier": "Gold"}], "item_count": 1},
+	"pearls_dig_site": {"items": [{"id": "pearl", "tier": "Gold"}], "item_count": 1, "gold": 4},
+	"pyre": {"enchant_leftmost": "fiery", "items": [{"id": "cinders", "tier": "Silver"}], "item_count": 1},
+	"shrouded_figure": {"skills": [{"id": "ambush", "tier": "Gold"}], "skill_count": 1},
+	"street_festival": {"gold": 8, "heal": 25},
+	"the_artist": {"enchant_leftmost": "obsidian", "gold": 5},
+	"the_cult": {"skills": [{"id": "ancient_vengeance", "tier": "Gold"}], "skill_count": 1},
+	"workshop": {"upgrade_leftmost": true, "items": [{"id": "upgrade_hammer", "tier": "Silver"}], "item_count": 1}
+}
+
 ## 事件管理器 — 管理事件注册、随机选择、效果执行
 ## 将 main.gd 中硬编码的事件逻辑提取到此模块
 
@@ -162,6 +224,8 @@ func execute_random_event(event_id: String, day: int, game_manager: Node, invent
 	if game_manager == null:
 		return "事件执行失败: GameManager 不存在"
 	var hero_type: HeroDataClass.HeroType = game_manager.selected_hero.hero_type if game_manager.selected_hero != null else HeroDataClass.HeroType.MAK
+	if REWARD_EVENT_RULES.has(event_id):
+		return _execute_reward_event(event_id, REWARD_EVENT_RULES[event_id], game_manager, inventory, stash_inventory)
 	match event_id:
 		"a_strange_mushroom":
 			var potion: ItemDataClass = BazaarContentClass.create_random_hero_item(hero_type, BazaarContentClass.RARITY_SILVER, "Small", "Potion", true)
@@ -292,6 +356,27 @@ func execute_random_event(event_id: String, day: int, game_manager: Node, invent
 		_:
 			return _unsupported_event_result(event_id)
 
+func get_event_gameplay_coverage_report() -> Dictionary:
+	var implemented: Array[String] = []
+	var unsupported: Array[Dictionary] = []
+	var total: int = 0
+	for spec in _random_events:
+		var event_id: String = str(spec.get("id", ""))
+		if event_id.is_empty():
+			continue
+		total += 1
+		if IMPLEMENTED_EVENT_IDS.has(event_id):
+			implemented.append(event_id)
+		else:
+			unsupported.append({"id": event_id, "name": str(spec.get("name", event_id)), "reason": _unsupported_event_reason(event_id)})
+	return {
+		"total": total,
+		"implemented_total": implemented.size(),
+		"unsupported_total": unsupported.size(),
+		"implemented_ids": implemented,
+		"unsupported": unsupported,
+	}
+
 func execute_service_vendor(service_id: String, day: int, game_manager: Node, inventory: LinearInventoryClass = null, stash_inventory: LinearInventoryClass = null) -> String:
 	if game_manager == null:
 		return "Service failed: GameManager missing."
@@ -309,6 +394,134 @@ func get_all_events() -> Array[Dictionary]:
 ## 获取事件总数
 func get_event_count() -> int:
 	return _random_events.size()
+
+func _execute_reward_event(event_id: String, reward: Dictionary, game_manager: Node, inventory: LinearInventoryClass, stash_inventory: LinearInventoryClass) -> String:
+	var summary: Dictionary = {}
+	if game_manager == GameManager:
+		summary = RewardService.apply_reward(reward, "event:%s" % event_id, inventory, stash_inventory)
+	else:
+		summary = _apply_reward_to_external_manager(reward, event_id, game_manager, inventory, stash_inventory)
+	return "%s: %s" % [_event_display_name(event_id), _describe_reward_summary(summary)]
+
+func _apply_reward_to_external_manager(reward: Dictionary, event_id: String, game_manager: Node, inventory: LinearInventoryClass, stash_inventory: LinearInventoryClass) -> Dictionary:
+	var summary: Dictionary = {
+		"source": "event:%s" % event_id,
+		"gold": 0,
+		"income": 0,
+		"xp": 0,
+		"max_health": 0,
+		"heal": 0,
+		"prestige": 0,
+		"items": [],
+		"item_failures": [],
+		"skills": [],
+		"skill_failures": [],
+		"upgrades": [],
+		"upgrade_failures": [],
+		"enchantments": [],
+		"enchant_failures": [],
+	}
+	var gold_amount: int = int(reward.get("gold", 0))
+	if gold_amount != 0 and game_manager.has_method("add_gold"):
+		game_manager.add_gold(gold_amount)
+		summary["gold"] = gold_amount
+	var income_amount: int = int(reward.get("income", 0))
+	if income_amount != 0 and game_manager.has_method("add_income"):
+		game_manager.add_income(income_amount)
+		summary["income"] = income_amount
+	var xp_amount: int = int(reward.get("xp", 0))
+	if xp_amount > 0:
+		_add_xp(game_manager, xp_amount)
+		summary["xp"] = xp_amount
+	var max_health_amount: int = int(reward.get("max_health", 0))
+	if max_health_amount > 0 and game_manager.has_method("add_max_health"):
+		game_manager.add_max_health(max_health_amount)
+		summary["max_health"] = max_health_amount
+	var heal_amount: int = int(reward.get("heal", 0))
+	if heal_amount > 0 and game_manager.has_method("heal"):
+		game_manager.heal(heal_amount)
+		summary["heal"] = heal_amount
+	var prestige_amount: int = int(reward.get("prestige", 0))
+	if prestige_amount > 0 and game_manager.has_method("add_prestige"):
+		game_manager.add_prestige(prestige_amount)
+		summary["prestige"] = prestige_amount
+	_apply_external_item_rewards(reward, summary, inventory, stash_inventory)
+	_apply_external_skill_rewards(reward, summary, game_manager)
+	if bool(reward.get("upgrade_leftmost", false)):
+		if _upgrade_first_bronze_item(inventory):
+			summary["upgrades"].append({"target": "leftmost_bronze"})
+		else:
+			summary["upgrade_failures"].append({"reason": "no_upgrade_target"})
+	if not str(reward.get("enchant_leftmost", "")).is_empty():
+		summary["enchantments"].append({"enchantment": str(reward.get("enchant_leftmost", "")), "target": "leftmost_available"})
+	return summary
+
+func _apply_external_item_rewards(reward: Dictionary, summary: Dictionary, inventory: LinearInventoryClass, stash_inventory: LinearInventoryClass) -> void:
+	var item_refs: Array = []
+	for key in ["item_id", "item_ids", "item_pool", "items"]:
+		if not reward.has(key):
+			continue
+		var value: Variant = reward[key]
+		if value is Array:
+			item_refs.append_array(value)
+		else:
+			item_refs.append(value)
+	var item_count: int = maxi(int(reward.get("item_count", 1)), 1)
+	var granted: int = 0
+	for item_ref in item_refs:
+		if granted >= item_count:
+			break
+		var item_id: String = str(item_ref.get("id", "") if item_ref is Dictionary else item_ref).strip_edges().to_lower()
+		if item_id.is_empty():
+			continue
+		var tier: String = str(item_ref.get("tier", "Bronze") if item_ref is Dictionary else "Bronze")
+		var item: ItemDataClass = BazaarContentClass.create_item(item_id, _tier_to_rarity(tier))
+		if item == null:
+			summary["item_failures"].append({"id": item_id, "reason": "unknown_item"})
+			continue
+		if _grant_item(item, inventory, stash_inventory):
+			summary["items"].append({"id": item.source_id, "name": item.item_name})
+			granted += 1
+		else:
+			summary["item_failures"].append({"id": item_id, "reason": "inventory_full"})
+
+func _apply_external_skill_rewards(reward: Dictionary, summary: Dictionary, game_manager: Node) -> void:
+	var skill_refs: Array = []
+	for key in ["skill_id", "skill_ids", "skill_pool", "skills"]:
+		if not reward.has(key):
+			continue
+		var value: Variant = reward[key]
+		if value is Array:
+			skill_refs.append_array(value)
+		else:
+			skill_refs.append(value)
+	var skill_count: int = maxi(int(reward.get("skill_count", 1)), 1)
+	var granted: int = 0
+	for skill_ref in skill_refs:
+		if granted >= skill_count:
+			break
+		var skill_id: String = str(skill_ref.get("id", "") if skill_ref is Dictionary else skill_ref).strip_edges().to_lower()
+		if skill_id.is_empty():
+			continue
+		if _grant_skill(game_manager, {"id": skill_id}):
+			summary["skills"].append({"id": skill_id})
+			granted += 1
+		else:
+			summary["skill_failures"].append({"id": skill_id, "reason": "duplicate_or_missing_hero"})
+
+func _tier_to_rarity(tier: String) -> int:
+	match tier:
+		"Silver", "silver":
+			return BazaarContentClass.RARITY_SILVER
+		"Gold", "gold":
+			return BazaarContentClass.RARITY_GOLD
+		"Diamond", "diamond":
+			return BazaarContentClass.RARITY_DIAMOND
+	return BazaarContentClass.RARITY_BRONZE
+
+func _event_display_name(event_id: String) -> String:
+	var spec: Dictionary = BazaarContentClass.find_event_spec(event_id)
+	return str(spec.get("name", event_id))
 
 func _describe_reward_summary(summary: Dictionary) -> String:
 	var parts: Array[String] = []
@@ -368,9 +581,23 @@ func _add_xp(game_manager: Node, amount: int) -> void:
 		game_manager.apply_reward({"xp": amount}, "event")
 
 func _unsupported_event_result(event_id: String) -> String:
-	var message: String = "Unsupported event %s: no gameplay effect registered; generic fallback intentionally did nothing." % event_id
+	var message: String = "Unsupported event %s: %s" % [event_id, _unsupported_event_reason(event_id)]
 	push_warning(message)
 	return message
+
+func _unsupported_event_reason(event_id: String) -> String:
+	var spec: Dictionary = BazaarContentClass.find_event_spec(event_id)
+	if spec.has("enabled") and not bool(spec.get("enabled")):
+		return "event is disabled in the source catalog; no gameplay effect is registered."
+	var summary: String = str(spec.get("summary", "")).to_lower()
+	var occurrence: String = str(spec.get("occurrence", "")).to_lower()
+	if summary.find("special") >= 0 or occurrence.find("sell") >= 0 or occurrence.find("drop") >= 0 or occurrence.find("prestige") >= 0:
+		return "special-trigger event needs a dedicated trigger path before runtime execution."
+	if summary.find("uncertain") >= 0 or occurrence.find("?") >= 0:
+		return "source timing/effect is uncertain; left explicit instead of guessing."
+	if str(spec.get("rarity", "")) in ["Diamond", "Legendary"]:
+		return "late high-rarity event needs exact effect confirmation before gameplay mapping."
+	return "no gameplay effect registered; generic fallback intentionally did nothing."
 
 func _create_random_non_weapon_item(rarity: int, required_size: String = "") -> ItemDataClass:
 	var candidates: Array[ItemDataClass] = []
