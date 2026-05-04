@@ -2,6 +2,7 @@ extends Node
 
 const PvpGhostServiceClass = preload("res://scripts/services/pvp_ghost_service.gd")
 const GhostSnapshotClass = preload("res://scripts/data/ghost_snapshot.gd")
+const ItemArtCatalogClass = preload("res://scripts/data/item_art_catalog.gd")
 
 var _total: int = 0
 var _passed: int = 0
@@ -25,6 +26,7 @@ func _run_tests() -> void:
 	test_local_power_bucket_match_precedes_curated_fallback()
 	test_curated_fallback_when_no_local_power_band_match()
 	test_battle_replay_summary_extracts_major_drivers()
+	test_runic_daggers_item_art_loads_without_raw_resource_fallback()
 	await test_curated_editor_entry_opens_from_bazaar_shell()
 	await test_pvp_battle_uses_ghost_snapshot_path()
 
@@ -306,6 +308,12 @@ func test_curated_editor_entry_opens_from_bazaar_shell() -> void:
 	_assert_true(_find_node(overlay, "GhostSnapshotEditor") == null, "Ghost Editor can be closed cleanly")
 	main.queue_free()
 	await _drain_frames(2)
+
+func test_runic_daggers_item_art_loads_without_raw_resource_fallback() -> void:
+	var texture_path: String = ItemArtCatalogClass.get_item_texture_path_by_source_id("runic_daggers")
+	_assert_true(texture_path.ends_with("runic_daggers.jpeg"), "runic daggers art path resolves to local wiki asset")
+	var texture: Texture2D = ItemArtCatalogClass.load_texture(texture_path)
+	_assert_true(texture != null, "runic daggers art loader returns an export-safe texture or fallback")
 
 func test_pvp_battle_uses_ghost_snapshot_path() -> void:
 	var main: Control = await _instantiate_main_scene()

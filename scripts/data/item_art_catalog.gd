@@ -29,14 +29,30 @@ static func get_item_texture_path_by_source_id(source_id: String) -> String:
 static func load_texture(texture_path: String) -> Texture2D:
 	if texture_path.is_empty():
 		return null
-	if ResourceLoader.exists(texture_path):
+	if ResourceLoader.exists(texture_path) and _has_valid_import(texture_path):
 		var imported_texture: Texture2D = load(texture_path) as Texture2D
 		if imported_texture != null:
 			return imported_texture
+	if texture_path.begins_with("res://"):
+		return _create_fallback_texture()
 	if not FileAccess.file_exists(texture_path):
 		return null
 	var image: Image = Image.new()
 	var error: Error = image.load(texture_path)
 	if error != OK:
 		return null
+	return ImageTexture.create_from_image(image)
+
+static func _has_valid_import(texture_path: String) -> bool:
+	var import_path: String = "%s.import" % texture_path
+	if not FileAccess.file_exists(import_path):
+		return false
+	var import_text: String = FileAccess.get_file_as_string(import_path)
+	if import_text.contains("valid=false"):
+		return false
+	return import_text.contains("type=\"CompressedTexture2D\"") and import_text.contains("path=\"")
+
+static func _create_fallback_texture() -> Texture2D:
+	var image: Image = Image.create(2, 2, false, Image.FORMAT_RGBA8)
+	image.fill(Color(0.12, 0.14, 0.18, 1.0))
 	return ImageTexture.create_from_image(image)
