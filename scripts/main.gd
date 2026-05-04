@@ -229,12 +229,27 @@ func _setup_bazaar_hero_buttons() -> void:
 			button.pressed.connect(_on_bazaar_hero_selected.bind(hero_type))
 
 func _format_bazaar_hero_button(spec: Dictionary) -> String:
-	var item_count: int = BazaarContentClass.get_hero_item_ids(spec.get("type", HeroDataClass.HeroType.MAK)).size()
-	return "%s\nHP: %d | 暴击: %.0f%% | %d wiki items" % [
+	var hero_type: HeroDataClass.HeroType = spec.get("type", HeroDataClass.HeroType.MAK)
+	var item_count: int = BazaarContentClass.get_hero_item_ids(hero_type).size()
+	var archetype_names: Array[String] = []
+	var build_tags: Array[String] = []
+	for archetype in BazaarContentClass.get_hero_archetypes(hero_type):
+		if not archetype is Dictionary:
+			continue
+		archetype_names.append(str((archetype as Dictionary).get("name", "Build")))
+		for tag in (archetype as Dictionary).get("tags", []):
+			var tag_text: String = str(tag)
+			if not tag_text.is_empty() and not build_tags.has(tag_text):
+				build_tags.append(tag_text)
+	var build_line: String = "Builds: %s" % ", ".join(archetype_names.slice(0, 2))
+	var tag_line: String = "Tags: %s" % ", ".join(build_tags.slice(0, 4))
+	return "%s\nHP: %d | 暴击: %.0f%% | %d wiki items\n%s\n%s" % [
 		str(spec.get("name", "Hero")),
 		int(spec.get("max_hp", 100)),
 		float(spec.get("crit", 0.05)) * 100.0,
 		item_count,
+		build_line,
+		tag_line,
 	]
 
 func _on_bazaar_hero_selected(hero_type: HeroDataClass.HeroType) -> void:

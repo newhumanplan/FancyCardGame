@@ -71,7 +71,7 @@ static func simulate_run(config: Dictionary = {}) -> Dictionary:
 	seed(seed_value)
 	_reset_runtime()
 
-	var hero_type: HeroDataClass.HeroType = _hero_type_for_seed(seed_value)
+	var hero_type: HeroDataClass.HeroType = _hero_type_from_config(config, seed_value)
 	var hero = HeroFactoryService.create_hero(hero_type)
 	GameManager.select_hero(hero)
 
@@ -361,8 +361,18 @@ static func _reset_runtime() -> void:
 	HeroStateService.reset()
 	GameManager.reset_stats()
 
-static func _hero_type_for_seed(seed_value: int) -> HeroDataClass.HeroType:
-	var heroes: Array[HeroDataClass.HeroType] = [HeroDataClass.HeroType.MAK, HeroDataClass.HeroType.VANESSA, HeroDataClass.HeroType.PYGMALIEN, HeroDataClass.HeroType.DOOLEY]
+static func _hero_type_from_config(config: Dictionary, seed_value: int) -> HeroDataClass.HeroType:
+	if config.has("hero_type"):
+		return config.get("hero_type", HeroDataClass.HeroType.MAK)
+	var heroes: Array[HeroDataClass.HeroType] = [
+		HeroDataClass.HeroType.VANESSA,
+		HeroDataClass.HeroType.PYGMALIEN,
+		HeroDataClass.HeroType.DOOLEY,
+		HeroDataClass.HeroType.MAK,
+		HeroDataClass.HeroType.STELLE,
+		HeroDataClass.HeroType.JULES,
+		HeroDataClass.HeroType.KARNOK,
+	]
 	return heroes[abs(seed_value) % heroes.size()]
 
 static func _grant_starter_items(hero_type: HeroDataClass.HeroType, inventory: LinearInventoryClass, stash: LinearInventoryClass) -> void:

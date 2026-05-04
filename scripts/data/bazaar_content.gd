@@ -20,9 +20,9 @@ const HERO_PROFILE_SPECS: Array[Dictionary] = [
 	{"type": HeroDataClass.HeroType.PYGMALIEN, "id": "pygmalien", "name": "Pygmalien", "max_hp": 125, "crit": 0.04, "collection": "Pygmalien", "skills": ["toughness", "overheal_haste", "critical_aid", "frontal_shielding", "strength"], "passives": [{"name": "Immovable Object", "description": "Wiki gameplay profile: Healing, Shielding, Max Health, and economy scaling.", "type": "health", "value": 25.0}, {"name": "Jaballian Value", "description": "Pygmalien's item set converts economy and value into combat pressure.", "type": "shield", "value": 15.0}]},
 	{"type": HeroDataClass.HeroType.DOOLEY, "id": "dooley", "name": "Dooley", "max_hp": 105, "crit": 0.05, "collection": "Dooley", "skills": ["flashy_mechanic", "electrified_hull", "beautiful_friendship", "time_to_tinker", "distributed_systems"], "passives": [{"name": "Core Chain Reaction", "description": "Wiki gameplay profile: Cores trigger and buff items around them for chain reactions.", "type": "cooldown", "value": 5.0}, {"name": "Robot Friends", "description": "Dooley has access to many robot Friend items and Companion Core-style boards.", "type": "shield", "value": 10.0}]},
 	{"type": HeroDataClass.HeroType.MAK, "id": "mak", "name": "Mak", "max_hp": 100, "crit": 0.05, "collection": "Mak", "skills": ["fiery", "improved_toxins", "heated_shells", "paralytic_poison", "slow_burn"], "passives": [{"name": "Alchemy", "description": "Wiki gameplay profile: Potions, Reagents, Burn, Poison, Regeneration, and Catalyst transformations.", "type": "cooldown", "value": 3.0}, {"name": "Regenerative Formula", "description": "Mak can stack Regeneration while transforming Reagents into enchanted items.", "type": "health", "value": 10.0}]},
-	{"type": HeroDataClass.HeroType.STELLE, "id": "stelle", "name": "Stelle", "max_hp": 95, "crit": 0.07, "collection": "Stelle", "skills": ["expert_pilot", "command_ship", "flashy_mechanic", "slow_and_steady", "slowed_targets"], "passives": [{"name": "Aeronaut", "description": "Wiki item collection profile: Vehicles, Flying, Tools, and Ammo define Stelle content.", "type": "cooldown", "value": 4.0}, {"name": "Precision Pilot", "description": "Stelle boards reward Vehicle/Flying timing and repeated technical activations.", "type": "crit", "value": 2.0}]},
-	{"type": HeroDataClass.HeroType.JULES, "id": "jules", "name": "Jules", "max_hp": 110, "crit": 0.05, "collection": "Jules", "skills": ["fiery", "tools_of_the_trade", "strength", "tracer_fire", "flashy_mechanic"], "passives": [{"name": "Joyful Kitchen", "description": "Wiki profile: Jules is upcoming and uses Joy plus Food/Cooking item support.", "type": "health", "value": 10.0}, {"name": "Seasoned Heat", "description": "Jules' confirmed item collection is food/kitchen heavy with Burn and Charge hooks.", "type": "crit", "value": 2.0}]},
-	{"type": HeroDataClass.HeroType.KARNOK, "id": "karnok", "name": "Karnok", "max_hp": 110, "crit": 0.05, "collection": "Karnok", "skills": ["initial_rage", "adrenaline_rush", "blight_temper", "blind_fury"], "passives": [{"name": "Karnok's Rage", "description": "Mobalytics Karnok guide: item uses build Rage to 100; Enrage clears Slow/Freeze and reduces item Cooldowns by 10% for 5 seconds.", "type": "cooldown", "value": 10.0}, {"name": "Monstrous Hunter", "description": "Temporary app passive derived from Karnok's confirmed monster-hunter/Rage playstyle; replace if Tempo publishes canonical innate passives.", "type": "lifesteal", "value": 4.0}]},
+	{"type": HeroDataClass.HeroType.STELLE, "id": "stelle", "name": "Stelle", "max_hp": 95, "crit": 0.07, "collection": "Stelle", "skills": ["command_ship", "full_arsenal", "the_right_tool", "slow_and_steady", "slowed_targets"], "pool_note": "Stelle has a thinner confirmed wiki pool than launched heroes; current app pool includes every source-backed Stelle item in wiki_monster_catalog.", "passives": [{"name": "Aeronaut", "description": "Wiki item collection profile: Vehicles, Flying, Tools, and Ammo define Stelle content.", "type": "cooldown", "value": 4.0}, {"name": "Precision Pilot", "description": "Stelle boards reward Vehicle/Flying timing and repeated technical activations.", "type": "crit", "value": 2.0}]},
+	{"type": HeroDataClass.HeroType.JULES, "id": "jules", "name": "Jules", "max_hp": 110, "crit": 0.05, "collection": "Jules", "skills": ["fiery", "tools_of_the_trade", "strength", "tracer_fire", "flashy_mechanic"], "pool_note": "Jules is upcoming and intentionally thin; current app pool includes every source-backed Jules item in wiki_monster_catalog.", "passives": [{"name": "Joyful Kitchen", "description": "Wiki profile: Jules is upcoming and uses Joy plus Food/Cooking item support.", "type": "health", "value": 10.0}, {"name": "Seasoned Heat", "description": "Jules' confirmed item collection is food/kitchen heavy with Burn and Charge hooks.", "type": "crit", "value": 2.0}]},
+	{"type": HeroDataClass.HeroType.KARNOK, "id": "karnok", "name": "Karnok", "max_hp": 110, "crit": 0.05, "collection": "Karnok", "skills": ["burning_rage", "rush", "thick_hide", "void_rage", "draconic_rage"], "pool_note": "Karnok uses the checked BazaarDB/Mobalytics subset plus wiki catalog rows; keep Rage/Enrage gaps explicit until canonical runtime support lands.", "passives": [{"name": "Karnok's Rage", "description": "Mobalytics Karnok guide: item uses build Rage to 100; Enrage clears Slow/Freeze and reduces item Cooldowns by 10% for 5 seconds.", "type": "cooldown", "value": 10.0}, {"name": "Monstrous Hunter", "description": "Temporary app passive derived from Karnok's confirmed monster-hunter/Rage playstyle; replace if Tempo publishes canonical innate passives.", "type": "lifesteal", "value": 4.0}]},
 ]
 
 const HERO_ARCHETYPE_SPECS: Dictionary = {
@@ -60,6 +60,96 @@ const HERO_ARCHETYPE_SPECS: Dictionary = {
 			"core_items": ["atm", "landscraper", "spacescraper", "golf_clubs", "tusked_helm"],
 			"core_skills": ["strength", "toughness", "left_handed", "right_handed"],
 			"summary": "Properties and value engines turn economy into Shield, Heal, and Weapon pressure.",
+		},
+	],
+	"dooley": [
+		{
+			"id": "dooley_core_tech",
+			"name": "Core Tech",
+			"tags": ["Tech", "Charge", "Ammo", "Shield"],
+			"core_items": ["battery", "lightbulb", "tesla_coil", "nitro", "induction_aegis"],
+			"core_skills": ["flashy_mechanic", "electrified_hull", "time_to_tinker"],
+			"summary": "Tech items charge neighbors, shield, and chain repeated activations through Cores.",
+		},
+		{
+			"id": "dooley_friend_weapons",
+			"name": "Robot Friends",
+			"tags": ["Friend", "Weapon", "Vehicle", "Damage"],
+			"core_items": ["bill_dozer", "bomb_squad", "micro_dave", "dooltron", "laser_pistol"],
+			"core_skills": ["beautiful_friendship", "distributed_systems", "friend_zone"],
+			"summary": "Friend boards convert robot activations into Weapon damage and small-item tempo.",
+		},
+	],
+	"mak": [
+		{
+			"id": "mak_potion_status",
+			"name": "Potion Status",
+			"tags": ["Potion", "Ammo", "Burn", "Poison"],
+			"core_items": ["fire_potion", "noxious_potion", "rainbow_potion", "infinite_potion", "bottled_lightning"],
+			"core_skills": ["fiery", "improved_toxins", "heated_shells", "slow_burn"],
+			"summary": "Potions deliver Burn, Poison, Slow, and Reload loops through Ammo-backed status pressure.",
+		},
+		{
+			"id": "mak_reagent_transform",
+			"name": "Reagent Transform",
+			"tags": ["Reagent", "Regen", "Poison", "Transform"],
+			"core_items": ["hemlock", "myrrh", "nightshade", "mortar_and_pestle", "aludel"],
+			"core_skills": ["paralytic_poison", "poison_tyrant", "regenerative"],
+			"summary": "Reagents and catalysts grow Poison and Regeneration while enabling transformation payoffs.",
+		},
+	],
+	"stelle": [
+		{
+			"id": "stelle_vehicle_flying",
+			"name": "Vehicle Flying",
+			"tags": ["Vehicle", "Flying", "Cooldown", "Haste"],
+			"core_items": ["ornithopter", "paper_airplane", "ice_bomb", "daggerwing", "hammer"],
+			"core_skills": ["command_ship", "full_arsenal", "rush"],
+			"summary": "Vehicles and Flying effects reduce cooldowns while repeatedly reloading or hasting key items.",
+		},
+		{
+			"id": "stelle_tools_control",
+			"name": "Tool Control",
+			"tags": ["Tool", "Slow", "Freeze", "Damage"],
+			"core_items": ["multitool", "orbital_polisher", "hammer", "lightning_rod", "ice_bomb"],
+			"core_skills": ["the_right_tool", "slow_and_steady", "slowed_targets"],
+			"summary": "Tools combine Slow, Freeze, and technical damage support for precision control boards.",
+		},
+	],
+	"jules": [
+		{
+			"id": "jules_food_burn",
+			"name": "Food Burn",
+			"tags": ["Food", "Burn", "Charge", "Multicast"],
+			"core_items": ["black_pepper", "hot_sauce", "pickled_peppers", "ice_cubes", "curry"],
+			"core_skills": ["fiery", "tracer_fire", "tools_of_the_trade"],
+			"summary": "Food and kitchen items stack Burn, Charge adjacent items, and use Multicast to scale heat.",
+		},
+		{
+			"id": "jules_kitchen_tools",
+			"name": "Kitchen Tools",
+			"tags": ["Tool", "Weapon", "Charge", "Damage"],
+			"core_items": ["knife_set", "black_pepper", "dishwasher", "skillet", "hot_sauce"],
+			"core_skills": ["strength", "flashy_mechanic", "tools_of_the_trade"],
+			"summary": "Kitchen Tools and Weapons turn repeated tool activations into damage, crit, and haste.",
+		},
+	],
+	"karnok": [
+		{
+			"id": "karnok_rage_weapons",
+			"name": "Rage Weapons",
+			"tags": ["Weapon", "Rage", "Damage", "Slow"],
+			"core_items": ["bear_claws", "hunters_axe", "adrenaline_shot", "battle_axe", "bear_trap"],
+			"core_skills": ["burning_rage", "rush", "thick_hide"],
+			"summary": "Rage-tagged Weapons and Ammo pressure enemies while reducing cooldown pressure through Slow/Haste hooks.",
+		},
+		{
+			"id": "karnok_hunter_sustain",
+			"name": "Hunter Sustain",
+			"tags": ["Heal", "Food", "Tool", "RageReference"],
+			"core_items": ["honey_jar", "bagpipes", "campfire", "karst", "black_mamba"],
+			"core_skills": ["void_rage", "draconic_rage", "small_refresh"],
+			"summary": "Hunter sustain combines Heal/Food/Tool items with Rage-reference payoffs and Burn-triggered tempo.",
 		},
 	],
 }
@@ -347,6 +437,7 @@ static func get_hero_identity_summary(hero_type: HeroDataClass.HeroType) -> Dict
 		"item_ids": get_hero_item_ids(hero_type),
 		"archetypes": get_hero_archetypes(hero_type),
 		"art_path": get_hero_art_path(hero_type),
+		"pool_note": str(profile.get("pool_note", "")),
 	}
 
 static func get_hero_art_path(hero_type: HeroDataClass.HeroType) -> String:
