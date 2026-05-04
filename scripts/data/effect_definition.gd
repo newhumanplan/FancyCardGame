@@ -55,6 +55,7 @@ const _HOOK_KEYWORD_MATCHERS := {
 	TRIGGER_ON_BUY: ["when you buy", "when this is bought"],
 	TRIGGER_ON_HOUR_START: ["start of each day", "start of each hour"],
 	TRIGGER_ON_TRANSFORM: ["when this is transformed", "when you transform"],
+	TRIGGER_ON_ENCHANT: ["when you enchant", "when another item is enchanted"],
 }
 
 const _SUPPORTED_ITEM_WARNING_EFFECTS := [
@@ -78,6 +79,7 @@ const _SUPPORTED_ITEM_WARNING_TRIGGERS := [
 	TRIGGER_ON_BUY,
 	TRIGGER_ON_HOUR_START,
 	TRIGGER_ON_TRANSFORM,
+	TRIGGER_ON_ENCHANT,
 ]
 
 static func build_item_effects(item: ItemDataClass) -> Array[Dictionary]:
@@ -374,9 +376,34 @@ static func _append_non_combat_hook_definitions(definitions: Array[Dictionary], 
 			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_SELL, EFFECT_REGENERATION, {"selector": "hero"}, {"type": EFFECT_REGENERATION, "amount_by_rarity": [1, 2, 3, 4]}))
 		"philosophers_stone":
 			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_BUY, "grant_item", {"selector": "inventory"}, {"type": "grant_item", "item_id": "catalyst"}))
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_TRANSFORM, EFFECT_REGENERATION, {"selector": "this_item", "event_source_tag": "Reagent"}, {"type": EFFECT_REGENERATION, "amount_by_rarity": [2, 3, 4, 5]}))
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_ENCHANT, "enchant_observer", {"selector": "this_item"}, {"type": "enchant_observer"}))
+		"atm":
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_BUY, "income", {"selector": "run"}, {"type": "income", "amount_by_rarity": [1, 2, 3, 5]}))
+		"hatchet":
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_BUY, "grant_item", {"selector": "inventory"}, {"type": "grant_item", "item_id": "truffles"}))
+		"lightbulb":
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_BUY, "grant_item", {"selector": "inventory"}, {"type": "grant_item", "item_id": "battery"}))
+		"satchel":
+			handled_keywords[EFFECT_REGENERATION] = true
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_BUY, EFFECT_REGENERATION, {"selector": "this_item", "event_source_tag": "Potion"}, {"type": EFFECT_REGENERATION, "amount_by_rarity": [2, 4, 6]}))
 
-	if item.source_id in ["aludel", "mortar_pestle", "sifting_pan", "laboratory", "athanor", "apothecary"]:
+	if item.source_id in ["aludel", "mortar_pestle", "mortar_and_pestle", "sifting_pan", "laboratory", "athanor", "apothecary"]:
 		definitions.append(_hook_definition(item.source_id, TRIGGER_ON_HOUR_START, "grant_item", {"selector": "inventory"}, {"type": "grant_item", "item_id": "catalyst"}))
+
+	match item.source_id:
+		"alembic":
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_HOUR_START, "grant_item", {"selector": "inventory"}, {"type": "grant_item", "item_id": "catalyst"}))
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_HOUR_START, "transform", {"selector": "left_small_item"}, {"type": "transform", "item_id": "fire_potion"}))
+		"calcinator", "retort":
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_HOUR_START, "spend_gold_grant_item", {"selector": "inventory"}, {"type": "grant_item", "item_id": "chunk_of_lead", "gold_cost": 3}))
+		"the_tome_of_yyahan":
+			handled_keywords[EFFECT_REGENERATION] = true
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_HOUR_START, "grant_item", {"selector": "inventory"}, {"type": "grant_item", "item_id": "hemlock"}))
+		"tropical_island":
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_HOUR_START, "grant_item", {"selector": "inventory"}, {"type": "grant_item", "item_id": "coconut"}))
+		"piggles":
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_HOUR_START, "upgrade", {"selector": "piggle_item"}, {"type": "upgrade"}))
 
 	if not item.enchantment_id.is_empty():
 		definitions.append(_hook_definition(item.source_id, TRIGGER_ON_ENCHANT, "enchant", {"selector": "this_item"}, {"type": "enchant", "enchantment": item.enchantment_id}))
@@ -428,12 +455,33 @@ static func _append_sell_service_hook_definitions(definitions: Array[Dictionary]
 		definitions.append(_hook_definition(source_id, TRIGGER_ON_SELL, EFFECT_REGENERATION, {"selector": "hero"}, {"type": EFFECT_REGENERATION}))
 	if source_id in ["clockwork_blades", "insect_wing"]:
 		definitions.append(_hook_definition(source_id, TRIGGER_ON_SELL, "cooldown_reduction", {"selector": "all_items"}, {"type": "cooldown_reduction"}))
+	if source_id == "feather":
+		definitions.append(_hook_definition(source_id, TRIGGER_ON_SELL, "cooldown_reduction", {"selector": "leftmost_item"}, {"type": "cooldown_reduction"}))
 	if source_id == "gunpowder":
 		definitions.append(_hook_definition(source_id, TRIGGER_ON_SELL, EFFECT_AMMO, {"selector": "leftmost_ammo"}, {"type": EFFECT_AMMO}))
 	if source_id in ["upgrade_hammer", "magician_s_top_hat"]:
 		definitions.append(_hook_definition(source_id, TRIGGER_ON_SELL, "upgrade", {"selector": "leftmost_item"}, {"type": "upgrade"}))
 	if source_id == "safe":
 		definitions.append(_hook_definition(source_id, TRIGGER_ON_SELL, "grant_item", {"selector": "inventory"}, {"type": "grant_item", "item_id": "spare_change"}))
+	if source_id in ["dog", "improvised_bludgeon"]:
+		handled_keywords[EFFECT_DAMAGE] = true
+		definitions.append(_hook_definition(source_id, TRIGGER_ON_SELL, EFFECT_DAMAGE, {"selector": "self_or_slow_item"}, {"type": EFFECT_DAMAGE}))
+	if source_id in ["temporary_shelter", "silk_scarf"]:
+		handled_keywords[EFFECT_SHIELD] = true
+		definitions.append(_hook_definition(source_id, TRIGGER_ON_SELL, EFFECT_SHIELD, {"selector": "self"}, {"type": EFFECT_SHIELD}))
+	if source_id == "gearnola_bar":
+		definitions.append(_hook_definition(source_id, TRIGGER_ON_SELL, EFFECT_AMMO, {"selector": "self"}, {"type": EFFECT_AMMO}))
+	if source_id == "sifting_pan":
+		handled_keywords[EFFECT_REGENERATION] = true
+		definitions.append(_hook_definition(source_id, TRIGGER_ON_SELL, EFFECT_REGENERATION, {"selector": "hero"}, {"type": EFFECT_REGENERATION}))
+	if source_id in ["rocket_boots", "snowflake"]:
+		definitions.append(_hook_definition(source_id, TRIGGER_ON_SELL, "duration_bonus", {"selector": "leftmost_status_item"}, {"type": "duration_bonus"}))
+	if source_id == "vat_of_acid":
+		definitions.append(_hook_definition(source_id, TRIGGER_ON_SELL, "type_gain", {"selector": "this_item"}, {"type": "type_gain"}))
+	if source_id == "genie_lamp":
+		definitions.append(_hook_definition(source_id, TRIGGER_ON_SELL, "service_unlock", {"selector": "run"}, {"type": "service_unlock", "service_id": "genie_rit"}))
+	if source_id == "thieves_guild_medallion":
+		definitions.append(_hook_definition(source_id, TRIGGER_ON_SELL, "service_unlock", {"selector": "run"}, {"type": "service_unlock", "service_id": "thieves_guild"}))
 
 static func _hook_definition(source_id: String, trigger: String, effect_name: String, target: Dictionary, effect: Dictionary) -> Dictionary:
 	return {
@@ -528,6 +576,8 @@ static func get_item_warning_reason(item: ItemDataClass, warning: String) -> Str
 	if family == "unsupported_item_trigger":
 		match detail:
 			TRIGGER_ON_SELL:
+				if item_id == "landscraper":
+					return "Landscraper needs a persistent per-item sell counter for the 10-sells value threshold before it can be claimed supported"
 				return "sell hook has no dedicated SellService mapping yet for %s" % item_id
 			TRIGGER_ON_BUY:
 				return "buy hook has no ItemAcquisition mapping yet for %s" % item_id

@@ -105,27 +105,39 @@ static func apply_hour_start_hooks(primary_inventory: LinearInventoryClass, seco
 		"source": source,
 		"catalysts": 0,
 		"reagents": 0,
+		"items": [],
+		"item_failures": [],
+		"transforms": [],
+		"upgrades": [],
+		"spent_gold": 0,
 		"failed": 0,
 		"unsupported": [],
 	}
 	var triggers: Array[ItemDataClass] = []
 	for item in collect_owned_items(primary_inventory, secondary_inventory):
-		if item.source_id in ["aludel", "mortar_pestle", "sifting_pan", "laboratory", "athanor", "apothecary"]:
+		if item.source_id in ["aludel", "mortar_pestle", "mortar_and_pestle", "sifting_pan", "laboratory", "athanor", "apothecary", "alembic", "calcinator", "retort", "the_tome_of_yyahan", "tropical_island", "piggles"]:
 			triggers.append(item)
 
 	for trigger in triggers:
-		var item_id: String = "catalyst"
-		if trigger.source_id == "apothecary" and randi() % 2 == 0:
-			item_id = "hemlock"
-		var granted_item: ItemDataClass = BazaarContentClass.create_item(item_id, BazaarContentClass.RARITY_BRONZE)
-		var grant_result: Dictionary = grant_item(granted_item, primary_inventory, secondary_inventory, true)
-		if bool(grant_result.get("success", false)):
-			if item_id == "catalyst":
-				summary["catalysts"] = int(summary.get("catalysts", 0)) + 1
-			else:
-				summary["reagents"] = int(summary.get("reagents", 0)) + 1
-		else:
-			summary["failed"] = int(summary.get("failed", 0)) + 1
+		match trigger.source_id:
+			"aludel", "mortar_pestle", "mortar_and_pestle", "sifting_pan", "laboratory", "athanor", "apothecary":
+				_grant_hook_item("catalyst", BazaarContentClass.RARITY_BRONZE, primary_inventory, secondary_inventory, summary)
+			"alembic":
+				_grant_hook_item("catalyst", BazaarContentClass.RARITY_BRONZE, primary_inventory, secondary_inventory, summary)
+				_transform_left_item_to_id(trigger, "fire_potion", primary_inventory, secondary_inventory, summary)
+			"calcinator", "retort":
+				if EconomyService.spend_gold(3):
+					summary["spent_gold"] = int(summary.get("spent_gold", 0)) + 3
+					_grant_hook_item("chunk_of_lead", BazaarContentClass.RARITY_BRONZE, primary_inventory, secondary_inventory, summary)
+				else:
+					summary["failed"] = int(summary.get("failed", 0)) + 1
+					summary["item_failures"].append({"id": "chunk_of_lead", "source": trigger.source_id, "reason": "insufficient_gold"})
+			"the_tome_of_yyahan":
+				_grant_hook_item("hemlock", BazaarContentClass.RARITY_BRONZE, primary_inventory, secondary_inventory, summary)
+			"tropical_island":
+				_grant_hook_item("coconut", BazaarContentClass.RARITY_BRONZE, primary_inventory, secondary_inventory, summary)
+			"piggles":
+				_upgrade_leftmost_piggle(primary_inventory, secondary_inventory, summary)
 	return summary
 
 static func apply_on_buy_hooks(purchased_item: ItemDataClass, primary_inventory: LinearInventoryClass, secondary_inventory: LinearInventoryClass = null) -> Dictionary:
@@ -133,19 +145,113 @@ static func apply_on_buy_hooks(purchased_item: ItemDataClass, primary_inventory:
 		"source": "on_buy:%s" % ("" if purchased_item == null else purchased_item.source_id),
 		"items": [],
 		"item_failures": [],
+		"income": 0,
+		"stat_mutations": [],
 		"unsupported": [],
 	}
 	if purchased_item == null:
 		return summary
 	match purchased_item.source_id:
+		"atm":
+			var income_gain: int = _item_value_for_rarity(purchased_item, [1, 2, 3, 5])
+			RewardService.apply_reward({"income": income_gain}, "on_buy_atm", primary_inventory, secondary_inventory)
+			summary["income"] = int(summary.get("income", 0)) + income_gain
+		"hatchet":
+			_grant_hook_item("truffles", BazaarContentClass.RARITY_BRONZE, primary_inventory, secondary_inventory, summary)
+		"lightbulb":
+			_grant_hook_item("battery", BazaarContentClass.RARITY_BRONZE, primary_inventory, secondary_inventory, summary)
 		"philosophers_stone":
-			var catalyst: ItemDataClass = BazaarContentClass.create_item("catalyst", BazaarContentClass.RARITY_BRONZE)
-			var grant_result: Dictionary = grant_item(catalyst, primary_inventory, secondary_inventory, true)
-			if bool(grant_result.get("success", false)):
-				summary["items"].append({"id": "catalyst", "source": purchased_item.source_id})
-			else:
-				summary["item_failures"].append({"id": "catalyst", "reason": "no_space"})
+			_grant_hook_item("catalyst", BazaarContentClass.RARITY_BRONZE, primary_inventory, secondary_inventory, summary)
+
+	if _has_tag(purchased_item, "potion"):
+		for observer in collect_owned_items(primary_inventory, secondary_inventory):
+			if observer == purchased_item:
+				continue
+			if observer.source_id == "satchel":
+				var regen_gain: int = _item_value_for_rarity(observer, [2, 4, 6])
+				observer.regeneration += float(regen_gain)
+				summary["stat_mutations"].append({"id": observer.source_id, "field": "regeneration", "amount": regen_gain})
 	return summary
+
+static func _grant_hook_item(item_id: String, rarity: int, primary_inventory: LinearInventoryClass, secondary_inventory: LinearInventoryClass, summary: Dictionary) -> void:
+	var granted_item: ItemDataClass = BazaarContentClass.create_item(item_id, rarity)
+	var grant_result: Dictionary = grant_item(granted_item, primary_inventory, secondary_inventory, true)
+	if bool(grant_result.get("success", false)):
+		summary["items"].append({"id": item_id, "source": str(summary.get("source", ""))})
+		if item_id == "catalyst":
+			summary["catalysts"] = int(summary.get("catalysts", 0)) + 1
+		if _has_tag(granted_item, "reagent"):
+			summary["reagents"] = int(summary.get("reagents", 0)) + 1
+	else:
+		summary["failed"] = int(summary.get("failed", 0)) + 1
+		summary["item_failures"].append({"id": item_id, "reason": "no_space_or_unknown"})
+
+static func _transform_left_item_to_id(trigger: ItemDataClass, replacement_id: String, primary_inventory: LinearInventoryClass, secondary_inventory: LinearInventoryClass, summary: Dictionary) -> void:
+	var target: ItemDataClass = _find_adjacent_left_item(trigger, primary_inventory, secondary_inventory)
+	if target == null or target.get_slot_count() != 1:
+		summary["failed"] = int(summary.get("failed", 0)) + 1
+		summary["item_failures"].append({"id": replacement_id, "source": trigger.source_id, "reason": "missing_left_small_item"})
+		return
+	var inventory: LinearInventoryClass = _find_inventory_containing(target, _valid_inventories(primary_inventory, secondary_inventory))
+	if inventory == null:
+		summary["failed"] = int(summary.get("failed", 0)) + 1
+		return
+	var start_slot: int = target.slot_index
+	var replacement: ItemDataClass = BazaarContentClass.create_item(replacement_id, target.rarity)
+	if replacement == null:
+		summary["failed"] = int(summary.get("failed", 0)) + 1
+		summary["item_failures"].append({"id": replacement_id, "source": trigger.source_id, "reason": "unknown_replacement"})
+		return
+	if not inventory.remove_item(target):
+		summary["failed"] = int(summary.get("failed", 0)) + 1
+		return
+	if inventory.place_item(replacement, start_slot):
+		summary["transforms"].append({"source": trigger.source_id, "target_id": target.source_id, "replacement_id": replacement.source_id})
+		return
+	inventory.place_item(target, start_slot)
+	summary["failed"] = int(summary.get("failed", 0)) + 1
+
+static func _upgrade_leftmost_piggle(primary_inventory: LinearInventoryClass, secondary_inventory: LinearInventoryClass, summary: Dictionary) -> void:
+	for item in collect_owned_items(primary_inventory, secondary_inventory):
+		if item.source_id.find("piggles") == -1:
+			continue
+		if item.rarity >= BazaarContentClass.RARITY_DIAMOND:
+			summary["item_failures"].append({"id": item.source_id, "reason": "already_diamond"})
+			return
+		_upgrade_item(item, _valid_inventories(primary_inventory, secondary_inventory))
+		summary["upgrades"].append({"id": item.source_id, "rarity": item.rarity})
+		return
+	summary["failed"] = int(summary.get("failed", 0)) + 1
+	summary["item_failures"].append({"id": "piggles", "reason": "missing_piggle"})
+
+static func _find_adjacent_left_item(trigger: ItemDataClass, primary_inventory: LinearInventoryClass, secondary_inventory: LinearInventoryClass) -> ItemDataClass:
+	if trigger == null:
+		return null
+	var inventory: LinearInventoryClass = _find_inventory_containing(trigger, _valid_inventories(primary_inventory, secondary_inventory))
+	if inventory == null:
+		return null
+	var target_end: int = trigger.slot_index
+	for item in _items_left_to_right(inventory):
+		if item == trigger:
+			continue
+		if item.slot_index + item.get_slot_count() == target_end:
+			return item
+	return null
+
+static func _has_tag(item: ItemDataClass, tag: String) -> bool:
+	if item == null:
+		return false
+	var needle: String = tag.to_lower()
+	for item_tag in item.tags:
+		if str(item_tag).to_lower() == needle:
+			return true
+	return false
+
+static func _item_value_for_rarity(item: ItemDataClass, values: Array) -> int:
+	if item == null or values.is_empty():
+		return 0
+	var index: int = clampi(item.rarity - 1, 0, values.size() - 1)
+	return int(values[index])
 
 static func collect_owned_items(primary_inventory: LinearInventoryClass, secondary_inventory: LinearInventoryClass = null) -> Array[ItemDataClass]:
 	var owned: Array[ItemDataClass] = []

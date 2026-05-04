@@ -265,9 +265,26 @@ static func _apply_direct_sell_effects(item: ItemDataClass, inventory: LinearInv
 		if granted < 3:
 			result["unsupported"].append("safe_spare_change_partial")
 
-	if source_id in ["sifting_pan", "vial_of_blood", "colossal_popsicle", "darkstone_focuser", "flamecoil_gem", "genie_lamp", "landscraper", "maitoan_altar", "thieves_guild_medallion", "tourist_chariot", "truffles"]:
-		if source_id in ["colossal_popsicle", "darkstone_focuser", "flamecoil_gem", "genie_lamp", "landscraper", "maitoan_altar", "thieves_guild_medallion", "tourist_chariot", "truffles"]:
-			result["unsupported"].append("unsupported_sell_effect:%s" % source_id)
+	if source_id == "feather":
+		_reduce_cooldowns_percent([_find_leftmost_item(inventory, related_inventory)], _item_value_for_rarity(item, [2, 4, 6]), result)
+
+	if source_id == "improvised_bludgeon":
+		_apply_duration_to_item(_find_leftmost_matching_item(inventory, related_inventory, "slow"), "slow_duration", 1.0, result)
+
+	if source_id == "rocket_boots":
+		_apply_duration_to_item(_find_leftmost_matching_item(inventory, related_inventory, "haste"), "haste_duration", 1.0, result)
+
+	if source_id == "snowflake":
+		_apply_duration_to_item(_find_leftmost_matching_item(inventory, related_inventory, "freeze"), "freeze_duration", 0.5, result)
+
+	if source_id == "genie_lamp":
+		_add_service_unlock("genie_rit", source_id, result)
+
+	if source_id == "thieves_guild_medallion":
+		_add_service_unlock("thieves_guild", source_id, result)
+
+	if source_id in ["colossal_popsicle", "darkstone_focuser", "flamecoil_gem", "landscraper", "maitoan_altar", "tourist_chariot", "truffles"]:
+		result["unsupported"].append("unsupported_sell_effect:%s" % source_id)
 
 static func _apply_sell_observer_effects(sold_item: ItemDataClass, inventory: LinearInventoryClass, related_inventory: LinearInventoryClass, result: Dictionary) -> void:
 	var sold_small: bool = sold_item != null and sold_item.get_slot_count() == 1
@@ -287,7 +304,9 @@ static func _apply_sell_observer_effects(sold_item: ItemDataClass, inventory: Li
 			_apply_ammo_to_item(observer, _item_value_for_rarity(observer, _SELL_TOOL_AMMO_OBSERVERS[observer_id]), result)
 		if sold_item.source_id.to_lower() == "catalyst" and _SELL_CATALYST_REGEN_OBSERVERS.has(observer_id):
 			_apply_run_regeneration_bonus(_item_value_for_rarity(observer, _SELL_CATALYST_REGEN_OBSERVERS[observer_id]), "sell_catalyst:%s" % observer_id, result)
-		if observer_id in ["vat_of_acid", "landscraper"]:
+		if observer_id == "vat_of_acid":
+			_apply_sold_item_tags_to_observer(observer, sold_item, result)
+		if observer_id == "landscraper":
 			result["unsupported"].append("unsupported_sell_observer:%s" % observer_id)
 
 static func _grant_items(item_id: String, count: int, rarity: int, inventory: LinearInventoryClass, related_inventory: LinearInventoryClass) -> int:
@@ -431,6 +450,40 @@ static func _apply_run_regeneration_bonus(amount: int, source: String, result: D
 	combat_state["regeneration"] = float(combat_state.get("regeneration", 0.0)) + float(amount)
 	result["combat_state"] = combat_state
 
+static func _add_service_unlock(service_id: String, source_id: String, result: Dictionary) -> void:
+	RunStateService.add_service_unlock(service_id, 1, "sell_%s" % source_id)
+	result["effects_applied"].append("service_unlock:%s" % service_id)
+	var service_unlocks: Dictionary = result.get("service_unlocks", {})
+	service_unlocks[service_id] = int(service_unlocks.get(service_id, 0)) + 1
+	result["service_unlocks"] = service_unlocks
+
+static func _apply_duration_to_item(item: ItemDataClass, field_name: String, amount: float, result: Dictionary) -> void:
+	if item == null or amount <= 0.0:
+		return
+	match field_name:
+		"slow_duration":
+			item.slow_duration += amount
+		"haste_duration":
+			item.haste_duration += amount
+		"freeze_duration":
+			item.freeze_duration += amount
+		_:
+			return
+	result["effects_applied"].append("%s %s:+%.1f" % [item.item_name, field_name, amount])
+
+static func _apply_sold_item_tags_to_observer(observer: ItemDataClass, sold_item: ItemDataClass, result: Dictionary) -> void:
+	if observer == null or sold_item == null:
+		return
+	var added: Array[String] = []
+	for tag in sold_item.tags:
+		var tag_text: String = str(tag)
+		if tag_text.is_empty() or _has_tag(observer, tag_text):
+			continue
+		observer.tags.append(tag_text)
+		added.append(tag_text)
+	if not added.is_empty():
+		result["effects_applied"].append("vat_of_acid_tags:+%s" % ",".join(added))
+
 static func _apply_crit_to_item(item: ItemDataClass, amount: int, result: Dictionary) -> void:
 	if item == null or amount <= 0:
 		return
@@ -511,6 +564,12 @@ static func _matches_selector(item: ItemDataClass, selector: String) -> bool:
 			return _has_tag(item, "poison") or item.poison_damage > 0.0
 		"shield":
 			return _has_tag(item, "shield") or item.shield > 0
+		"slow":
+			return _has_tag(item, "slow") or item.slow_count > 0
+		"haste":
+			return _has_tag(item, "haste") or item.haste_count > 0
+		"freeze":
+			return _has_tag(item, "freeze") or item.freeze_count > 0
 		"small":
 			return item.get_slot_count() == 1
 		"tool":
