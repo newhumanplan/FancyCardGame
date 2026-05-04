@@ -627,10 +627,6 @@ func _get_player_item_effective_max_ammo(item: ItemData) -> int:
 	var max_ammo: int = maxi(item.ammo, 0)
 	if not item.has_ammo_limit():
 		return max_ammo
-	if inventory != null and _is_potion_item(item):
-		var right_item: ItemData = inventory.get_right_adjacent_item(item)
-		if right_item != null and right_item.source_id == "tazidian_dagger":
-			max_ammo += int(_get_rarity_value(right_item, [1, 2, 3, 4], 1.0))
 	max_ammo += int(round(_get_player_skill_value("gunner")))
 	max_ammo += int(round(_get_player_skill_value("ammo_stash")))
 	return max_ammo
@@ -652,6 +648,7 @@ func _get_player_item_multicast_count(item: ItemData) -> int:
 	_ensure_item_effect_definitions(item)
 	var count: int = 1
 	count += _get_item_multicast_bonus(item)
+	count += _get_item_external_multicast_bonus(item)
 	return maxi(count, 1)
 
 func _ensure_item_effect_definitions(item: ItemData) -> void:
@@ -764,6 +761,45 @@ func _get_item_multicast_bonus(item: ItemData) -> int:
 				"lifesteal_rate": 0.0,
 			}
 		)))
+	return maxi(bonus, 0)
+
+func _get_item_external_multicast_bonus(item: ItemData) -> int:
+	if item == null or inventory == null:
+		return 0
+	var bonus: int = 0
+	for owner_item in inventory.items:
+		if owner_item == null or owner_item == item:
+			continue
+		_ensure_item_effect_definitions(owner_item)
+		var owner := {"kind": "item", "id": owner_item.source_id, "item": owner_item}
+		var root_event: Dictionary = _make_effect_event(
+			EffectDefinitionClass.TRIGGER_ON_COOLDOWN_READY,
+			owner_item
+		)
+		for definition_variant in owner_item.effects:
+			if not definition_variant is Dictionary:
+				continue
+			var definition: Dictionary = definition_variant
+			if str(definition.get("trigger", "")) != EffectDefinitionClass.TRIGGER_ON_COOLDOWN_READY:
+				continue
+			var effect_data: Dictionary = definition.get("effect", {})
+			if str(effect_data.get("type", "")) != EffectDefinitionClass.EFFECT_MULTICAST:
+				continue
+			if not _definition_condition_matches(owner, definition, root_event):
+				continue
+			var targets: Array[Dictionary] = _resolve_effect_targets(owner, definition, {"source_item": owner_item})
+			var affects_item: bool = false
+			for target in targets:
+				if str(target.get("kind", "")) == "player_item" and target.get("item", null) == item:
+					affects_item = true
+					break
+			if not affects_item:
+				continue
+			var amount: int = int(round(_resolve_effect_amount(owner_item, effect_data, {"source_item": owner_item})))
+			if amount <= 0:
+				continue
+			_record_effect_trace(owner, definition, str(root_event.get("name", "")), float(amount), targets.size())
+			bonus += amount
 	return maxi(bonus, 0)
 
 func _execute_item_effect_definitions(
@@ -986,6 +1022,12 @@ func _definition_condition_matches(
 	if condition.has("event_source_has_ammo"):
 		if source_item == null or source_item.has_ammo_limit() != bool(condition.get("event_source_has_ammo", false)):
 			return false
+	if bool(condition.get("event_source_is_owner", false)):
+		if owner_item == null or source_item == null or owner_item != source_item:
+			return false
+	if bool(condition.get("event_source_not_owner", false)):
+		if owner_item == null or source_item == null or owner_item == source_item:
+			return false
 	if bool(condition.get("event_source_has_lifesteal", false)) and not _item_has_lifesteal(source_item):
 		return false
 	if condition.has("event_source_size"):
@@ -1006,6 +1048,15 @@ func _definition_condition_matches(
 				return false
 	if condition.has("status_type"):
 		if str(event_data.get("status_type", "")) != str(condition.get("status_type", "")):
+			return false
+	if condition.has("status_type_any"):
+		var event_status_type: String = str(event_data.get("status_type", ""))
+		var matched_status_type: bool = false
+		for status_type_variant in condition.get("status_type_any", []):
+			if event_status_type == str(status_type_variant):
+				matched_status_type = true
+				break
+		if not matched_status_type:
 			return false
 	if condition.has("overheal"):
 		if bool(event_data.get("overheal", false)) != bool(condition.get("overheal", false)):
@@ -1181,10 +1232,22 @@ func _resolve_effect_targets(
 				var right_item: ItemData = inventory.get_right_adjacent_item(owner_item)
 				if right_item != null:
 					targets.append({"kind": "player_item", "item": right_item})
+		"right_matching_tag":
+			if inventory != null and owner_item != null:
+				var right_item: ItemData = inventory.get_right_adjacent_item(owner_item)
+				var tag: String = str(target_data.get("tag", ""))
+				if right_item != null and _item_has_tag(right_item, tag):
+					targets.append({"kind": "player_item", "item": right_item})
 		"adjacent":
 			if owner_item != null:
 				for adjacent in _get_adjacent_player_items(owner_item):
 					if adjacent != null:
+						targets.append({"kind": "player_item", "item": adjacent})
+		"adjacent_matching_tag_items":
+			var tag: String = str(target_data.get("tag", ""))
+			if owner_item != null:
+				for adjacent in _get_adjacent_player_items(owner_item):
+					if adjacent != null and _item_has_tag(adjacent, tag):
 						targets.append({"kind": "player_item", "item": adjacent})
 		"source_item":
 			var source_item: ItemData = execution_context.get("source_item", null) as ItemData
@@ -1550,7 +1613,32 @@ func _apply_effect_definition(
 			if reloaded_count <= 0:
 				return result
 			result["executed"] = true
+			result["events"].append(_make_effect_event(
+				EffectDefinitionClass.TRIGGER_ON_RELOAD,
+				owner_item,
+				{"reload_count": reloaded_count}
+			))
 			effect_applied.emit(_owner_effect_name(owner), effect_type, reload_amount, "self")
+		EffectDefinitionClass.EFFECT_AMMO:
+			var ammo_amount: int = int(round(amount))
+			if ammo_amount <= 0:
+				return result
+			var ammo_target_count: int = 0
+			for target in targets:
+				if str(target.get("kind", "")) != "player_item":
+					continue
+				var player_item: ItemData = target.get("item", null) as ItemData
+				if player_item == null:
+					continue
+				var before_max_ammo: int = player_item.get_max_ammo()
+				var before_current_ammo: int = player_item.get_current_ammo()
+				player_item.current_max_ammo = maxi(before_max_ammo + ammo_amount, 0)
+				player_item.current_ammo = clampi(before_current_ammo + ammo_amount, 0, player_item.current_max_ammo)
+				ammo_target_count += 1
+			if ammo_target_count <= 0:
+				return result
+			result["executed"] = true
+			effect_applied.emit(_owner_effect_name(owner), effect_type, ammo_amount, "self")
 		_:
 			_push_effect_warning("unsupported_effect_type:%s:%s" % [
 				str(owner.get("id", "")),

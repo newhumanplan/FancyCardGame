@@ -13,6 +13,7 @@ const TRIGGER_ON_SHIELD_GAINED: String = "on_shield_gained"
 const TRIGGER_ON_HEAL: String = "on_heal"
 const TRIGGER_ON_CRIT: String = "on_crit"
 const TRIGGER_ON_ENEMY_STATUS_APPLIED: String = "on_enemy_status_applied"
+const TRIGGER_ON_RELOAD: String = "on_reload"
 const TRIGGER_ON_SELL: String = "on_sell"
 const TRIGGER_ON_BUY: String = "on_buy"
 const TRIGGER_ON_HOUR_START: String = "on_hour_start"
@@ -199,6 +200,9 @@ static func build_item_effects(item: ItemDataClass) -> Array[Dictionary]:
 		handled_keywords[EFFECT_AMMO] = true
 
 	match item.source_id:
+		"adrenaline_shot":
+			handled_keywords[EFFECT_RELOAD] = true
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_CRIT, EFFECT_RELOAD, {"side": "self", "selector": "this_item"}, {"type": EFFECT_RELOAD, "amount": 1}, {"event_source_is_owner": true}))
 		"aludel":
 			handled_keywords[EFFECT_MULTICAST] = true
 			definitions.append({
@@ -225,6 +229,19 @@ static func build_item_effects(item: ItemDataClass) -> Array[Dictionary]:
 				"target": {"side": "self", "selector": "this_item"},
 				"effect": {"type": EFFECT_MULTICAST, "amount": 1},
 			})
+		"black_pepper":
+			handled_keywords[EFFECT_CHARGE] = true
+			handled_keywords[EFFECT_MULTICAST] = true
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_COOLDOWN_READY, EFFECT_CHARGE, {"side": "self", "selector": "adjacent"}, {"type": EFFECT_CHARGE, "amount_by_rarity": [1, 2, 3]}))
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_COOLDOWN_READY, EFFECT_MULTICAST, {"side": "self", "selector": "this_item"}, {"type": EFFECT_MULTICAST, "amount": 1}))
+		"blu_b33tl3":
+			handled_keywords[EFFECT_CHARGE] = true
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_ENEMY_STATUS_APPLIED, EFFECT_CHARGE, {"side": "self", "selector": "this_item"}, {"type": EFFECT_CHARGE, "amount": 1}, {"status_type": EFFECT_POISON, "event_source_is_owner_or_adjacent": true}))
+		"athanor":
+			handled_keywords[EFFECT_RELOAD] = true
+			handled_keywords[EFFECT_BURN] = true
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_COOLDOWN_READY, EFFECT_RELOAD, {"side": "self", "selector": "adjacent"}, {"type": EFFECT_RELOAD, "amount": 1}))
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_TAG_USED, EFFECT_BURN, {"side": "enemy", "selector": "hero"}, {"type": EFFECT_BURN, "amount_by_rarity": [8, 12, 16]}, {"tag": "Potion"}))
 		"battery":
 			handled_keywords[EFFECT_CHARGE] = true
 			definitions.append({
@@ -236,6 +253,11 @@ static func build_item_effects(item: ItemDataClass) -> Array[Dictionary]:
 					"amount_by_rarity": [1.0, 2.0, 3.0, 4.0],
 				},
 			})
+		"boiling_flask":
+			handled_keywords[EFFECT_RELOAD] = true
+			handled_keywords[EFFECT_MULTICAST] = true
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_COOLDOWN_READY, EFFECT_RELOAD, {"side": "self", "selector": "adjacent_matching_tag_items", "tag": "Potion"}, {"type": EFFECT_RELOAD, "amount": 1}))
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_COOLDOWN_READY, EFFECT_MULTICAST, {"side": "self", "selector": "adjacent_matching_tag_items", "tag": "Potion"}, {"type": EFFECT_MULTICAST, "amount": 1}))
 		"candles":
 			handled_keywords[EFFECT_CHARGE] = true
 			definitions.append({
@@ -245,6 +267,12 @@ static func build_item_effects(item: ItemDataClass) -> Array[Dictionary]:
 				"target": {"side": "self", "selector": "this_item"},
 				"effect": {"type": EFFECT_CHARGE, "amount": 2.0},
 			})
+		"cellar":
+			handled_keywords[EFFECT_RELOAD] = true
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_COOLDOWN_READY, EFFECT_RELOAD, {"side": "self", "selector": "ammo_items", "count": 1}, {"type": EFFECT_RELOAD, "amount": 1}))
+		"cutlass", "tiny_cutlass":
+			handled_keywords[EFFECT_MULTICAST] = true
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_COOLDOWN_READY, EFFECT_MULTICAST, {"side": "self", "selector": "this_item"}, {"type": EFFECT_MULTICAST, "amount": 1}))
 		"duct_tape":
 			definitions.append({
 				"id": "duct_tape_on_left_item_shield",
@@ -253,6 +281,18 @@ static func build_item_effects(item: ItemDataClass) -> Array[Dictionary]:
 				"target": {"side": "self", "selector": "hero"},
 				"effect": {"type": EFFECT_SHIELD, "amount_from": "source.shield"},
 			})
+		"floor_spike":
+			handled_keywords[EFFECT_CHARGE] = true
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_TAG_USED, EFFECT_CHARGE, {"side": "self", "selector": "this_item"}, {"type": EFFECT_CHARGE, "amount": 1}, {"tag": "Weapon"}))
+		"gatling_gun":
+			handled_keywords[EFFECT_MULTICAST] = true
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_COOLDOWN_READY, EFFECT_MULTICAST, {"side": "self", "selector": "this_item"}, {"type": EFFECT_MULTICAST, "amount": 1}))
+		"goop_flail":
+			handled_keywords[EFFECT_MULTICAST] = true
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_COOLDOWN_READY, EFFECT_MULTICAST, {"side": "self", "selector": "this_item"}, {"type": EFFECT_MULTICAST, "amount": 2}))
+		"grapeshot":
+			handled_keywords[EFFECT_RELOAD] = true
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_ITEM_USED, EFFECT_RELOAD, {"side": "self", "selector": "this_item"}, {"type": EFFECT_RELOAD, "amount": 1}, {"event_source_has_ammo": true, "event_source_not_owner": true}))
 		"infinite_potion":
 			handled_keywords[EFFECT_RELOAD] = true
 			definitions.append({
@@ -262,6 +302,15 @@ static func build_item_effects(item: ItemDataClass) -> Array[Dictionary]:
 				"target": {"side": "self", "selector": "this_item"},
 				"effect": {"type": EFFECT_RELOAD, "amount": 1},
 			})
+		"lightbulb":
+			handled_keywords[EFFECT_CHARGE] = true
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_COOLDOWN_READY, EFFECT_CHARGE, {"side": "self", "selector": "right_matching_tag", "tag": "Tech"}, {"type": EFFECT_CHARGE, "amount": 1}))
+		"nitro":
+			handled_keywords[EFFECT_CHARGE] = true
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_COOLDOWN_READY, EFFECT_CHARGE, {"side": "self", "selector": "slowest_other_items", "count": 1}, {"type": EFFECT_CHARGE, "amount_by_rarity": [1, 2, 3, 4]}))
+		"revolver":
+			handled_keywords[EFFECT_RELOAD] = true
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_CRIT, EFFECT_RELOAD, {"side": "self", "selector": "this_item"}, {"type": EFFECT_RELOAD, "amount": 2}, {"event_source_is_owner": true}))
 		"quill_and_ink":
 			handled_keywords[EFFECT_MULTICAST] = true
 			definitions.append({
@@ -271,6 +320,16 @@ static func build_item_effects(item: ItemDataClass) -> Array[Dictionary]:
 				"target": {"side": "self", "selector": "this_item"},
 				"effect": {"type": EFFECT_MULTICAST, "amount": 1},
 			})
+		"runic_daggers":
+			handled_keywords[EFFECT_CHARGE] = true
+			handled_keywords[EFFECT_MULTICAST] = true
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_COOLDOWN_READY, EFFECT_MULTICAST, {"side": "self", "selector": "this_item"}, {"type": EFFECT_MULTICAST, "amount": 1}))
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_CRIT, EFFECT_CHARGE, {"side": "self", "selector": "this_item"}, {"type": EFFECT_CHARGE, "amount": 1}, {"event_source_not_owner": true}))
+		"satchel":
+			handled_keywords[EFFECT_RELOAD] = true
+			handled_keywords[EFFECT_REGENERATION] = true
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_COOLDOWN_READY, EFFECT_RELOAD, {"side": "self", "selector": "ammo_items", "count": 2}, {"type": EFFECT_RELOAD, "amount": 1}))
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_RELOAD, EFFECT_REGENERATION, {"side": "self", "selector": "hero"}, {"type": EFFECT_REGENERATION, "amount": 2}))
 		"smelling_salts":
 			handled_keywords[EFFECT_HASTE] = true
 			definitions.append({
@@ -286,6 +345,19 @@ static func build_item_effects(item: ItemDataClass) -> Array[Dictionary]:
 					"amount_by_rarity": [1.0, 2.0, 3.0, 4.0],
 				},
 			})
+		"spider_mace":
+			handled_keywords[EFFECT_CHARGE] = true
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_ENEMY_STATUS_APPLIED, EFFECT_CHARGE, {"side": "self", "selector": "this_item"}, {"type": EFFECT_CHARGE, "amount": 2}, {"status_type_any": [EFFECT_SLOW, EFFECT_POISON]}))
+		"tesla_coil":
+			handled_keywords[EFFECT_CHARGE] = true
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_TAG_USED, EFFECT_CHARGE, {"side": "self", "selector": "slowest_items", "count": 1}, {"type": EFFECT_CHARGE, "amount": 1}, {"tag": "Tech", "event_source_is_owner_or_adjacent": true}))
+		"tazidian_dagger":
+			handled_keywords[EFFECT_AMMO] = true
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_BATTLE_START, EFFECT_AMMO, {"side": "self", "selector": "left_item"}, {"type": EFFECT_AMMO, "amount_by_rarity": [1, 2, 3, 4]}))
+		"apothecary":
+			handled_keywords[EFFECT_CHARGE] = true
+			for status_type in [EFFECT_POISON, EFFECT_BURN, EFFECT_SLOW]:
+				definitions.append(_hook_definition(item.source_id, TRIGGER_ON_ENEMY_STATUS_APPLIED, EFFECT_CHARGE, {"side": "self", "selector": "this_item"}, {"type": EFFECT_CHARGE, "amount": 1}, {"status_type": status_type}))
 		"sword_cane":
 			definitions.append({
 				"id": "sword_cane_adjacent_regen_regeneration",
@@ -483,13 +555,16 @@ static func _append_sell_service_hook_definitions(definitions: Array[Dictionary]
 	if source_id == "thieves_guild_medallion":
 		definitions.append(_hook_definition(source_id, TRIGGER_ON_SELL, "service_unlock", {"selector": "run"}, {"type": "service_unlock", "service_id": "thieves_guild"}))
 
-static func _hook_definition(source_id: String, trigger: String, effect_name: String, target: Dictionary, effect: Dictionary) -> Dictionary:
-	return {
+static func _hook_definition(source_id: String, trigger: String, effect_name: String, target: Dictionary, effect: Dictionary, condition: Dictionary = {}) -> Dictionary:
+	var definition: Dictionary = {
 		"id": "%s_%s_%s" % [source_id, trigger, effect_name],
 		"trigger": trigger,
 		"target": target,
 		"effect": effect,
 	}
+	if not condition.is_empty():
+		definition["condition"] = condition
+	return definition
 
 static func _transform_enchantment_for_item(source_id: String) -> String:
 	match source_id:

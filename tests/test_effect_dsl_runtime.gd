@@ -325,8 +325,8 @@ func test_reload_and_unsupported_warnings_are_explicit() -> void:
 	_battle_system().call("end_battle")
 
 	var warning_inv: LinearInventoryClass = LinearInventoryClass.new()
-	var runic_daggers: ItemDataClass = _create_item("runic_daggers")
-	_assert_true(warning_inv.place_item(runic_daggers, 0), "places Runic Daggers for warning trace")
+	var anaconda: ItemDataClass = _create_item("anaconda")
+	_assert_true(warning_inv.place_item(anaconda, 0), "places Anaconda for warning trace")
 	_start_battle([], warning_inv)
-	_assert_true(_warnings().has("unsupported_item_effect:runic_daggers:multicast"), "unsupported multicast coverage is explicit in warnings")
+	_assert_true(_warnings().has("unsupported_item_effect:anaconda:multicast"), "remaining unsupported multicast coverage is explicit in warnings")
 	_battle_system().call("end_battle")
