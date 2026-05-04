@@ -624,6 +624,8 @@ static func _runtime_bonus_runtime_path(source_id: String) -> String:
 			return "ItemAcquisition permanent Potion buy mutation and BattleSystem reload regen"
 		"tazidian_dagger", "boiling_flask":
 			return "BattleSystem item aura runtime bonus"
+		"genie_lamp", "thieves_guild_medallion":
+			return "SellService service unlock"
 	return ""
 
 static func _hook_definition(source_id: String, trigger: String, effect_name: String, target: Dictionary, effect: Dictionary, condition: Dictionary = {}, timing: String = "") -> Dictionary:
@@ -711,10 +713,24 @@ static func collect_item_warnings(
 		if handled_keywords.has(keyword):
 			continue
 		for matcher in _PRIORITY_KEYWORD_MATCHERS[keyword]:
-			if effect_text.contains(str(matcher).to_lower()):
+			if _effect_text_matches(effect_text, keyword, str(matcher).to_lower()):
 				warnings.append("unsupported_item_effect:%s:%s" % [item.source_id, keyword])
 				break
 	return warnings
+
+static func _effect_text_matches(effect_text: String, keyword: String, matcher: String) -> bool:
+	if matcher.is_empty():
+		return false
+	if keyword == EFFECT_HEAL and matcher == "heal":
+		return _contains_whole_word(effect_text, matcher)
+	return effect_text.contains(matcher)
+
+static func _contains_whole_word(text: String, word: String) -> bool:
+	var regex := RegEx.new()
+	var err: Error = regex.compile("(^|[^a-z0-9_])%s([^a-z0-9_]|$)" % word)
+	if err != OK:
+		return text.contains(word)
+	return regex.search(text) != null
 
 static func get_item_warning_reason(item: ItemDataClass, warning: String) -> String:
 	var parts: PackedStringArray = str(warning).split(":")
