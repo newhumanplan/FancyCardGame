@@ -9,11 +9,22 @@ const WikiMonsterCatalogClass = preload("res://scripts/data/wiki_monster_catalog
 const WikiEventCatalogClass = preload("res://scripts/data/wiki_event_catalog.gd")
 const EffectDefinitionClass = preload("res://scripts/data/effect_definition.gd")
 const EnchantmentCatalogClass = preload("res://scripts/data/enchantment_catalog.gd")
+const PlayerSkillCatalogClass = preload("res://scripts/data/player_skill_catalog.gd")
 
 const RARITY_BRONZE: int = 1
 const RARITY_SILVER: int = 2
 const RARITY_GOLD: int = 3
 const RARITY_DIAMOND: int = 4
+
+const TOP_MONSTER_SPECIAL_IDS: Array[String] = [
+	"banannabal", "fanged_inglet", "haunted_kimono", "kyver_drone", "pyro", "viper",
+	"coconut_crab", "giant_mosquito", "boarrior", "covetous_thief", "dabbling_apprentice",
+	"tempest_bravo", "boilerroom_brawler", "frost_street_challenger", "outlands_dervish",
+	"rogue_scrapper", "street_gamer", "ventriloquist", "bloodreef_raider",
+	"eccentric_etherwright", "hooverbike_hooligan", "preening_duelist", "retiree",
+	"sabretooth", "ahexa", "dire_inglet", "dire_mosquito", "flame_juggler",
+	"harkuvian_rocket_trooper", "hellbilly",
+]
 
 const HERO_PROFILE_SPECS: Array[Dictionary] = [
 	{"type": HeroDataClass.HeroType.VANESSA, "id": "vanessa", "name": "Vanessa", "max_hp": 100, "crit": 0.08, "collection": "Vanessa", "skills": ["deadly_eye", "gunner", "flashy_reload", "crashing_waves", "improved_toxins"], "passives": [{"name": "Aggressive Arsenal", "description": "Wiki gameplay profile: Weapons, Ammo, and Aquatic control define Vanessa's core plans.", "type": "crit", "value": 3.0}, {"name": "Control/Aquatic", "description": "Vanessa supports slowing opponents while building Poison and heavy Aquatic payoffs.", "type": "cooldown", "value": 3.0}]},
@@ -636,6 +647,67 @@ static func get_monster_specs_for_level(level: int) -> Array[Dictionary]:
 static func get_monster_specs_for_day(day: int) -> Array[Dictionary]:
 	return get_monster_specs_for_level(maxi(day, 1))
 
+static func get_top_monster_special_ids(limit: int = 30) -> Array[String]:
+	return TOP_MONSTER_SPECIAL_IDS.slice(0, clampi(limit, 0, TOP_MONSTER_SPECIAL_IDS.size())).duplicate()
+
+static func get_monster_encounter_metadata(monster_id: String, day: int = 1) -> Dictionary:
+	var spec: Dictionary = WikiMonsterCatalogClass.find_monster_spec(monster_id)
+	if spec.is_empty():
+		for candidate in DAY1_MONSTER_SPECS:
+			if str(candidate.get("id", "")) == monster_id:
+				spec = candidate
+				break
+	if spec.is_empty():
+		return {}
+	return _build_monster_encounter_metadata(spec, day)
+
+static func get_top_monster_special_report(limit: int = 30) -> Dictionary:
+	var monster_ids: Array[String] = get_top_monster_special_ids(limit)
+	var monsters: Array[Dictionary] = []
+	var supported_count: int = 0
+	var unsupported_count: int = 0
+	var reward_path_count: Dictionary = {"item": 0, "skill": 0, "payout": 0}
+	var day_counts: Dictionary = {}
+	var tier_counts: Dictionary = {}
+	for monster_id in monster_ids:
+		var spec: Dictionary = WikiMonsterCatalogClass.find_monster_spec(monster_id)
+		if spec.is_empty():
+			for candidate in DAY1_MONSTER_SPECS:
+				if str(candidate.get("id", "")) == monster_id:
+					spec = candidate
+					break
+		if spec.is_empty():
+			unsupported_count += 1
+			monsters.append({"id": monster_id, "supported": false, "unsupported_reasons": ["missing_monster_spec"]})
+			continue
+		var metadata: Dictionary = _build_monster_encounter_metadata(spec, int(spec.get("level", 1)))
+		var entry: Dictionary = _build_monster_special_entry(spec, metadata)
+		if bool(entry.get("supported", false)):
+			supported_count += 1
+		else:
+			unsupported_count += 1
+		var reward_paths: Array = entry.get("reward_paths", [])
+		for path_value in reward_paths:
+			var path_key: String = str(path_value)
+			reward_path_count[path_key] = int(reward_path_count.get(path_key, 0)) + 1
+		var level_key: String = str(entry.get("level", 0))
+		day_counts[level_key] = int(day_counts.get(level_key, 0)) + 1
+		var tier_key: String = str(entry.get("tier", ""))
+		tier_counts[tier_key] = int(tier_counts.get(tier_key, 0)) + 1
+		monsters.append(entry)
+	return {
+		"schema_version": 1,
+		"selection": "first 30 leveled monsters by wiki/day curve order",
+		"requested_limit": limit,
+		"monster_count": monsters.size(),
+		"supported_count": supported_count,
+		"unsupported_count": unsupported_count,
+		"reward_path_count": reward_path_count,
+		"day_counts": day_counts,
+		"tier_counts": tier_counts,
+		"monsters": monsters,
+	}
+
 static func create_random_mak_day1_item(rarity: int = RARITY_BRONZE, required_size: String = "", required_tag: String = "", buyable_only: bool = true) -> ItemDataClass:
 	return create_random_hero_item(HeroDataClass.HeroType.MAK, rarity, required_size, required_tag, buyable_only)
 
@@ -811,6 +883,7 @@ static func create_monster(monster_id: String = "", level: int = 1) -> MonsterDa
 	monster.gold_reward_min = int(spec.get("gold", 2))
 	monster.gold_reward_max = int(spec.get("gold", 2))
 	monster.xp_reward = int(spec.get("xp", 2))
+	var encounter_metadata: Dictionary = _build_monster_encounter_metadata(spec, level)
 	monster.reward = {
 		"gold": int(spec.get("gold", 2)),
 		"xp": int(spec.get("xp", 2)),
@@ -818,6 +891,13 @@ static func create_monster(monster_id: String = "", level: int = 1) -> MonsterDa
 		"skill_pool": _get_monster_reward_skill_pool(spec),
 		"item_count": 1,
 		"skill_count": 1,
+		"monster_id": str(spec.get("id", "")),
+		"monster_name": str(spec.get("name", "Monster")),
+		"risk_score": int(encounter_metadata.get("risk_score", 0)),
+		"risk_tags": encounter_metadata.get("risk_tags", []),
+		"reward_tags": encounter_metadata.get("reward_tags", []),
+		"reward_paths": encounter_metadata.get("reward_paths", []),
+		"reward_summary": str(encounter_metadata.get("reward_summary", "")),
 	}
 	monster.monster_skills = _get_monster_skill_entries(spec)
 	monster.monster_items = []
@@ -875,6 +955,167 @@ static func item_to_monster_item(item_data: ItemDataClass) -> Dictionary:
 		"effects": item_data.effects.duplicate(true),
 		"effect_warnings": item_data.effect_warnings.duplicate(),
 	}
+
+static func _build_monster_encounter_metadata(spec: Dictionary, day: int) -> Dictionary:
+	var item_entries: Array[Dictionary] = _get_monster_item_entries(spec)
+	var skill_entries: Array[Dictionary] = _get_monster_skill_entries(spec)
+	var risk_tags: Array[String] = []
+	var reward_tags: Array[String] = []
+	var risk_score: int = maxi(int(spec.get("level", day)), day)
+	match str(spec.get("tier", "Bronze")):
+		"Silver": risk_score += 1
+		"Gold": risk_score += 2
+		"Diamond": risk_score += 3
+	var health: int = int(spec.get("health", 100))
+	if health >= 1000:
+		risk_tags.append("high_hp")
+		risk_score += 2
+	elif health >= 400:
+		risk_tags.append("sturdy")
+		risk_score += 1
+	for item_entry in item_entries:
+		var item_id: String = str(item_entry.get("id", ""))
+		var item_spec: Dictionary = _find_item_spec(item_id)
+		if item_spec.is_empty():
+			continue
+		var tags: Array[String] = _string_array(item_spec.get("tags", []))
+		if _array_has_tag(tags, "Weapon") or item_spec.has("damage"):
+			_add_unique_string(risk_tags, "damage")
+			_add_unique_string(reward_tags, "weapon")
+		if item_spec.has("poison"):
+			_add_unique_string(risk_tags, "poison")
+		if item_spec.has("burn"):
+			_add_unique_string(risk_tags, "burn")
+		if item_spec.has("slow"):
+			_add_unique_string(risk_tags, "slow")
+		if item_spec.has("freeze"):
+			_add_unique_string(risk_tags, "freeze")
+		if item_spec.has("shield"):
+			_add_unique_string(risk_tags, "shield")
+			_add_unique_string(reward_tags, "shield")
+		if item_spec.has("heal") or item_spec.has("regen"):
+			_add_unique_string(risk_tags, "sustain")
+			_add_unique_string(reward_tags, "sustain")
+		for tag in tags:
+			match tag.to_lower():
+				"ammo", "crit", "haste", "charge", "multicast", "economy", "value":
+					_add_unique_string(reward_tags, tag.to_lower())
+	for skill_entry in skill_entries:
+		var skill_id: String = _monster_skill_entry_id(skill_entry)
+		if skill_id.is_empty():
+			continue
+		if _monster_skill_has_direct_runtime(skill_entry):
+			_add_unique_string(risk_tags, "skill:%s" % skill_id)
+		else:
+			_add_unique_string(risk_tags, "unsupported_skill:%s" % skill_id)
+	var reward_paths: Array[String] = ["payout"]
+	if not _get_monster_reward_item_pool(spec).is_empty():
+		reward_paths.append("item")
+	if not _get_monster_reward_skill_pool(spec).is_empty():
+		reward_paths.append("skill")
+	return {
+		"monster_id": str(spec.get("id", "")),
+		"name": str(spec.get("name", "Monster")),
+		"level": int(spec.get("level", day)),
+		"tier": str(spec.get("tier", "Bronze")),
+		"health": health,
+		"risk_score": risk_score,
+		"risk_tags": risk_tags,
+		"reward_tags": reward_tags,
+		"reward_paths": reward_paths,
+		"reward_summary": _describe_monster_reward_paths(spec),
+	}
+
+static func _build_monster_special_entry(spec: Dictionary, metadata: Dictionary) -> Dictionary:
+	var supported_mechanics: Array[String] = []
+	var unsupported_reasons: Array[String] = []
+	for item_entry in _get_monster_item_entries(spec):
+		var item_id: String = str(item_entry.get("id", ""))
+		var item_spec: Dictionary = _find_item_spec(item_id)
+		if item_spec.is_empty():
+			unsupported_reasons.append("missing_item_spec:%s" % item_id)
+			continue
+		var item_data: ItemDataClass = create_item(item_id, int(item_entry.get("rarity", _get_spec_start_rarity(item_spec))))
+		if item_data == null:
+			unsupported_reasons.append("create_item_failed:%s" % item_id)
+			continue
+		var mechanics: Array[String] = _item_runtime_mechanics(item_data)
+		for mechanic in mechanics:
+			_add_unique_string(supported_mechanics, mechanic)
+		for warning in item_data.effect_warnings:
+			unsupported_reasons.append("item:%s:%s" % [item_id, str(warning)])
+	for skill_entry in _get_monster_skill_entries(spec):
+		var skill_id: String = _monster_skill_entry_id(skill_entry)
+		var normalized: Dictionary = PlayerSkillCatalogClass.normalize_skill_ref(skill_entry)
+		if _monster_skill_has_direct_runtime(skill_entry):
+			_add_unique_string(supported_mechanics, "skill:%s:direct_monster_runtime" % skill_id)
+		elif str(normalized.get("support_status", "")) == PlayerSkillCatalogClass.SUPPORT_IMPLEMENTED:
+			unsupported_reasons.append("skill:%s:player_skill_runtime_not_bound_to_monster_ai:%s" % [skill_id, str(normalized.get("implementation_kind", "implemented"))])
+		else:
+			var reason: String = str(normalized.get("unsupported_reason", "phase1_catalog_rule_missing"))
+			unsupported_reasons.append("skill:%s:%s" % [skill_id, reason])
+	return {
+		"id": str(spec.get("id", "")),
+		"name": str(spec.get("name", "Monster")),
+		"level": int(spec.get("level", 0)),
+		"tier": str(spec.get("tier", "")),
+		"risk_score": int(metadata.get("risk_score", 0)),
+		"risk_tags": metadata.get("risk_tags", []),
+		"reward_paths": metadata.get("reward_paths", []),
+		"supported": not supported_mechanics.is_empty(),
+		"supported_mechanics": supported_mechanics,
+		"unsupported_reasons": unsupported_reasons,
+		"deterministic_evidence": "tests/test_monster_specials.gd",
+	}
+
+static func _monster_skill_has_direct_runtime(skill_entry: Dictionary) -> bool:
+	for key in ["start_poison", "start_burn", "start_shield", "burn_bonus", "poison_bonus", "shield_bonus", "damage_bonus"]:
+		if int(skill_entry.get(key, 0)) > 0:
+			return true
+	return false
+
+static func _item_runtime_mechanics(item: ItemDataClass) -> Array[String]:
+	var mechanics: Array[String] = []
+	if item.damage > 0:
+		mechanics.append("damage")
+	if item.shield > 0:
+		mechanics.append("shield")
+	if item.heal > 0:
+		mechanics.append("heal")
+	if item.burn_damage > 0:
+		mechanics.append("burn")
+	if item.poison_damage > 0:
+		mechanics.append("poison")
+	if item.regeneration > 0:
+		mechanics.append("regen")
+	if item.slow_count > 0:
+		mechanics.append("slow")
+	if item.freeze_count > 0:
+		mechanics.append("freeze")
+	if item.haste_count > 0:
+		mechanics.append("haste")
+	if item.get_max_ammo() > 0:
+		mechanics.append("ammo")
+	if not item.effects.is_empty():
+		mechanics.append("effect_dsl")
+	if mechanics.is_empty() and item.cooldown <= 0.0:
+		mechanics.append("passive_or_loot")
+	return mechanics
+
+static func _describe_monster_reward_paths(spec: Dictionary) -> String:
+	var parts: Array[String] = ["Gold %d" % int(spec.get("gold", 0)), "XP %d" % int(spec.get("xp", 0))]
+	var item_pool: Array[Dictionary] = _get_monster_reward_item_pool(spec)
+	var skill_pool: Array[Dictionary] = _get_monster_reward_skill_pool(spec)
+	if not item_pool.is_empty():
+		parts.append("%d item drops" % item_pool.size())
+	if not skill_pool.is_empty():
+		parts.append("%d skill drops" % skill_pool.size())
+	return ", ".join(parts)
+
+static func _add_unique_string(values: Array[String], value: String) -> void:
+	if value.is_empty() or values.has(value):
+		return
+	values.append(value)
 
 static func _find_item_spec(item_id: String) -> Dictionary:
 	for spec in get_mak_item_specs():

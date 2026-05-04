@@ -421,13 +421,27 @@ func _build_monster_reward_choice(reward: Dictionary, source: String) -> Diction
 	if item_refs.is_empty() and skill_refs.is_empty():
 		return {}
 
+	var monster_name: String = str(reward.get("monster_name", "Monster"))
+	var risk_score: int = int(reward.get("risk_score", 0))
+	var risk_tags: Array = reward.get("risk_tags", [])
+	var reward_tags: Array = reward.get("reward_tags", [])
 	var options: Array[Dictionary] = []
 	var item_option: Dictionary = _build_item_choice_option(item_refs, 0, "monster_item", "Monster Item")
 	if not item_option.is_empty():
+		item_option["risk_score"] = risk_score
+		item_option["risk_tags"] = risk_tags.duplicate(true)
+		item_option["reward_tags"] = reward_tags.duplicate(true)
+		item_option["reward_path"] = "item"
+		item_option["subtitle"] = "Claim a board piece from %s." % monster_name
 		options.append(item_option)
 
 	var skill_option: Dictionary = _build_skill_choice_option(skill_refs, 0, "monster_skill", "Monster Skill")
 	if not skill_option.is_empty():
+		skill_option["risk_score"] = risk_score
+		skill_option["risk_tags"] = risk_tags.duplicate(true)
+		skill_option["reward_tags"] = reward_tags.duplicate(true)
+		skill_option["reward_path"] = "skill"
+		skill_option["subtitle"] = "Learn one of %s's special rules." % monster_name
 		options.append(skill_option)
 
 	var fallback_reward: Dictionary = _copy_reward_fields(
@@ -442,14 +456,25 @@ func _build_monster_reward_choice(reward: Dictionary, source: String) -> Diction
 		"badge": "SPOILS",
 		"label": "Take the Payout",
 		"summary": _describe_reward(fallback_reward),
+		"subtitle": "Bank the safer gold/XP payout from %s." % monster_name,
 		"reward": fallback_reward,
+		"risk_score": risk_score,
+		"risk_tags": risk_tags.duplicate(true),
+		"reward_tags": reward_tags.duplicate(true),
+		"reward_path": "payout",
 	})
 
 	return {
 		"type": CHOICE_TYPE_MONSTER_REWARD,
 		"source": source,
 		"title": "Choose a Reward",
-		"subtitle": "Pick one reward from this victory.",
+		"subtitle": "Risk %d victory: pick item, skill, or payout." % risk_score,
+		"monster_id": str(reward.get("monster_id", "")),
+		"monster_name": monster_name,
+		"risk_score": risk_score,
+		"risk_tags": risk_tags.duplicate(true),
+		"reward_tags": reward_tags.duplicate(true),
+		"reward_paths": reward.get("reward_paths", []),
 		"options": options,
 	}
 

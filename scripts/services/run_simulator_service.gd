@@ -54,6 +54,8 @@ static func run_balance_suite(config: Dictionary = {}) -> Dictionary:
 		"coverage": coverage,
 		"acceptance": _build_acceptance(runs, coverage, soft_locks),
 		"aggregate": _build_aggregate(runs),
+		"pve_curve": _build_pve_curve_aggregate(runs),
+		"monster_special_report": BazaarContentClass.get_top_monster_special_report(30),
 		"option_variety": _build_option_variety(runs),
 		"event_coverage_report": EventManagerClass.new().get_event_gameplay_coverage_report(),
 		"outliers": outliers,
@@ -91,6 +93,7 @@ static func simulate_run(config: Dictionary = {}) -> Dictionary:
 		"soft_locks": [],
 		"coverage": _new_coverage(),
 		"curves": [],
+		"pve_curve": _new_pve_curve(),
 		"action_log": [],
 		"option_variety": {"event_ids": {}, "service_ids": {}, "merchant_ids": {}, "build_hour_signatures": {}},
 		"inventory_pressure_probe": force_inventory_pressure,
@@ -243,8 +246,11 @@ static func _execute_pve(selected: Dictionary, inventory: LinearInventoryClass, 
 	if monster == null:
 		_add_soft_lock(run, "monster_create_failed", monster_id)
 		return
-	var result: Dictionary = BattleProgressionService.apply_battle_result(true, false, monster, inventory, stash)
-	(run["action_log"] as Array).append({"day": RunStateService.current_day, "hour": RunStateService.current_hour, "type": "pve", "monster_id": monster_id, "won": true, "result": result})
+	var metadata: Dictionary = BazaarContentClass.get_monster_encounter_metadata(monster_id, RunStateService.current_day)
+	var won: bool = _determine_pve_result(RunStateService.current_day, metadata, inventory, stash, int(run.get("seed", 0)))
+	var result: Dictionary = BattleProgressionService.apply_battle_result(won, false, monster, inventory, stash)
+	_record_pve_curve(run, monster_id, metadata, won, result)
+	(run["action_log"] as Array).append({"day": RunStateService.current_day, "hour": RunStateService.current_hour, "type": "pve", "monster_id": monster_id, "risk_score": int(metadata.get("risk_score", 0)), "won": won, "result": result})
 
 static func _execute_pvp(day: int, inventory: LinearInventoryClass, stash: LinearInventoryClass, run: Dictionary, force_last_chance_probe: bool) -> void:
 	_mark_coverage(run, "pvp")
@@ -338,6 +344,20 @@ static func _determine_pvp_result(day: int, player_power: int, opponent_power: i
 	var threshold: int = -120 + ((seed_value + day * 37) % 260)
 	return score_delta >= threshold
 
+static func _determine_pve_result(day: int, metadata: Dictionary, inventory: LinearInventoryClass, stash: LinearInventoryClass, seed_value: int) -> bool:
+	var risk_score: int = maxi(int(metadata.get("risk_score", day)), day)
+	var board_slots: int = _occupied_slots(inventory) + _occupied_slots(stash)
+	var item_count: int = 0
+	if inventory != null:
+		item_count += inventory.items.size()
+	if stash != null:
+		item_count += stash.items.size()
+	var player_power: int = board_slots * 95 + item_count * 35 + HeroStateService.level * 80 + int(float(HeroStateService.player_health) * 0.35)
+	if day >= 8 and ((seed_value + day + risk_score) % 5) == 0:
+		return false
+	var threshold: int = risk_score * 150 + day * 90 + ((seed_value + risk_score * 17) % 160)
+	return player_power >= threshold
+
 static func _choose_option(options: Array[Dictionary], run: Dictionary) -> Dictionary:
 	var coverage: Dictionary = run.get("coverage", {})
 	var priorities: Array[String] = []
@@ -402,6 +422,39 @@ static func _fill_inventory_with_probe_items(inventory: LinearInventoryClass) ->
 
 static func _new_coverage() -> Dictionary:
 	return {"merchant": false, "service_vendor": false, "event": false, "pve": false, "pvp": false, "reward_choice": false, "level_up": false, "last_chance": false, "counts": {}}
+
+static func _new_pve_curve() -> Dictionary:
+	return {"encounters": 0, "wins": 0, "losses": 0, "by_day": {}, "by_tier": {}, "reward_choices": 0, "reward_gold_total": 0, "reward_xp_total": 0, "monster_ids": {}}
+
+static func _record_pve_curve(run: Dictionary, monster_id: String, metadata: Dictionary, won: bool, result: Dictionary) -> void:
+	var curve: Dictionary = run.get("pve_curve", _new_pve_curve())
+	curve["encounters"] = int(curve.get("encounters", 0)) + 1
+	curve["wins"] = int(curve.get("wins", 0)) + (1 if won else 0)
+	curve["losses"] = int(curve.get("losses", 0)) + (0 if won else 1)
+	curve["reward_choices"] = int(curve.get("reward_choices", 0)) + (1 if bool(result.get("reward_choice_queued", false)) else 0)
+	curve["reward_gold_total"] = int(curve.get("reward_gold_total", 0)) + int((result.get("reward", {}) as Dictionary).get("gold", 0))
+	curve["reward_xp_total"] = int(curve.get("reward_xp_total", 0)) + int((result.get("reward", {}) as Dictionary).get("xp", 0))
+	var day_key: String = str(RunStateService.current_day)
+	var by_day: Dictionary = curve.get("by_day", {})
+	var day_entry: Dictionary = by_day.get(day_key, {"encounters": 0, "wins": 0, "losses": 0, "risk_total": 0})
+	day_entry["encounters"] = int(day_entry.get("encounters", 0)) + 1
+	day_entry["wins"] = int(day_entry.get("wins", 0)) + (1 if won else 0)
+	day_entry["losses"] = int(day_entry.get("losses", 0)) + (0 if won else 1)
+	day_entry["risk_total"] = int(day_entry.get("risk_total", 0)) + int(metadata.get("risk_score", 0))
+	by_day[day_key] = day_entry
+	var tier_key: String = str(metadata.get("tier", "Unknown"))
+	var by_tier: Dictionary = curve.get("by_tier", {})
+	var tier_entry: Dictionary = by_tier.get(tier_key, {"encounters": 0, "wins": 0, "losses": 0})
+	tier_entry["encounters"] = int(tier_entry.get("encounters", 0)) + 1
+	tier_entry["wins"] = int(tier_entry.get("wins", 0)) + (1 if won else 0)
+	tier_entry["losses"] = int(tier_entry.get("losses", 0)) + (0 if won else 1)
+	by_tier[tier_key] = tier_entry
+	var monster_ids: Dictionary = curve.get("monster_ids", {})
+	monster_ids[monster_id] = int(monster_ids.get(monster_id, 0)) + 1
+	curve["by_day"] = by_day
+	curve["by_tier"] = by_tier
+	curve["monster_ids"] = monster_ids
+	run["pve_curve"] = curve
 
 static func _mark_coverage(run: Dictionary, phase: String) -> void:
 	var coverage: Dictionary = run.get("coverage", {})
@@ -493,6 +546,7 @@ static func _build_acceptance(runs: Array[Dictionary], coverage: Dictionary, sof
 			missing.append(phase)
 	var variety: Dictionary = _build_option_variety(runs)
 	var event_report: Dictionary = EventManagerClass.new().get_event_gameplay_coverage_report()
+	var pve_curve: Dictionary = _build_pve_curve_aggregate(runs)
 	return {
 		"seed_run_count_ok": runs.size() >= 20 and runs.size() <= 50,
 		"no_crash_or_soft_lock": soft_locks.is_empty(),
@@ -500,11 +554,43 @@ static func _build_acceptance(runs: Array[Dictionary], coverage: Dictionary, sof
 		"missing_major_phases": missing,
 		"last_chance_reached": bool(coverage.get("last_chance", false)),
 		"curves_reported": true,
+		"pve_win_loss_curve_reported": int(pve_curve.get("wins", 0)) > 0 and int(pve_curve.get("losses", 0)) > 0,
+		"pve_reward_curve_reported": int(pve_curve.get("reward_choices", 0)) > 0 and int(pve_curve.get("reward_gold_total", 0)) > 0 and int(pve_curve.get("reward_xp_total", 0)) > 0,
 		"outliers_flagged": true,
 		"event_coverage_70_plus": int(event_report.get("implemented_total", 0)) >= 70,
 		"build_hour_option_variety_ok": int(variety.get("unique_event_ids", 0)) >= 10 and int(variety.get("unique_service_ids", 0)) >= 6,
 		"deterministic_headless_entry": "tests/test_run_simulator_balance_gate.gd",
 	}
+
+static func _build_pve_curve_aggregate(runs: Array[Dictionary]) -> Dictionary:
+	var aggregate: Dictionary = _new_pve_curve()
+	for run in runs:
+		var curve: Dictionary = run.get("pve_curve", {})
+		aggregate["encounters"] = int(aggregate.get("encounters", 0)) + int(curve.get("encounters", 0))
+		aggregate["wins"] = int(aggregate.get("wins", 0)) + int(curve.get("wins", 0))
+		aggregate["losses"] = int(aggregate.get("losses", 0)) + int(curve.get("losses", 0))
+		aggregate["reward_choices"] = int(aggregate.get("reward_choices", 0)) + int(curve.get("reward_choices", 0))
+		aggregate["reward_gold_total"] = int(aggregate.get("reward_gold_total", 0)) + int(curve.get("reward_gold_total", 0))
+		aggregate["reward_xp_total"] = int(aggregate.get("reward_xp_total", 0)) + int(curve.get("reward_xp_total", 0))
+		_merge_counted_pve_group(aggregate, "by_day", curve.get("by_day", {}))
+		_merge_counted_pve_group(aggregate, "by_tier", curve.get("by_tier", {}))
+		var monster_ids: Dictionary = aggregate.get("monster_ids", {})
+		for monster_id in (curve.get("monster_ids", {}) as Dictionary).keys():
+			monster_ids[monster_id] = int(monster_ids.get(monster_id, 0)) + int((curve.get("monster_ids", {}) as Dictionary).get(monster_id, 0))
+		aggregate["monster_ids"] = monster_ids
+	return aggregate
+
+static func _merge_counted_pve_group(aggregate: Dictionary, key: String, source_group: Variant) -> void:
+	if not source_group is Dictionary:
+		return
+	var target: Dictionary = aggregate.get(key, {})
+	for group_key in (source_group as Dictionary).keys():
+		var source_entry: Dictionary = (source_group as Dictionary).get(group_key, {})
+		var target_entry: Dictionary = target.get(group_key, {})
+		for metric in source_entry.keys():
+			target_entry[metric] = int(target_entry.get(metric, 0)) + int(source_entry.get(metric, 0))
+		target[group_key] = target_entry
+	aggregate[key] = target
 
 static func _build_aggregate(runs: Array[Dictionary]) -> Dictionary:
 	var final_gold: Array[int] = []

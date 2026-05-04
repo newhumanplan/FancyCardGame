@@ -128,10 +128,19 @@ func _build_service_vendor_option(day: int, excluded_ids: Dictionary = {}) -> Di
 
 func _build_monster_option(spec: Dictionary, index: int, day: int) -> Dictionary:
 	var monster_id: String = str(spec.get("id", ""))
+	var metadata: Dictionary = BazaarContentClass.get_monster_encounter_metadata(monster_id, day)
+	var summary: String = "Risk %d - %s" % [
+		int(metadata.get("risk_score", day)),
+		str(metadata.get("reward_summary", str(spec.get("tier", "Monster"))))
+	]
 	var option := _build_option(str(spec.get("name", "Monster")), "monster", "", {
 		"monster_id": monster_id,
-		"summary": str(spec.get("tier", "Monster")),
+		"summary": summary,
 		"rarity": str(spec.get("tier", "")),
+		"risk_score": int(metadata.get("risk_score", day)),
+		"risk_tags": metadata.get("risk_tags", []),
+		"reward_tags": metadata.get("reward_tags", []),
+		"reward_paths": metadata.get("reward_paths", []),
 	})
 	option["encounter_index"] = index
 	option["day"] = day
