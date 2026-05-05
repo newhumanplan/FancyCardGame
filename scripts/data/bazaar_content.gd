@@ -17,8 +17,14 @@ const RARITY_GOLD: int = 3
 const RARITY_DIAMOND: int = 4
 
 const MONSTER_DIRECT_NUMERIC_SKILL_BINDINGS: Dictionary = {
+	"critical_aid": {"bonus_key": "crit_chance", "target": "heal_items", "mechanic": "skill:critical_aid:heal_item_crit_bonus"},
 	"deadly_eye": {"bonus_key": "crit_chance", "target": "weapons", "mechanic": "skill:deadly_eye:weapon_crit_bonus"},
+	"final_flame": {"bonus_key": "burn", "target": "rightmost_burn_item", "mechanic": "skill:final_flame:rightmost_burn_bonus"},
 	"flamedancer": {"bonus_key": "crit_chance", "target": "burn_items", "mechanic": "skill:flamedancer:burn_item_crit_bonus"},
+	"first_responder": {"bonus_key": "heal", "target": "leftmost_heal_item", "mechanic": "skill:first_responder:leftmost_heal_bonus"},
+	"follow_up_care": {"bonus_key": "heal", "target": "rightmost_heal_item", "mechanic": "skill:follow_up_care:rightmost_heal_bonus"},
+	"frontal_shielding": {"bonus_key": "shield", "target": "leftmost_shield_item", "mechanic": "skill:frontal_shielding:leftmost_shield_bonus"},
+	"initial_dose": {"bonus_key": "poison", "target": "leftmost_poison_item", "mechanic": "skill:initial_dose:leftmost_poison_bonus"},
 	"keen_eye": {"bonus_key": "crit_chance", "target": "all_items", "mechanic": "skill:keen_eye:all_item_crit_bonus"},
 	"left_handed": {"bonus_key": "damage", "target": "leftmost_weapon", "mechanic": "skill:left_handed:leftmost_weapon_damage_bonus"},
 	"right_handed": {"bonus_key": "damage", "target": "rightmost_weapon", "mechanic": "skill:right_handed:rightmost_weapon_damage_bonus"},
@@ -1232,6 +1238,14 @@ static func _apply_monster_direct_numeric_bonuses(monster_items: Array, bonuses:
 					monster_item["damage"] = maxi(int(monster_item.get("damage", 0)) + int(round(float(bonus.get("value", 0.0)))), 0)
 				"crit_chance":
 					monster_item["crit_chance"] = clampf(float(monster_item.get("crit_chance", 0.0)) + float(bonus.get("value", 0.0)) / 100.0, 0.0, 3.0)
+				"heal":
+					monster_item["heal"] = maxi(int(monster_item.get("heal", 0)) + int(round(float(bonus.get("value", 0.0)))), 0)
+				"shield":
+					monster_item["shield"] = maxi(int(monster_item.get("shield", 0)) + int(round(float(bonus.get("value", 0.0)))), 0)
+				"burn":
+					monster_item["burn"] = maxi(int(monster_item.get("burn", 0)) + int(round(float(bonus.get("value", 0.0)))), 0)
+				"poison":
+					monster_item["poison"] = maxi(int(monster_item.get("poison", 0)) + int(round(float(bonus.get("value", 0.0)))), 0)
 
 static func _get_monster_numeric_skill_target_indexes(monster_items: Array, target: String) -> Array[int]:
 	var indexes: Array[int] = []
@@ -1245,6 +1259,31 @@ static func _get_monster_numeric_skill_target_indexes(monster_items: Array, targ
 			var rightmost: int = _find_monster_weapon_index(monster_items, true)
 			if rightmost >= 0:
 				indexes.append(rightmost)
+			return indexes
+		"leftmost_heal_item":
+			var leftmost_heal: int = _find_monster_numeric_item_index(monster_items, "heal", false)
+			if leftmost_heal >= 0:
+				indexes.append(leftmost_heal)
+			return indexes
+		"rightmost_heal_item":
+			var rightmost_heal: int = _find_monster_numeric_item_index(monster_items, "heal", true)
+			if rightmost_heal >= 0:
+				indexes.append(rightmost_heal)
+			return indexes
+		"leftmost_shield_item":
+			var leftmost_shield: int = _find_monster_numeric_item_index(monster_items, "shield", false)
+			if leftmost_shield >= 0:
+				indexes.append(leftmost_shield)
+			return indexes
+		"leftmost_poison_item":
+			var leftmost_poison: int = _find_monster_numeric_item_index(monster_items, "poison", false)
+			if leftmost_poison >= 0:
+				indexes.append(leftmost_poison)
+			return indexes
+		"rightmost_burn_item":
+			var rightmost_burn: int = _find_monster_numeric_item_index(monster_items, "burn", true)
+			if rightmost_burn >= 0:
+				indexes.append(rightmost_burn)
 			return indexes
 	for index in range(monster_items.size()):
 		if monster_items[index] is Dictionary and _monster_item_matches_numeric_skill_target(monster_items[index] as Dictionary, target):
@@ -1262,6 +1301,17 @@ static func _find_monster_weapon_index(monster_items: Array, from_right: bool) -
 			return index
 	return -1
 
+static func _find_monster_numeric_item_index(monster_items: Array, key: String, from_right: bool) -> int:
+	if from_right:
+		for index in range(monster_items.size() - 1, -1, -1):
+			if monster_items[index] is Dictionary and float((monster_items[index] as Dictionary).get(key, 0.0)) > 0.0:
+				return index
+		return -1
+	for index in range(monster_items.size()):
+		if monster_items[index] is Dictionary and float((monster_items[index] as Dictionary).get(key, 0.0)) > 0.0:
+			return index
+	return -1
+
 static func _monster_item_matches_numeric_skill_target(monster_item: Dictionary, target: String) -> bool:
 	match target:
 		"weapons":
@@ -1270,6 +1320,8 @@ static func _monster_item_matches_numeric_skill_target(monster_item: Dictionary,
 			return true
 		"burn_items":
 			return int(monster_item.get("burn", 0)) > 0
+		"heal_items":
+			return int(monster_item.get("heal", 0)) > 0
 	return false
 
 static func _item_runtime_mechanics(item: ItemDataClass) -> Array[String]:
