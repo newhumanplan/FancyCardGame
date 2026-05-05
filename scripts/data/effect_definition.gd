@@ -287,6 +287,9 @@ static func build_item_effects(item: ItemDataClass) -> Array[Dictionary]:
 			handled_keywords[EFFECT_RUNTIME_BONUS] = true
 			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_BATTLE_START, EFFECT_RUNTIME_BONUS, {"side": "self", "selector": "matching_tag_items", "tag": "Weapon"}, {"type": EFFECT_RUNTIME_BONUS, "bonus_key": EFFECT_DAMAGE, "amount_by_rarity": [4, 8, 12], "scope": "combat"}))
 			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_TAG_USED, EFFECT_CHARGE, {"side": "self", "selector": "this_item"}, {"type": EFFECT_CHARGE, "amount": 2.0}, {"tag": "Weapon"}))
+		"bomb_squad":
+			handled_keywords[EFFECT_HASTE] = true
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_ITEM_USED, EFFECT_HASTE, {"side": "self", "selector": "this_item"}, {"type": EFFECT_HASTE, "amount": 2.0}, {"tag": "Friend", "event_source_is_owner_or_adjacent": true, "event_source_not_owner": true}))
 		"emerald":
 			handled_keywords[EFFECT_RUNTIME_BONUS] = true
 		"ectoplasm":
@@ -320,6 +323,11 @@ static func build_item_effects(item: ItemDataClass) -> Array[Dictionary]:
 		"handaxe":
 			handled_keywords[EFFECT_RUNTIME_BONUS] = true
 			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_BATTLE_START, EFFECT_RUNTIME_BONUS, {"side": "self", "selector": "matching_tag_items", "tag": "Weapon"}, {"type": EFFECT_RUNTIME_BONUS, "bonus_key": EFFECT_DAMAGE, "amount_by_rarity": [6, 9, 12, 15], "scope": "combat"}))
+		"incendiary_rounds":
+			handled_keywords[EFFECT_BURN] = true
+			handled_keywords[EFFECT_RUNTIME_BONUS] = true
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_BATTLE_START, EFFECT_AMMO, {"side": "self", "selector": "adjacent"}, {"type": EFFECT_AMMO, "amount": 1}))
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_ITEM_USED, EFFECT_BURN, {"side": "enemy", "selector": "hero"}, {"type": EFFECT_BURN, "amount_by_rarity": [1, 2, 3]}, {"event_source_is_owner_or_adjacent": true, "event_source_not_owner": true}))
 		"infinite_potion":
 			handled_keywords[EFFECT_RELOAD] = true
 			definitions.append({
@@ -334,6 +342,10 @@ static func build_item_effects(item: ItemDataClass) -> Array[Dictionary]:
 			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_COOLDOWN_READY, EFFECT_RELOAD, {"side": "self", "selector": "right_item"}, {"type": EFFECT_RELOAD, "amount_by_rarity": [1, 2, 3, 4]}))
 		"ice_claw":
 			handled_keywords[EFFECT_RUNTIME_BONUS] = true
+		"jellyfish":
+			handled_keywords[EFFECT_HASTE] = true
+			handled_keywords[EFFECT_RUNTIME_BONUS] = true
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_ITEM_USED, EFFECT_HASTE, {"side": "self", "selector": "this_item"}, {"type": EFFECT_HASTE, "amount_by_rarity": [1, 2, 3, 4]}, {"tag": "Aquatic", "event_source_is_owner_or_adjacent": true, "event_source_not_owner": true}))
 		"leeches":
 			handled_keywords[EFFECT_RUNTIME_BONUS] = true
 		"lightbulb":
@@ -664,6 +676,8 @@ static func _runtime_bonus_runtime_path(source_id: String) -> String:
 			return "ItemAcquisition permanent Potion buy mutation and BattleSystem reload regen"
 		"tazidian_dagger", "boiling_flask":
 			return "BattleSystem item aura runtime bonus"
+		"incendiary_rounds", "jellyfish":
+			return "BattleSystem adjacent item-use and battle-start item runtime bonus"
 		"genie_lamp", "thieves_guild_medallion":
 			return "SellService service unlock"
 	return ""
