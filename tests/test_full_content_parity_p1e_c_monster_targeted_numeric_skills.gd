@@ -13,7 +13,7 @@ func _ready() -> void:
 		print("== tests/test_full_content_parity_p1e_c_monster_targeted_numeric_skills.gd ==")
 		test_targeted_numeric_skill_reasons_are_resolved()
 		test_targeted_numeric_skill_runtime_changes_monster_items()
-		test_writes_p1e_c_monster_report_artifact()
+		test_p1e_c_monster_report_regression()
 		_print_summary()
 
 func test_targeted_numeric_skill_reasons_are_resolved() -> void:
@@ -53,17 +53,12 @@ func test_targeted_numeric_skill_runtime_changes_monster_items() -> void:
 	_assert_true(_any_matching_item_at_least(radiant, "crit_chance", 0.05, "burn"), "Flamedancer gives Radiant Corsair Burn items +5% crit")
 	_assert_true(float(_find_edge_weapon(radiant, true).get("damage", 0.0)) >= 25.0, "Right-Handed gives Radiant Corsair's rightmost weapon +20 damage")
 
-func test_writes_p1e_c_monster_report_artifact() -> void:
+func test_p1e_c_monster_report_regression() -> void:
 	var err: int = DirAccess.make_dir_recursive_absolute(STATUS_DIR)
 	_assert_true(err == OK or DirAccess.dir_exists_absolute(STATUS_DIR), "P1E-c status artifact directory is available")
 	var report: Dictionary = BazaarContentClass.get_all_monster_parity_report()
-	var path: String = STATUS_DIR.path_join("monster_parity_101_report.json")
-	var file := FileAccess.open(path, FileAccess.WRITE)
-	_assert_true(file != null, "P1E-c monster parity report artifact opens for write")
-	if file != null:
-		file.store_string(JSON.stringify(report, "  "))
-		file.close()
-	_assert_true(FileAccess.file_exists(path), "P1E-c monster parity report artifact written")
+	_assert_true(int(report.get("monster_count", 0)) == 101, "P1E-c all-monster report remains all 101 monsters")
+	_assert_true(int(report.get("missing_mechanics_count", 999)) <= 96, "P1E-c regression observes current reduced missing mechanics count")
 
 func _find_report_entry(report: Dictionary, monster_id: String) -> Dictionary:
 	for entry in report.get("monsters", []):

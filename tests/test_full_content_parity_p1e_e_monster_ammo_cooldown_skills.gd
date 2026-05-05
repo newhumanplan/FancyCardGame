@@ -12,7 +12,7 @@ func _ready() -> void:
 		print("== tests/test_full_content_parity_p1e_e_monster_ammo_cooldown_skills.gd ==")
 		test_ammo_and_cooldown_skill_reasons_are_resolved()
 		test_ammo_and_cooldown_skill_runtime_changes_monster_items()
-		test_writes_p1e_e_monster_report_artifact()
+		test_p1e_e_monster_report_regression()
 		_print_summary()
 
 func test_ammo_and_cooldown_skill_reasons_are_resolved() -> void:
@@ -58,17 +58,12 @@ func test_ammo_and_cooldown_skill_runtime_changes_monster_items() -> void:
 	var tortuga = BazaarContentClass.create_monster("tortuga", 1)
 	_assert_true(_tagged_cooldown_below_base(tortuga, "Friend"), "Friend Zone reduces Tortuga Friend item cooldowns")
 
-func test_writes_p1e_e_monster_report_artifact() -> void:
+func test_p1e_e_monster_report_regression() -> void:
 	var err: int = DirAccess.make_dir_recursive_absolute(STATUS_DIR)
 	_assert_true(err == OK or DirAccess.dir_exists_absolute(STATUS_DIR), "P1E-e status artifact directory is available")
 	var report: Dictionary = BazaarContentClass.get_all_monster_parity_report()
-	var path: String = STATUS_DIR.path_join("monster_parity_101_report.json")
-	var file := FileAccess.open(path, FileAccess.WRITE)
-	_assert_true(file != null, "P1E-e monster parity report artifact opens for write")
-	if file != null:
-		file.store_string(JSON.stringify(report, "  "))
-		file.close()
-	_assert_true(FileAccess.file_exists(path), "P1E-e monster parity report artifact written")
+	_assert_true(int(report.get("monster_count", 0)) == 101, "P1E-e all-monster report remains all 101 monsters")
+	_assert_true(int(report.get("missing_mechanics_count", 999)) <= 96, "P1E-e regression observes current reduced missing mechanics count")
 
 func _assert_has_mechanic(report: Dictionary, monster_id: String, mechanic: String) -> void:
 	var entry: Dictionary = _find_report_entry(report, monster_id)

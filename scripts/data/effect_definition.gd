@@ -637,6 +637,8 @@ static func _runtime_bonus_runtime_path(source_id: String) -> String:
 			return "BattleSystem reactive combat runtime bonus"
 		"bluenanas", "chocolate_bar", "coconut", "green_gumball", "vial_of_blood", "arken_s_ring", "eagle_talisman", "agility_boots", "blue_gumball", "feather", "gunpowder", "gearnola_bar", "rocket_boots", "snowflake":
 			return "SellService permanent sell mutation"
+		"cinders", "extract", "med_kit", "sharpening_stone":
+			return "SellService permanent targeted stat mutation"
 		"satchel":
 			return "ItemAcquisition permanent Potion buy mutation and BattleSystem reload regen"
 		"tazidian_dagger", "boiling_flask":
