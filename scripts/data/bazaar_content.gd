@@ -18,7 +18,10 @@ const RARITY_DIAMOND: int = 4
 
 const MONSTER_DIRECT_NUMERIC_SKILL_BINDINGS: Dictionary = {
 	"deadly_eye": {"bonus_key": "crit_chance", "target": "weapons", "mechanic": "skill:deadly_eye:weapon_crit_bonus"},
+	"flamedancer": {"bonus_key": "crit_chance", "target": "burn_items", "mechanic": "skill:flamedancer:burn_item_crit_bonus"},
 	"keen_eye": {"bonus_key": "crit_chance", "target": "all_items", "mechanic": "skill:keen_eye:all_item_crit_bonus"},
+	"left_handed": {"bonus_key": "damage", "target": "leftmost_weapon", "mechanic": "skill:left_handed:leftmost_weapon_damage_bonus"},
+	"right_handed": {"bonus_key": "damage", "target": "rightmost_weapon", "mechanic": "skill:right_handed:rightmost_weapon_damage_bonus"},
 	"strength": {"bonus_key": "damage", "target": "weapons", "mechanic": "skill:strength:weapon_damage_bonus"},
 }
 
@@ -900,8 +903,8 @@ static func create_monster(monster_id: String = "", level: int = 1) -> MonsterDa
 			monster_item["shield"] = int(monster_item["shield"]) + shield_bonus
 		if damage_bonus > 0 and int(monster_item.get("damage", 0)) > 0:
 			monster_item["damage"] = int(monster_item["damage"]) + damage_bonus
-		_apply_monster_direct_numeric_bonuses(monster_item, direct_numeric_bonuses)
 		monster.monster_items.append(monster_item)
+	_apply_monster_direct_numeric_bonuses(monster.monster_items, direct_numeric_bonuses)
 	return monster
 
 static func item_to_monster_item(item_data: ItemDataClass) -> Dictionary:
@@ -1215,15 +1218,49 @@ static func _get_monster_direct_numeric_skill_bonuses(skills: Array) -> Array[Di
 		})
 	return bonuses
 
-static func _apply_monster_direct_numeric_bonuses(monster_item: Dictionary, bonuses: Array[Dictionary]) -> void:
+static func _apply_monster_direct_numeric_bonuses(monster_items: Array, bonuses: Array[Dictionary]) -> void:
+	if monster_items.is_empty() or bonuses.is_empty():
+		return
 	for bonus in bonuses:
-		if not _monster_item_matches_numeric_skill_target(monster_item, str(bonus.get("target", ""))):
-			continue
-		match str(bonus.get("bonus_key", "")):
-			"damage":
-				monster_item["damage"] = maxi(int(monster_item.get("damage", 0)) + int(round(float(bonus.get("value", 0.0)))), 0)
-			"crit_chance":
-				monster_item["crit_chance"] = clampf(float(monster_item.get("crit_chance", 0.0)) + float(bonus.get("value", 0.0)) / 100.0, 0.0, 3.0)
+		var target_indexes: Array[int] = _get_monster_numeric_skill_target_indexes(monster_items, str(bonus.get("target", "")))
+		for index in target_indexes:
+			if index < 0 or index >= monster_items.size() or not monster_items[index] is Dictionary:
+				continue
+			var monster_item: Dictionary = monster_items[index] as Dictionary
+			match str(bonus.get("bonus_key", "")):
+				"damage":
+					monster_item["damage"] = maxi(int(monster_item.get("damage", 0)) + int(round(float(bonus.get("value", 0.0)))), 0)
+				"crit_chance":
+					monster_item["crit_chance"] = clampf(float(monster_item.get("crit_chance", 0.0)) + float(bonus.get("value", 0.0)) / 100.0, 0.0, 3.0)
+
+static func _get_monster_numeric_skill_target_indexes(monster_items: Array, target: String) -> Array[int]:
+	var indexes: Array[int] = []
+	match target:
+		"leftmost_weapon":
+			var leftmost: int = _find_monster_weapon_index(monster_items, false)
+			if leftmost >= 0:
+				indexes.append(leftmost)
+			return indexes
+		"rightmost_weapon":
+			var rightmost: int = _find_monster_weapon_index(monster_items, true)
+			if rightmost >= 0:
+				indexes.append(rightmost)
+			return indexes
+	for index in range(monster_items.size()):
+		if monster_items[index] is Dictionary and _monster_item_matches_numeric_skill_target(monster_items[index] as Dictionary, target):
+			indexes.append(index)
+	return indexes
+
+static func _find_monster_weapon_index(monster_items: Array, from_right: bool) -> int:
+	if from_right:
+		for index in range(monster_items.size() - 1, -1, -1):
+			if monster_items[index] is Dictionary and int((monster_items[index] as Dictionary).get("type", ItemDataClass.Type.UTILITY)) == ItemDataClass.Type.WEAPON:
+				return index
+		return -1
+	for index in range(monster_items.size()):
+		if monster_items[index] is Dictionary and int((monster_items[index] as Dictionary).get("type", ItemDataClass.Type.UTILITY)) == ItemDataClass.Type.WEAPON:
+			return index
+	return -1
 
 static func _monster_item_matches_numeric_skill_target(monster_item: Dictionary, target: String) -> bool:
 	match target:
@@ -1231,6 +1268,8 @@ static func _monster_item_matches_numeric_skill_target(monster_item: Dictionary,
 			return int(monster_item.get("type", ItemDataClass.Type.UTILITY)) == ItemDataClass.Type.WEAPON
 		"all_items":
 			return true
+		"burn_items":
+			return int(monster_item.get("burn", 0)) > 0
 	return false
 
 static func _item_runtime_mechanics(item: ItemDataClass) -> Array[String]:
