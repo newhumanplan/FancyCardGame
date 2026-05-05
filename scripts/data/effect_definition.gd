@@ -292,6 +292,9 @@ static func build_item_effects(item: ItemDataClass) -> Array[Dictionary]:
 			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_COOLDOWN_READY, EFFECT_RUNTIME_BONUS, {"side": "self", "selector": "matching_tag_items", "tag": "Poison"}, {"type": EFFECT_RUNTIME_BONUS, "bonus_key": EFFECT_POISON, "amount_by_rarity": [2, 3, 4, 5], "scope": "combat"}))
 		"fireflies":
 			handled_keywords[EFFECT_RUNTIME_BONUS] = true
+		"flamethrower":
+			handled_keywords[EFFECT_BURN] = true
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_COOLDOWN_READY, EFFECT_BURN, {"side": "enemy", "selector": "hero"}, {"type": EFFECT_BURN, "amount_from": "source.damage"}))
 		"frozen_flame":
 			handled_keywords[EFFECT_RUNTIME_BONUS] = true
 		"gatling_gun":
@@ -300,6 +303,9 @@ static func build_item_effects(item: ItemDataClass) -> Array[Dictionary]:
 		"goop_flail":
 			handled_keywords[EFFECT_MULTICAST] = true
 			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_COOLDOWN_READY, EFFECT_MULTICAST, {"side": "self", "selector": "this_item"}, {"type": EFFECT_MULTICAST, "amount": 2}))
+		"haladie":
+			handled_keywords[EFFECT_MULTICAST] = true
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_COOLDOWN_READY, EFFECT_MULTICAST, {"side": "self", "selector": "this_item"}, {"type": EFFECT_MULTICAST, "amount": 1}))
 		"grapeshot":
 			handled_keywords[EFFECT_RELOAD] = true
 			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_ITEM_USED, EFFECT_RELOAD, {"side": "self", "selector": "this_item"}, {"type": EFFECT_RELOAD, "amount": 1}, {"event_source_has_ammo": true, "event_source_not_owner": true}))
@@ -334,6 +340,9 @@ static func build_item_effects(item: ItemDataClass) -> Array[Dictionary]:
 		"nitro":
 			handled_keywords[EFFECT_CHARGE] = true
 			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_COOLDOWN_READY, EFFECT_CHARGE, {"side": "self", "selector": "slowest_other_items", "count": 1}, {"type": EFFECT_CHARGE, "amount_by_rarity": [1, 2, 3, 4]}))
+		"octopus":
+			handled_keywords[EFFECT_MULTICAST] = true
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_COOLDOWN_READY, EFFECT_MULTICAST, {"side": "self", "selector": "this_item"}, {"type": EFFECT_MULTICAST, "amount": 7}))
 		"refractor":
 			handled_keywords[EFFECT_RUNTIME_BONUS] = true
 		"revolver":
