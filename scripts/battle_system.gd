@@ -1184,6 +1184,8 @@ func _resolve_effect_amount(
 				amount = 0.0 if owner_item == null else owner_item.freeze_duration
 			"source.haste_duration":
 				amount = 0.0 if owner_item == null else owner_item.haste_duration
+			"enemy_status.poison":
+				amount = _get_status_total("enemy", EffectDefinitionClass.EFFECT_POISON)
 	elif effect_data.has("amount"):
 		amount = float(effect_data.get("amount", 0.0))
 	elif effect_data.has("amount_by_rarity"):

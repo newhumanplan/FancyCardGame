@@ -282,8 +282,16 @@ static func build_item_effects(item: ItemDataClass) -> Array[Dictionary]:
 				"target": {"side": "self", "selector": "hero"},
 				"effect": {"type": EFFECT_SHIELD, "amount_from": "source.shield"},
 			})
+		"broken_shackles":
+			handled_keywords[EFFECT_CHARGE] = true
+			handled_keywords[EFFECT_RUNTIME_BONUS] = true
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_BATTLE_START, EFFECT_RUNTIME_BONUS, {"side": "self", "selector": "matching_tag_items", "tag": "Weapon"}, {"type": EFFECT_RUNTIME_BONUS, "bonus_key": EFFECT_DAMAGE, "amount_by_rarity": [4, 8, 12], "scope": "combat"}))
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_TAG_USED, EFFECT_CHARGE, {"side": "self", "selector": "this_item"}, {"type": EFFECT_CHARGE, "amount": 2.0}, {"tag": "Weapon"}))
 		"emerald":
 			handled_keywords[EFFECT_RUNTIME_BONUS] = true
+		"ectoplasm":
+			handled_keywords[EFFECT_HEAL] = true
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_COOLDOWN_READY, EFFECT_HEAL, {"side": "self", "selector": "hero"}, {"type": EFFECT_HEAL, "amount_from": "enemy_status.poison"}))
 		"floor_spike":
 			handled_keywords[EFFECT_CHARGE] = true
 			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_TAG_USED, EFFECT_CHARGE, {"side": "self", "selector": "this_item"}, {"type": EFFECT_CHARGE, "amount": 1}, {"tag": "Weapon"}))
@@ -309,6 +317,9 @@ static func build_item_effects(item: ItemDataClass) -> Array[Dictionary]:
 		"grapeshot":
 			handled_keywords[EFFECT_RELOAD] = true
 			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_ITEM_USED, EFFECT_RELOAD, {"side": "self", "selector": "this_item"}, {"type": EFFECT_RELOAD, "amount": 1}, {"event_source_has_ammo": true, "event_source_not_owner": true}))
+		"handaxe":
+			handled_keywords[EFFECT_RUNTIME_BONUS] = true
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_BATTLE_START, EFFECT_RUNTIME_BONUS, {"side": "self", "selector": "matching_tag_items", "tag": "Weapon"}, {"type": EFFECT_RUNTIME_BONUS, "bonus_key": EFFECT_DAMAGE, "amount_by_rarity": [6, 9, 12, 15], "scope": "combat"}))
 		"infinite_potion":
 			handled_keywords[EFFECT_RELOAD] = true
 			definitions.append({
@@ -370,6 +381,11 @@ static func build_item_effects(item: ItemDataClass) -> Array[Dictionary]:
 			handled_keywords[EFFECT_RUNTIME_BONUS] = true
 			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_COOLDOWN_READY, EFFECT_RELOAD, {"side": "self", "selector": "ammo_items", "count": 2}, {"type": EFFECT_RELOAD, "amount": 1}))
 			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_RELOAD, EFFECT_REGENERATION, {"side": "self", "selector": "hero"}, {"type": EFFECT_REGENERATION, "amount": 2}))
+		"shadowed_cloak":
+			handled_keywords[EFFECT_HASTE] = true
+			handled_keywords[EFFECT_RUNTIME_BONUS] = true
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_ITEM_USED, EFFECT_HASTE, {"side": "self", "selector": "source_item"}, {"type": EFFECT_HASTE, "amount_by_rarity": [1, 2, 3, 4]}, {"event_source_relation": "right_adjacent"}))
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_ITEM_USED, EFFECT_RUNTIME_BONUS, {"side": "self", "selector": "source_item"}, {"type": EFFECT_RUNTIME_BONUS, "bonus_key": EFFECT_DAMAGE, "amount_by_rarity": [3, 5, 7, 9], "scope": "combat"}, {"event_source_relation": "right_adjacent", "tag": "Weapon"}))
 		"smelling_salts":
 			handled_keywords[EFFECT_HASTE] = true
 			definitions.append({
@@ -464,6 +480,11 @@ static func build_item_effects(item: ItemDataClass) -> Array[Dictionary]:
 					"crit_scaled": true,
 				},
 			})
+		"weakpoint_detector":
+			handled_keywords[EFFECT_CHARGE] = true
+			handled_keywords[EFFECT_RUNTIME_BONUS] = true
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_BATTLE_START, EFFECT_RUNTIME_BONUS, {"side": "self", "selector": "matching_tag_items", "tag": "Weapon"}, {"type": EFFECT_RUNTIME_BONUS, "bonus_key": EFFECT_DAMAGE, "amount_by_rarity": [5, 10, 15, 20], "scope": "combat"}))
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_ENEMY_STATUS_APPLIED, EFFECT_CHARGE, {"side": "self", "selector": "this_item"}, {"type": EFFECT_CHARGE, "amount": 2.0}, {"status_type": EFFECT_SLOW}))
 		"vitality_potion":
 			handled_keywords[EFFECT_HEAL] = true
 			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_COOLDOWN_READY, EFFECT_HEAL, {"side": "self", "selector": "hero"}, {"type": EFFECT_HEAL, "amount_from": "hero.max_health_percent", "percent_by_rarity": [0.0, 0.0, 0.5, 1.0]}))
@@ -716,6 +737,8 @@ static func collect_item_warnings(
 				handled_keywords[EFFECT_POISON] = true
 			"RegenReference":
 				handled_keywords[EFFECT_REGENERATION] = true
+			"SlowReference":
+				handled_keywords[EFFECT_SLOW] = true
 			"HasteReference":
 				handled_keywords[EFFECT_HASTE] = true
 
