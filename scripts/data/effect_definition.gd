@@ -379,6 +379,10 @@ static func build_item_effects(item: ItemDataClass) -> Array[Dictionary]:
 		"nitro":
 			handled_keywords[EFFECT_CHARGE] = true
 			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_COOLDOWN_READY, EFFECT_CHARGE, {"side": "self", "selector": "slowest_other_items", "count": 1}, {"type": EFFECT_CHARGE, "amount_by_rarity": [1, 2, 3, 4]}))
+		"ouroboros_statue":
+			handled_keywords[EFFECT_REGENERATION] = true
+			handled_keywords[EFFECT_RUNTIME_BONUS] = true
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_ENEMY_STATUS_APPLIED, EFFECT_REGENERATION, {"side": "self", "selector": "hero"}, {"type": EFFECT_REGENERATION, "amount_by_rarity": [0, 2, 6, 10]}, {"status_type": EFFECT_POISON}))
 		"cosmic_plumage":
 			handled_keywords[EFFECT_CHARGE] = true
 			handled_keywords[EFFECT_RUNTIME_BONUS] = true
@@ -468,6 +472,12 @@ static func build_item_effects(item: ItemDataClass) -> Array[Dictionary]:
 		"spider_mace":
 			handled_keywords[EFFECT_CHARGE] = true
 			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_ENEMY_STATUS_APPLIED, EFFECT_CHARGE, {"side": "self", "selector": "this_item"}, {"type": EFFECT_CHARGE, "amount": 2}, {"status_type_any": [EFFECT_SLOW, EFFECT_POISON]}))
+		"soul_ring":
+			handled_keywords[EFFECT_POISON] = true
+			handled_keywords[EFFECT_REGENERATION] = true
+			handled_keywords[EFFECT_RUNTIME_BONUS] = true
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_BATTLE_START, EFFECT_REGENERATION, {"side": "self", "selector": "hero"}, {"type": EFFECT_REGENERATION, "amount_by_rarity": [0, 0, 10, 20]}))
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_COOLDOWN_READY, EFFECT_POISON, {"side": "enemy", "selector": "hero"}, {"type": EFFECT_POISON, "amount_from": "player_status.regeneration", "crit_scaled": true}))
 		"tesla_coil":
 			handled_keywords[EFFECT_CHARGE] = true
 			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_TAG_USED, EFFECT_CHARGE, {"side": "self", "selector": "slowest_items", "count": 1}, {"type": EFFECT_CHARGE, "amount": 1}, {"tag": "Tech", "event_source_is_owner_or_adjacent": true}))
@@ -739,6 +749,12 @@ static func _runtime_bonus_runtime_path(source_id: String) -> String:
 			return "BattleSystem high-frequency item runtime bonus"
 		"rapid_injection_system":
 			return "BattleSystem adjacent item-use self-poison and regeneration runtime"
+		"ouroboros_statue":
+			return "BattleSystem poison-triggered fight Regen runtime"
+		"soul_ring":
+			return "BattleSystem battle-start Regen and Regen-scaled poison runtime"
+		"venomander":
+			return "BattleSystem root Poison and fight Regeneration effects"
 		"genie_lamp", "thieves_guild_medallion":
 			return "SellService service unlock"
 	return ""

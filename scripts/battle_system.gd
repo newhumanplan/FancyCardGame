@@ -1194,6 +1194,8 @@ func _resolve_effect_amount(
 				amount = 0.0 if owner_item == null else owner_item.haste_duration
 			"enemy_status.poison":
 				amount = _get_status_total("enemy", EffectDefinitionClass.EFFECT_POISON)
+			"player_status.regeneration":
+				amount = _get_status_total("self", EffectDefinitionClass.EFFECT_REGENERATION)
 			"other_items.burn_percent_by_rarity":
 				amount = _get_other_items_status_total(owner_item, EffectDefinitionClass.EFFECT_BURN) * _get_rarity_value(owner_item, effect_data.get("percent_by_rarity", []), 0.0)
 			"other_items.matching_tag_count":
