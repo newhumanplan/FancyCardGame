@@ -111,6 +111,9 @@ var current_max_ammo: int = -1
 ## 由 Effect DSL 构建阶段收集的显式告警，避免静默丢失效果语义。
 var effect_warnings: Array[String] = []
 
+## Per-instance counters for non-combat item hooks such as "after selling N items".
+var runtime_counters: Dictionary = {}
+
 ## ============ 运行时方法 ============
 
 ## 获取物品占用的槽位数量

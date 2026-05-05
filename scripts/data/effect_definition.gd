@@ -312,6 +312,9 @@ static func build_item_effects(item: ItemDataClass) -> Array[Dictionary]:
 				"target": {"side": "self", "selector": "this_item"},
 				"effect": {"type": EFFECT_RELOAD, "amount": 1},
 			})
+		"powder_flask":
+			handled_keywords[EFFECT_RELOAD] = true
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_COOLDOWN_READY, EFFECT_RELOAD, {"side": "self", "selector": "right_item"}, {"type": EFFECT_RELOAD, "amount_by_rarity": [1, 2, 3, 4]}))
 		"ice_claw":
 			handled_keywords[EFFECT_RUNTIME_BONUS] = true
 		"leeches":
@@ -452,6 +455,9 @@ static func build_item_effects(item: ItemDataClass) -> Array[Dictionary]:
 					"crit_scaled": true,
 				},
 			})
+		"vitality_potion":
+			handled_keywords[EFFECT_HEAL] = true
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_COOLDOWN_READY, EFFECT_HEAL, {"side": "self", "selector": "hero"}, {"type": EFFECT_HEAL, "amount_from": "hero.max_health_percent", "percent_by_rarity": [0.0, 0.0, 0.5, 1.0]}))
 
 	_append_non_combat_hook_definitions(definitions, handled_keywords, item)
 	var runtime_bonus_path: String = _runtime_bonus_runtime_path(item.source_id)
@@ -539,6 +545,8 @@ static func _append_sell_service_hook_definitions(definitions: Array[Dictionary]
 	var source_id: String = item.source_id.to_lower()
 	if source_id in ["bluenanas", "chocolate_bar", "coconut", "green_gumball", "vial_of_blood", "arken_s_ring", "eagle_talisman", "agility_boots", "blue_gumball", "feather", "gunpowder", "gearnola_bar", "rocket_boots", "snowflake"]:
 		handled_keywords[EFFECT_RUNTIME_BONUS] = true
+	if source_id == "landscraper":
+		definitions.append(_hook_definition(source_id, TRIGGER_ON_SELL, "value_gain", {"selector": "this_item"}, {"type": "value_gain", "amount_by_rarity": [0, 0, 5, 10], "threshold": 10}))
 	if source_id in ["bluenanas", "chocolate_bar", "coconut", "green_gumball"]:
 		definitions.append(_hook_definition(source_id, TRIGGER_ON_SELL, "max_health", {"selector": "hero"}, {"type": "max_health"}))
 	if source_id == "vial_of_blood":

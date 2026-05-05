@@ -307,7 +307,22 @@ static func _apply_sell_observer_effects(sold_item: ItemDataClass, inventory: Li
 		if observer_id == "vat_of_acid":
 			_apply_sold_item_tags_to_observer(observer, sold_item, result)
 		if observer_id == "landscraper":
-			result["unsupported"].append("unsupported_sell_observer:%s" % observer_id)
+			_apply_landscraper_sell_counter(observer, result)
+
+static func _apply_landscraper_sell_counter(observer: ItemDataClass, result: Dictionary) -> void:
+	if observer == null:
+		return
+	var sell_count: int = int(observer.runtime_counters.get("sold_items", 0)) + 1
+	observer.runtime_counters["sold_items"] = sell_count
+	result["effects_applied"].append("landscraper_sell_count:%d" % sell_count)
+	if sell_count < 10:
+		return
+	observer.runtime_counters["sold_items"] = 0
+	var value_gain: int = _item_value_for_rarity(observer, [0, 0, 5, 10])
+	if value_gain <= 0:
+		return
+	observer.buy_price += value_gain
+	result["effects_applied"].append("landscraper_value:+%d" % value_gain)
 
 static func _grant_items(item_id: String, count: int, rarity: int, inventory: LinearInventoryClass, related_inventory: LinearInventoryClass) -> int:
 	var granted: int = 0

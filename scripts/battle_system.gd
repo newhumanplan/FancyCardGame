@@ -1148,6 +1148,14 @@ func _resolve_effect_amount(
 				)
 			"source.heal":
 				amount = float(ItemEffectsClass.calculate_heal(owner_item) + int(round(_get_item_runtime_bonus(owner_item, "heal"))))
+			"hero.max_health_percent":
+				var percent: float = 0.0
+				if effect_data.has("percent"):
+					percent = float(effect_data.get("percent", 0.0))
+				elif effect_data.has("percent_by_rarity"):
+					percent = _get_rarity_value(owner_item, effect_data.get("percent_by_rarity", []), 0.0)
+				var hero: HeroData = null if game_manager == null else game_manager.selected_hero
+				amount = 0.0 if hero == null else float(hero.max_hp) * percent
 			"source.poison":
 				amount = owner_item.poison_damage
 				amount += _get_item_runtime_bonus(owner_item, "poison")
