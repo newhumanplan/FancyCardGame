@@ -265,6 +265,9 @@ static func build_item_effects(item: ItemDataClass) -> Array[Dictionary]:
 		"blue_piggles_l":
 			handled_keywords[EFFECT_RUNTIME_BONUS] = true
 			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_BATTLE_START, EFFECT_RUNTIME_BONUS, {"side": "self", "selector": "left_item"}, {"type": EFFECT_RUNTIME_BONUS, "bonus_key": "crit_rate", "amount_by_rarity": [4, 8, 12, 16], "scope": "combat"}))
+		"elemental_depth_charge":
+			handled_keywords[EFFECT_MULTICAST] = true
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_COOLDOWN_READY, EFFECT_MULTICAST, {"side": "self", "selector": "this_item"}, {"type": EFFECT_MULTICAST, "amount_from": "other_items.matching_tag_count", "tag": "Aquatic"}))
 		"candles":
 			handled_keywords[EFFECT_CHARGE] = true
 			definitions.append({
@@ -391,6 +394,9 @@ static func build_item_effects(item: ItemDataClass) -> Array[Dictionary]:
 		"revolver":
 			handled_keywords[EFFECT_RELOAD] = true
 			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_CRIT, EFFECT_RELOAD, {"side": "self", "selector": "this_item"}, {"type": EFFECT_RELOAD, "amount": 2}, {"event_source_is_owner": true}))
+		"rivet_gun":
+			handled_keywords[EFFECT_CHARGE] = true
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_ITEM_USED, EFFECT_CHARGE, {"side": "self", "selector": "left_item"}, {"type": EFFECT_CHARGE, "amount_by_rarity": [1, 2]}, {"event_source_relation": "right_adjacent"}))
 		"quill_and_ink":
 			handled_keywords[EFFECT_MULTICAST] = true
 			definitions.append({
@@ -416,6 +422,16 @@ static func build_item_effects(item: ItemDataClass) -> Array[Dictionary]:
 		"pearl":
 			handled_keywords[EFFECT_CHARGE] = true
 			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_TAG_USED, EFFECT_CHARGE, {"side": "self", "selector": "this_item"}, {"type": EFFECT_CHARGE, "amount": 1.0}, {"tag": "Aquatic", "event_source_not_owner": true}))
+		"pesky_pete":
+			handled_keywords[EFFECT_MULTICAST] = true
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_COOLDOWN_READY, EFFECT_MULTICAST, {"side": "self", "selector": "this_item"}, {"type": EFFECT_MULTICAST, "amount_from": "adjacent_items.matching_any_tag_count", "tags": ["Friend", "Property"]}))
+		"rapid_injection_system":
+			handled_keywords[EFFECT_POISON] = true
+			handled_keywords[EFFECT_REGENERATION] = true
+			handled_keywords[EFFECT_RUNTIME_BONUS] = true
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_ITEM_USED, EFFECT_POISON, {"side": "self", "selector": "hero"}, {"type": EFFECT_POISON, "amount_by_rarity": [4, 8, 12]}, {"event_source_relation": "left_adjacent"}))
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_ITEM_USED, EFFECT_REGENERATION, {"side": "self", "selector": "hero"}, {"type": EFFECT_REGENERATION, "amount_by_rarity": [2, 4, 6]}, {"event_source_relation": "left_adjacent"}))
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_ITEM_USED, EFFECT_RUNTIME_BONUS, {"side": "self", "selector": "this_item"}, {"type": EFFECT_RUNTIME_BONUS, "bonus_key": EFFECT_REGENERATION, "amount_by_rarity": [2, 4, 6], "scope": "combat"}, {"event_source_relation": "left_adjacent"}))
 		"seaweed":
 			handled_keywords[EFFECT_RUNTIME_BONUS] = true
 			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_TAG_USED, EFFECT_RUNTIME_BONUS, {"side": "self", "selector": "this_item"}, {"type": EFFECT_RUNTIME_BONUS, "bonus_key": EFFECT_HEAL, "amount_by_rarity": [5, 10, 15, 20], "scope": "combat"}, {"tag": "Aquatic"}))
@@ -707,8 +723,10 @@ static func _runtime_bonus_runtime_path(source_id: String) -> String:
 			return "BattleSystem item aura runtime bonus"
 		"incendiary_rounds", "jellyfish":
 			return "BattleSystem adjacent item-use and battle-start item runtime bonus"
-		"amber", "blue_piggles_l", "cosmic_plumage", "fire_claw", "nargile", "seaweed", "spices":
+		"amber", "blue_piggles_l", "cosmic_plumage", "elemental_depth_charge", "fire_claw", "nargile", "pesky_pete", "seaweed", "spices":
 			return "BattleSystem high-frequency item runtime bonus"
+		"rapid_injection_system":
+			return "BattleSystem adjacent item-use self-poison and regeneration runtime"
 		"genie_lamp", "thieves_guild_medallion":
 			return "SellService service unlock"
 	return ""

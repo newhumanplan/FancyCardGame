@@ -1058,18 +1058,16 @@ func _definition_condition_matches(
 		if bool(event_data.get("overheal", false)) != bool(condition.get("overheal", false)):
 			return false
 	if condition.has("event_source_relation"):
-		if owner_item == null or source_item == null or inventory == null:
+		if not _event_source_relation_matches(owner_item, source_item, str(condition.get("event_source_relation", ""))):
 			return false
-		var relation: String = str(condition.get("event_source_relation", ""))
-		match relation:
-			"left_adjacent":
-				if inventory.get_right_adjacent_item(source_item) != owner_item:
-					return false
-			"right_adjacent":
-				if inventory.get_left_adjacent_item(source_item) != owner_item:
-					return false
-			_:
-				return false
+	if condition.has("event_source_relation_any"):
+		var matched_relation: bool = false
+		for relation_variant in condition.get("event_source_relation_any", []):
+			if _event_source_relation_matches(owner_item, source_item, str(relation_variant)):
+				matched_relation = true
+				break
+		if not matched_relation:
+			return false
 	if bool(condition.get("event_source_is_owner_or_adjacent", false)):
 		if owner_item == null or source_item == null:
 			return false
@@ -1112,6 +1110,16 @@ func _definition_condition_matches(
 func _get_status_total(side: String, status_type: String) -> float:
 	var state: Dictionary = enemy_status_state if side == "enemy" else player_status_state
 	return float(state.get(status_type, 0.0))
+
+func _event_source_relation_matches(owner_item: ItemData, source_item: ItemData, relation: String) -> bool:
+	if owner_item == null or source_item == null or inventory == null:
+		return false
+	match relation:
+		"left_adjacent":
+			return inventory.get_right_adjacent_item(source_item) == owner_item
+		"right_adjacent":
+			return inventory.get_left_adjacent_item(source_item) == owner_item
+	return false
 
 func _has_other_tag_item(item: ItemData, tag: String) -> bool:
 	if inventory == null or item == null:
@@ -1188,6 +1196,10 @@ func _resolve_effect_amount(
 				amount = _get_status_total("enemy", EffectDefinitionClass.EFFECT_POISON)
 			"other_items.burn_percent_by_rarity":
 				amount = _get_other_items_status_total(owner_item, EffectDefinitionClass.EFFECT_BURN) * _get_rarity_value(owner_item, effect_data.get("percent_by_rarity", []), 0.0)
+			"other_items.matching_tag_count":
+				amount = float(_count_other_player_items_matching_tag(owner_item, str(effect_data.get("tag", ""))))
+			"adjacent_items.matching_any_tag_count":
+				amount = float(_count_adjacent_player_items_matching_any_tag(owner_item, effect_data.get("tags", [])))
 			"weakest_weapon.damage":
 				amount = _get_weakest_weapon_damage()
 	elif effect_data.has("amount"):
@@ -2208,6 +2220,28 @@ func _get_other_items_status_total(item: ItemData, status_key: String) -> float:
 			EffectDefinitionClass.EFFECT_DAMAGE:
 				total += float(candidate.get_rarity_adjusted_damage()) + _get_item_runtime_bonus(candidate, EffectDefinitionClass.EFFECT_DAMAGE)
 	return maxf(total, 0.0)
+
+func _count_other_player_items_matching_tag(source_item: ItemData, tag: String) -> int:
+	if inventory == null or tag.is_empty():
+		return 0
+	var count: int = 0
+	for candidate in inventory.items:
+		if candidate != null and candidate != source_item and _item_has_tag(candidate, tag):
+			count += 1
+	return count
+
+func _count_adjacent_player_items_matching_any_tag(source_item: ItemData, tags: Array) -> int:
+	if source_item == null or tags.is_empty():
+		return 0
+	var count: int = 0
+	for adjacent in _get_adjacent_player_items(source_item):
+		if adjacent == null:
+			continue
+		for tag_variant in tags:
+			if _item_has_tag(adjacent, str(tag_variant)):
+				count += 1
+				break
+	return count
 
 func _get_weakest_weapon_damage() -> float:
 	if inventory == null:
