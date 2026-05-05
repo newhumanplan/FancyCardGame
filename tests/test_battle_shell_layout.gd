@@ -25,7 +25,8 @@ func test_battle_uses_shell_regions_without_duplicate_hud() -> void:
 
 	main.call("_on_warrior_selected")
 	await get_tree().process_frame
-	var inventory_ui: Control = main.get_node("InventoryUI") as Control
+	var shell: Control = main.get_node("BazaarShell") as Control
+	var inventory_ui: Control = shell.call("get_player_inventory_ui") as Control
 	var player_item: ItemDataClass = ItemDataClass.new()
 	player_item.item_name = "法杖"
 	player_item.type = ItemDataClass.Type.WEAPON
@@ -59,7 +60,6 @@ func test_battle_uses_shell_regions_without_duplicate_hud() -> void:
 	main.call("_start_battle")
 	await get_tree().process_frame
 
-	var shell: Control = main.get_node("BazaarShell") as Control
 	var battle_ui: Control = main.get_node("BattleUI") as Control
 	var opponent_board: Node = _find_node(shell.get_node("UpperBoardPanel"), "OpponentBoardContainer")
 	var opponent_context: Node = _find_node(shell.get_node("TopContextPanel"), "OpponentContext")

@@ -18,7 +18,6 @@ signal right_action_pressed(action_id: String)
 signal stash_requested()
 
 var _game_manager: Node = null
-var _inventory_source: Control = null
 var _stash_inventory: LinearInventoryClass = LinearInventoryClass.new()
 var _stash_overlay: Control = null
 var _stash_inventory_ui: Control = null
@@ -40,15 +39,17 @@ func _ready() -> void:
 
 func setup(game_manager: Node, inventory_source: Control = null) -> void:
 	_game_manager = game_manager
-	_inventory_source = inventory_source
 	left_clock_panel.bind_run_state(RunStateService, PhaseService)
 	bottom_hud_panel.bind_services(game_manager, HeroStateService, EconomyService)
 	player_board_panel.bind_inventory_source(inventory_source)
-	if _inventory_source != null:
-		_inventory_source.visible = visible
 
 func get_player_inventory() -> Resource:
 	return player_board_panel.get_inventory()
+
+func get_player_inventory_ui() -> Control:
+	if player_board_panel.has_method("get_inventory_ui"):
+		return player_board_panel.call("get_inventory_ui") as Control
+	return null
 
 func get_stash_inventory() -> Resource:
 	return _stash_inventory
@@ -58,8 +59,6 @@ func get_overlay_layer() -> Control:
 
 func show_run_shell() -> void:
 	visible = true
-	if _inventory_source != null:
-		_inventory_source.visible = true
 	left_clock_panel.refresh(
 		int(RunStateService.current_day),
 		int(RunStateService.current_hour),
@@ -72,8 +71,6 @@ func show_run_shell() -> void:
 func hide_run_shell() -> void:
 	visible = false
 	hide_stash()
-	if _inventory_source != null:
-		_inventory_source.visible = false
 
 func clear_dynamic_regions() -> void:
 	_clear_children(top_context_panel)

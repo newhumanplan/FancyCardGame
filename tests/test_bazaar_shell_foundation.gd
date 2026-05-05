@@ -12,7 +12,8 @@ func _ready() -> void:
 func _run_tests() -> void:
 	test_shell_instantiates_required_regions()
 	test_shell_reuses_external_inventory()
-	test_shell_visibility_controls_inventory_source()
+	test_shell_hosts_inventory_under_player_board()
+	test_shell_visibility_controls_board_host()
 
 func test_shell_instantiates_required_regions() -> void:
 	var shell: Control = _create_shell()
@@ -32,18 +33,25 @@ func test_shell_reuses_external_inventory() -> void:
 	var source_inventory: Resource = inventory_ui.get_inventory()
 	_assert_true(shell_inventory == source_inventory, "shell returns the external InventoryUI inventory")
 	shell.queue_free()
-	inventory_ui.queue_free()
 
-func test_shell_visibility_controls_inventory_source() -> void:
+func test_shell_hosts_inventory_under_player_board() -> void:
 	var shell: Control = _create_shell()
 	var inventory_ui: Control = _create_inventory_ui()
 	shell.setup(GameManager, inventory_ui)
-	shell.hide_run_shell()
-	_assert_true(not shell.visible and not inventory_ui.visible, "hide_run_shell hides shell and inventory source")
-	shell.show_run_shell()
-	_assert_true(shell.visible and inventory_ui.visible, "show_run_shell shows shell and inventory source")
+	var player_board: Control = shell.get_node("PlayerBoardPanel") as Control
+	_assert_true(player_board != null and player_board.is_ancestor_of(inventory_ui), "PlayerBoardPanel hosts the InventoryUI renderer")
+	_assert_true(inventory_ui.get_parent() != self, "InventoryUI is no longer a separate root overlay")
 	shell.queue_free()
-	inventory_ui.queue_free()
+
+func test_shell_visibility_controls_board_host() -> void:
+	var shell: Control = _create_shell()
+	shell.setup(GameManager)
+	var inventory_ui: Control = shell.call("get_player_inventory_ui") as Control
+	shell.hide_run_shell()
+	_assert_true(not shell.visible and not inventory_ui.is_visible_in_tree(), "hide_run_shell hides shell-hosted inventory")
+	shell.show_run_shell()
+	_assert_true(shell.visible and inventory_ui.is_visible_in_tree(), "show_run_shell shows shell-hosted inventory")
+	shell.queue_free()
 
 func _create_shell() -> Control:
 	var scene: PackedScene = load("res://scenes/ui/bazaar_shell.tscn")

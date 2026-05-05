@@ -28,14 +28,14 @@ func test_player_stash_and_opponent_slots_align() -> void:
 	await get_tree().process_frame
 	await get_tree().process_frame
 
-	var inventory_ui: Control = main.get_node("InventoryUI") as Control
+	var shell: Control = main.get_node("BazaarShell") as Control
+	var inventory_ui: Control = shell.call("get_player_inventory_ui") as Control
 	var player_slots: HBoxContainer = _find_node(inventory_ui, "SlotContainer") as HBoxContainer
 	_assert_not_null(player_slots, "player inventory slot container exists")
 	var player_slot_size: Vector2 = _first_slot_size(player_slots)
 	_assert_true(_uses_bazaar_slot_ratio(player_slot_size), "player slot keeps Bazaar 1:2 item ratio")
 	_assert_true(_slot_row_is_centered(player_slots), "player slot row is centered instead of stretched")
 
-	var shell: Control = main.get_node("BazaarShell") as Control
 	shell.call("toggle_stash")
 	await get_tree().process_frame
 	await get_tree().process_frame

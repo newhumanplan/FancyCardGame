@@ -448,7 +448,7 @@ func _display_item(item: ItemDataClass, is_synergy_highlight: bool = false) -> v
 	# 存储物品引用以便后续访问
 	item_panel.set_meta("item_data", item)
 
-	item_display_layer.add_child(item_panel)
+	item_display_layer.add_child(item_panel, true)
 	item_panels.append(item_panel)
 
 func _get_item_panel_size(start_slot: int, slot_count: int) -> Vector2:

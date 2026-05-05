@@ -17,11 +17,11 @@ const PvpGhostServiceClass = preload("res://scripts/services/pvp_ghost_service.g
 const GhostSnapshotEditorClass = preload("res://scripts/ui/ghost_snapshot_editor.gd")
 const FUTURA_ART_PATH: String = "res://assets/art/events/wiki/futura.png"
 
-## 玩家背包引用（指向 InventoryUI 的 inventory，避免两套独立系统）
-var player_inventory: LinearInventoryClass = null  # 已废弃，改用 $InventoryUI.get_inventory()
+## 玩家背包引用（指向 PlayerBoardPanel 内 InventoryUI 的 inventory，避免两套独立系统）
+var player_inventory: LinearInventoryClass = null  # 已废弃，改用 BazaarShell/PlayerBoardPanel.get_inventory()
 
-## Inventory UI 引用
-@onready var inventory_ui: Control = $InventoryUI
+## PlayerBoardPanel 托管的 InventoryUI 引用
+var inventory_ui: Control = null
 
 ## Bazaar shell 引用（统一主流程 UI 骨架）
 @onready var bazaar_shell: Control = $BazaarShell
@@ -104,10 +104,10 @@ const REWARD_CHOICE_RESUME_SHOW_CURRENT_HOUR: String = "show_current_hour"
 
 func _ready() -> void:
 	# 隐藏全屏UI（避免遮挡英雄选择）
-	inventory_ui.visible = false
 	shop_ui.visible = false
 	battle_ui.visible = false
-	bazaar_shell.setup(GameManager, inventory_ui)
+	bazaar_shell.setup(GameManager)
+	inventory_ui = bazaar_shell.call("get_player_inventory_ui") as Control
 	if not bazaar_shell.option_selected.is_connected(_handle_event_selection_by_index):
 		bazaar_shell.option_selected.connect(_handle_event_selection_by_index)
 	if not bazaar_shell.right_action_pressed.is_connected(_on_shell_right_action_pressed):
@@ -1124,8 +1124,7 @@ func _advance_test_state() -> void:
 		3:
 			_auto_advance_hour()
 		4:
-			if has_node("InventoryUI"):
-				$InventoryUI.visible = true
+			bazaar_shell.show_run_shell()
 
 ## ============ HeroBar 层（Y: 80%~100%）============
 

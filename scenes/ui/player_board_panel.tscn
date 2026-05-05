@@ -34,30 +34,11 @@ grow_vertical = 2
 mouse_filter = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_board")
 
-[node name="Margin" type="MarginContainer" parent="BoardFrame"]
+[node name="InventoryHost" type="Control" parent="BoardFrame"]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_left = 12.0
-offset_top = 18.0
-offset_right = -12.0
-offset_bottom = -18.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
-
-[node name="SlotContainer" type="HBoxContainer" parent="BoardFrame/Margin"]
-layout_mode = 2
-theme_override_constants/separation = 8
-alignment = 1
-
-[node name="StatusLabel" type="Label" parent="BoardFrame"]
-layout_mode = 1
-anchor_left = 0.01
-anchor_top = 0.02
-anchor_right = 0.20
-anchor_bottom = 0.16
-text = "Board 0/10"
-theme_override_font_sizes/font_size = 13
-theme_override_colors/font_color = Color(0.78, 0.84, 0.95, 0.85)

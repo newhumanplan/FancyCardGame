@@ -178,8 +178,7 @@ func test_merchant_refresh_reports_free_then_paid_cost() -> void:
 
 func test_shell_merchant_uses_upper_board_and_right_actions() -> void:
 	var shell: Control = _create_shell()
-	var inventory_ui: Control = _create_inventory_ui()
-	shell.call("setup", _game_manager(), inventory_ui)
+	shell.call("setup", _game_manager())
 	var inventory: Resource = shell.call("get_player_inventory")
 	var merchant: Control = shell.call("show_merchant", inventory) as Control
 
@@ -189,12 +188,10 @@ func test_shell_merchant_uses_upper_board_and_right_actions() -> void:
 	_assert_not_null(_find_node(shell.get_node("RightActionArea"), "Action_merchant_refresh"), "merchant refresh action is in RightActionArea")
 	_assert_not_null(_find_node(shell.get_node("RightActionArea"), "Action_merchant_leave"), "merchant leave action is in RightActionArea")
 	shell.queue_free()
-	inventory_ui.queue_free()
 
 func test_shell_stash_toggles_inventory_overlay() -> void:
 	var shell: Control = _create_shell()
-	var inventory_ui: Control = _create_inventory_ui()
-	shell.call("setup", _game_manager(), inventory_ui)
+	shell.call("setup", _game_manager())
 
 	shell.call("toggle_stash")
 	var overlay: Control = _find_node(shell, "StashOverlay") as Control
@@ -209,7 +206,6 @@ func test_shell_stash_toggles_inventory_overlay() -> void:
 	shell.call("toggle_stash")
 	_assert_true(not overlay.visible, "second toggle hides stash overlay")
 	shell.queue_free()
-	inventory_ui.queue_free()
 
 func _create_shell() -> Control:
 	var scene: PackedScene = load("res://scenes/ui/bazaar_shell.tscn")

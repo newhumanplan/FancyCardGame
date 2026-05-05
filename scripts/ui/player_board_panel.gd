@@ -1,63 +1,92 @@
 class_name PlayerBoardPanel
 extends Control
 
-## Persistent player board slot for the Bazaar shell.
+## Persistent shell-level player board host.
 
-const EXPECTED_SLOT_COUNT: int = 10
+const InventoryUIScene: PackedScene = preload("res://scenes/inventory_ui.tscn")
+const LinearInventoryClass = preload("res://scripts/data/linear_inventory.gd")
 
-var _inventory_source: Control = null
+var _inventory_ui: InventoryUI = null
+var _owns_inventory_ui: bool = false
 
-@onready var slot_container: HBoxContainer = $BoardFrame/Margin/SlotContainer
-@onready var status_label: Label = $BoardFrame/StatusLabel
+@onready var inventory_host: Control = $BoardFrame/InventoryHost
 
 func _ready() -> void:
-	_create_placeholder_slots()
+	_ensure_inventory_ui()
 	refresh_layout()
 
 func bind_inventory_source(inventory_source: Control) -> void:
-	_inventory_source = inventory_source
+	if inventory_source is InventoryUI:
+		_host_inventory_ui(inventory_source as InventoryUI, false)
+	elif inventory_source != null and inventory_source.has_method("get_inventory"):
+		_ensure_inventory_ui()
+		var inventory: LinearInventoryClass = inventory_source.call("get_inventory") as LinearInventoryClass
+		set_inventory(inventory)
+	else:
+		_ensure_inventory_ui()
 	refresh_layout()
 
+func set_inventory(inventory: LinearInventoryClass) -> void:
+	_ensure_inventory_ui()
+	if _inventory_ui != null:
+		_inventory_ui.set_inventory(inventory)
+
+func get_inventory_ui() -> InventoryUI:
+	_ensure_inventory_ui()
+	return _inventory_ui
+
 func get_inventory() -> Resource:
-	if _inventory_source != null and _inventory_source.has_method("get_inventory"):
-		return _inventory_source.get_inventory()
+	_ensure_inventory_ui()
+	if _inventory_ui != null:
+		return _inventory_ui.get_inventory()
 	return null
 
 func set_interaction_enabled(enabled: bool) -> void:
-	if _inventory_source == null:
+	_ensure_inventory_ui()
+	if _inventory_ui == null:
 		return
-	_inventory_source.mouse_filter = Control.MOUSE_FILTER_STOP
-	if _inventory_source.has_method("set_item_interaction_enabled"):
-		_inventory_source.call("set_item_interaction_enabled", enabled)
+	_inventory_ui.mouse_filter = Control.MOUSE_FILTER_STOP
+	_inventory_ui.set_item_interaction_enabled(enabled)
 
 func refresh_layout() -> void:
-	var inventory: Resource = get_inventory()
-	var item_count: int = 0
-	if inventory != null and inventory.has_method("get_item_count"):
-		item_count = int(inventory.get_item_count())
-	status_label.text = "Board %d/%d" % [item_count, EXPECTED_SLOT_COUNT]
+	_ensure_inventory_ui()
+	if _inventory_ui != null and _inventory_ui.has_method("_queue_inventory_layout_refresh"):
+		_inventory_ui.call("_queue_inventory_layout_refresh")
 
-func _create_placeholder_slots() -> void:
-	for child in slot_container.get_children():
-		child.queue_free()
-	slot_container.alignment = BoxContainer.ALIGNMENT_BEGIN
-	slot_container.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	slot_container.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	for index in range(EXPECTED_SLOT_COUNT):
-		var slot: Panel = Panel.new()
-		slot.name = "BoardSlot%d" % index
-		slot.custom_minimum_size = Vector2(48, 96)
-		slot.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		slot.size_flags_vertical = Control.SIZE_EXPAND_FILL
-		slot.add_theme_stylebox_override("panel", _create_slot_style(index))
-		slot_container.add_child(slot)
+func _ensure_inventory_ui() -> void:
+	if _inventory_ui != null and is_instance_valid(_inventory_ui):
+		return
+	var inventory_ui: InventoryUI = InventoryUIScene.instantiate() as InventoryUI
+	inventory_ui.name = "InventoryUI"
+	_host_inventory_ui(inventory_ui, true)
 
-func _create_slot_style(index: int) -> StyleBoxFlat:
-	var style: StyleBoxFlat = StyleBoxFlat.new()
-	style.bg_color = Color(0.10, 0.13, 0.18, 0.55)
-	style.border_color = Color(0.44, 0.51, 0.62, 0.55)
-	style.set_border_width_all(1)
-	style.set_corner_radius_all(4)
-	if index == 0 or index == EXPECTED_SLOT_COUNT - 1:
-		style.border_color = Color(0.66, 0.50, 0.22, 0.75)
-	return style
+func _host_inventory_ui(inventory_ui: InventoryUI, owned: bool) -> void:
+	if inventory_ui == null:
+		return
+	var host: Control = _get_inventory_host()
+	if host == null:
+		return
+	if _inventory_ui != null and _inventory_ui != inventory_ui and is_instance_valid(_inventory_ui) and _owns_inventory_ui:
+		_inventory_ui.queue_free()
+	if inventory_ui.get_parent() != host:
+		var previous_parent: Node = inventory_ui.get_parent()
+		if previous_parent != null:
+			previous_parent.remove_child(inventory_ui)
+		host.add_child(inventory_ui)
+	_configure_inventory_ui_layout(inventory_ui)
+	_inventory_ui = inventory_ui
+	_owns_inventory_ui = owned
+	_inventory_ui.visible = true
+
+func _get_inventory_host() -> Control:
+	if inventory_host != null:
+		return inventory_host
+	return get_node_or_null("BoardFrame/InventoryHost") as Control
+
+func _configure_inventory_ui_layout(inventory_ui: Control) -> void:
+	inventory_ui.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	inventory_ui.offset_left = 0.0
+	inventory_ui.offset_top = 0.0
+	inventory_ui.offset_right = 0.0
+	inventory_ui.offset_bottom = 0.0
+	inventory_ui.mouse_filter = Control.MOUSE_FILTER_STOP

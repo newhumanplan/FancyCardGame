@@ -242,15 +242,14 @@ func start_battle(monster: MonsterDataClass = null, pvp: bool = false, enemy_atk
 	var main: Node = get_parent()
 	_shell_layout = null
 	_uses_shell_layout = false
-	if main != null and main.has_node("InventoryUI"):
-		inventory = main.get_node("InventoryUI").get_inventory()
-		# Connect to inventory changes so hand display updates when items are bought
-		if inventory.has_signal("inventory_changed"):
-			if not inventory.inventory_changed.is_connected(_update_pvp_player_hand):
-				inventory.inventory_changed.connect(_update_pvp_player_hand)
 	if main != null and main.has_node("BazaarShell"):
 		_shell_layout = main.get_node("BazaarShell") as Control
 		_uses_shell_layout = _shell_layout != null and _shell_layout.visible
+		if _shell_layout.has_method("get_player_inventory"):
+			inventory = _shell_layout.call("get_player_inventory") as LinearInventoryClass
+	if inventory != null and inventory.has_signal("inventory_changed"):
+		if not inventory.inventory_changed.is_connected(_update_pvp_player_hand):
+			inventory.inventory_changed.connect(_update_pvp_player_hand)
 
 	if monster != null:
 		current_monster = monster

@@ -1,7 +1,6 @@
-[gd_scene load_steps=10 format=3 uid="uid://main_scene"]
+[gd_scene load_steps=9 format=3 uid="uid://main_scene"]
 
 [ext_resource type="Script" path="res://scripts/main.gd" id="1_main"]
-[ext_resource type="PackedScene" uid="uid://inventory_ui_scene" path="res://scenes/inventory_ui.tscn" id="2_inventory"]
 [ext_resource type="PackedScene" path="res://scenes/shop_panel.tscn" id="3_shop"]
 [ext_resource type="PackedScene" uid="uid://battle_panel_scene" path="res://scenes/battle_panel.tscn" id="4_battle"]
 [ext_resource type="PackedScene" path="res://scenes/ui/bazaar_shell.tscn" id="5_shell"]
@@ -192,18 +191,6 @@ text = "👹 怪物"
 layout_mode = 2
 size_flags_horizontal = 3
 text = "✨ 事件"
-
-[node name="InventoryUI" parent="." instance=ExtResource("2_inventory")]
-layout_mode = 1
-anchor_left = 0.20
-anchor_top = 0.53
-anchor_right = 0.82
-anchor_bottom = 0.76
-offset_left = 0.0
-offset_top = 0.0
-offset_right = 0.0
-offset_bottom = 0.0
-z_index = 25
 
 [node name="ShopUI" parent="." instance=ExtResource("3_shop")]
 layout_mode = 1
