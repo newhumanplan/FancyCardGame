@@ -663,12 +663,7 @@ static func get_monster_encounter_metadata(monster_id: String, day: int = 1) -> 
 
 static func get_top_monster_special_report(limit: int = 30) -> Dictionary:
 	var monster_ids: Array[String] = get_top_monster_special_ids(limit)
-	var monsters: Array[Dictionary] = []
-	var supported_count: int = 0
-	var unsupported_count: int = 0
-	var reward_path_count: Dictionary = {"item": 0, "skill": 0, "payout": 0}
-	var day_counts: Dictionary = {}
-	var tier_counts: Dictionary = {}
+	var specs: Array[Dictionary] = []
 	for monster_id in monster_ids:
 		var spec: Dictionary = WikiMonsterCatalogClass.find_monster_spec(monster_id)
 		if spec.is_empty():
@@ -676,37 +671,13 @@ static func get_top_monster_special_report(limit: int = 30) -> Dictionary:
 				if str(candidate.get("id", "")) == monster_id:
 					spec = candidate
 					break
-		if spec.is_empty():
-			unsupported_count += 1
-			monsters.append({"id": monster_id, "supported": false, "unsupported_reasons": ["missing_monster_spec"]})
-			continue
-		var metadata: Dictionary = _build_monster_encounter_metadata(spec, int(spec.get("level", 1)))
-		var entry: Dictionary = _build_monster_special_entry(spec, metadata)
-		if bool(entry.get("supported", false)):
-			supported_count += 1
-		else:
-			unsupported_count += 1
-		var reward_paths: Array = entry.get("reward_paths", [])
-		for path_value in reward_paths:
-			var path_key: String = str(path_value)
-			reward_path_count[path_key] = int(reward_path_count.get(path_key, 0)) + 1
-		var level_key: String = str(entry.get("level", 0))
-		day_counts[level_key] = int(day_counts.get(level_key, 0)) + 1
-		var tier_key: String = str(entry.get("tier", ""))
-		tier_counts[tier_key] = int(tier_counts.get(tier_key, 0)) + 1
-		monsters.append(entry)
-	return {
-		"schema_version": 1,
-		"selection": "first 30 leveled monsters by wiki/day curve order",
-		"requested_limit": limit,
-		"monster_count": monsters.size(),
-		"supported_count": supported_count,
-		"unsupported_count": unsupported_count,
-		"reward_path_count": reward_path_count,
-		"day_counts": day_counts,
-		"tier_counts": tier_counts,
-		"monsters": monsters,
-	}
+		specs.append(spec)
+	var report: Dictionary = _build_monster_parity_report(specs, "first 30 leveled monsters by wiki/day curve order", "tests/test_monster_specials.gd")
+	report["requested_limit"] = limit
+	return report
+
+static func get_all_monster_parity_report() -> Dictionary:
+	return _build_monster_parity_report(get_all_monster_specs(), "all 101 wiki catalog monsters", "tests/test_full_content_parity_p1e_monster_report.gd")
 
 static func create_random_mak_day1_item(rarity: int = RARITY_BRONZE, required_size: String = "", required_tag: String = "", buyable_only: bool = true) -> ItemDataClass:
 	return create_random_hero_item(HeroDataClass.HeroType.MAK, rarity, required_size, required_tag, buyable_only)
@@ -1054,19 +1025,148 @@ static func _build_monster_special_entry(spec: Dictionary, metadata: Dictionary)
 		else:
 			var reason: String = str(normalized.get("unsupported_reason", "phase1_catalog_rule_missing"))
 			unsupported_reasons.append("skill:%s:%s" % [skill_id, reason])
+	supported_mechanics.sort()
+	unsupported_reasons.sort()
+	var level: int = int(spec.get("level", 0))
+	var encounter_day: int = maxi(level, 1)
 	return {
 		"id": str(spec.get("id", "")),
 		"name": str(spec.get("name", "Monster")),
-		"level": int(spec.get("level", 0)),
+		"level": level,
+		"day": encounter_day,
 		"tier": str(spec.get("tier", "")),
 		"risk_score": int(metadata.get("risk_score", 0)),
 		"risk_tags": metadata.get("risk_tags", []),
 		"reward_paths": metadata.get("reward_paths", []),
 		"supported": not supported_mechanics.is_empty(),
+		"has_missing_mechanics": not unsupported_reasons.is_empty(),
 		"supported_mechanics": supported_mechanics,
 		"unsupported_reasons": unsupported_reasons,
 		"deterministic_evidence": "tests/test_monster_specials.gd",
 	}
+
+static func _build_monster_parity_report(specs: Array[Dictionary], selection: String, deterministic_evidence: String) -> Dictionary:
+	var monsters: Array[Dictionary] = []
+	var supported_count: int = 0
+	var unsupported_count: int = 0
+	var missing_count: int = 0
+	var reward_path_count: Dictionary = {"item": 0, "skill": 0, "payout": 0}
+	var day_counts: Dictionary = {}
+	var tier_counts: Dictionary = {}
+	var missing_by_monster: Array[Dictionary] = []
+	var missing_by_level: Dictionary = {}
+	var missing_by_day: Dictionary = {}
+	var missing_by_risk: Dictionary = {}
+	var reason_counts: Dictionary = {}
+	for spec in specs:
+		var entry: Dictionary = {}
+		if spec.is_empty():
+			entry = {"id": "", "name": "", "level": 0, "day": 1, "tier": "", "risk_score": 0, "risk_tags": [], "reward_paths": [], "supported": false, "has_missing_mechanics": true, "supported_mechanics": [], "unsupported_reasons": ["missing_monster_spec"], "deterministic_evidence": "tests/test_monster_specials.gd"}
+		else:
+			var day: int = maxi(int(spec.get("level", 1)), 1)
+			var metadata: Dictionary = _build_monster_encounter_metadata(spec, day)
+			entry = _build_monster_special_entry(spec, metadata)
+		entry["deterministic_evidence"] = deterministic_evidence
+		if bool(entry.get("supported", false)):
+			supported_count += 1
+		else:
+			unsupported_count += 1
+		var reward_paths: Array = entry.get("reward_paths", [])
+		for path_value in reward_paths:
+			var path_key: String = str(path_value)
+			reward_path_count[path_key] = int(reward_path_count.get(path_key, 0)) + 1
+		var level_key: String = str(entry.get("level", 0))
+		var day_key: String = str(entry.get("day", 1))
+		day_counts[day_key] = int(day_counts.get(day_key, 0)) + 1
+		var tier_key: String = str(entry.get("tier", ""))
+		tier_counts[tier_key] = int(tier_counts.get(tier_key, 0)) + 1
+		var unsupported_reasons: Array = entry.get("unsupported_reasons", [])
+		if not unsupported_reasons.is_empty():
+			missing_count += 1
+			_record_monster_missing_group(missing_by_level, level_key, entry)
+			_record_monster_missing_group(missing_by_day, str(entry.get("day", 1)), entry)
+			_record_monster_missing_group(missing_by_risk, _monster_risk_group(int(entry.get("risk_score", 0))), entry)
+			for reason in unsupported_reasons:
+				var reason_key: String = str(reason)
+				reason_counts[reason_key] = int(reason_counts.get(reason_key, 0)) + 1
+			missing_by_monster.append({
+				"id": str(entry.get("id", "")),
+				"name": str(entry.get("name", "")),
+				"level": int(entry.get("level", 0)),
+				"day": int(entry.get("day", 1)),
+				"tier": str(entry.get("tier", "")),
+				"risk_score": int(entry.get("risk_score", 0)),
+				"risk_group": _monster_risk_group(int(entry.get("risk_score", 0))),
+				"unsupported_reasons": unsupported_reasons.duplicate(),
+			})
+		monsters.append(entry)
+	return {
+		"schema_version": 2,
+		"selection": selection,
+		"monster_count": monsters.size(),
+		"supported_count": supported_count,
+		"unsupported_count": unsupported_count,
+		"missing_mechanics_count": missing_count,
+		"reward_path_count": reward_path_count,
+		"day_counts": _sorted_count_dictionary(day_counts),
+		"tier_counts": _sorted_count_dictionary(tier_counts),
+		"grouped_missing_mechanics": {
+			"by_monster": missing_by_monster,
+			"by_level": _sorted_missing_groups(missing_by_level),
+			"by_day": _sorted_missing_groups(missing_by_day),
+			"by_risk": _sorted_missing_groups(missing_by_risk),
+			"reason_counts": _sorted_count_dictionary(reason_counts),
+		},
+		"monsters": monsters,
+	}
+
+static func _record_monster_missing_group(groups: Dictionary, key: String, entry: Dictionary) -> void:
+	if not groups.has(key):
+		groups[key] = {"count": 0, "monster_ids": [], "reason_counts": {}}
+	var group: Dictionary = groups[key]
+	group["count"] = int(group.get("count", 0)) + 1
+	var monster_ids: Array = group.get("monster_ids", [])
+	monster_ids.append(str(entry.get("id", "")))
+	group["monster_ids"] = monster_ids
+	var reason_counts: Dictionary = group.get("reason_counts", {})
+	for reason in entry.get("unsupported_reasons", []):
+		var reason_key: String = str(reason)
+		reason_counts[reason_key] = int(reason_counts.get(reason_key, 0)) + 1
+	group["reason_counts"] = reason_counts
+	groups[key] = group
+
+static func _sorted_missing_groups(groups: Dictionary) -> Array[Dictionary]:
+	var keys: Array = groups.keys()
+	keys.sort()
+	var result: Array[Dictionary] = []
+	for key in keys:
+		var group: Dictionary = groups[key]
+		var monster_ids: Array = group.get("monster_ids", [])
+		monster_ids.sort()
+		result.append({
+			"group": str(key),
+			"count": int(group.get("count", 0)),
+			"monster_ids": monster_ids,
+			"reason_counts": _sorted_count_dictionary(group.get("reason_counts", {})),
+		})
+	return result
+
+static func _sorted_count_dictionary(counts: Dictionary) -> Dictionary:
+	var keys: Array = counts.keys()
+	keys.sort()
+	var result: Dictionary = {}
+	for key in keys:
+		result[str(key)] = int(counts[key])
+	return result
+
+static func _monster_risk_group(risk_score: int) -> String:
+	if risk_score >= 18:
+		return "risk_18_plus"
+	if risk_score >= 13:
+		return "risk_13_17"
+	if risk_score >= 8:
+		return "risk_08_12"
+	return "risk_00_07"
 
 static func _monster_skill_has_direct_runtime(skill_entry: Dictionary) -> bool:
 	for key in ["start_poison", "start_burn", "start_shield", "burn_bonus", "poison_bonus", "shield_bonus", "damage_bonus"]:
