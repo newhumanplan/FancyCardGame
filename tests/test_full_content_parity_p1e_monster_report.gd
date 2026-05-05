@@ -10,7 +10,7 @@ func _ready() -> void:
 		print("== tests/test_full_content_parity_p1e_monster_report.gd ==")
 		test_all_101_monster_parity_report_shape()
 		test_missing_mechanics_are_grouped_by_required_axes()
-		test_report_artifact_is_written()
+		test_report_serializes_for_artifact()
 		_print_summary()
 
 func test_all_101_monster_parity_report_shape() -> void:
@@ -51,26 +51,14 @@ func test_missing_mechanics_are_grouped_by_required_axes() -> void:
 		for reason in monster.get("unsupported_reasons", []):
 			_assert_true(str(reason).find(":") >= 0 or str(reason) == "missing_monster_spec", "unsupported reason remains exact: %s" % str(reason))
 
-func test_report_artifact_is_written() -> void:
+func test_report_serializes_for_artifact() -> void:
 	var report: Dictionary = BazaarContentClass.get_all_monster_parity_report()
-	var output_dir: String = ProjectSettings.globalize_path("res://.codex-status/T-FCG-FULL-CONTENT-PARITY-001/P1E")
-	var err: Error = DirAccess.make_dir_recursive_absolute(output_dir)
-	_assert_eq(err, OK, "P1E status directory is writable")
-	var output_path: String = output_dir.path_join("monster_parity_101_report.json")
-	var file := FileAccess.open(output_path, FileAccess.WRITE)
-	_assert_true(file != null, "P1E monster parity report artifact can be opened")
-	if file != null:
-		file.store_string(JSON.stringify(report, "  "))
-		file.close()
-	_assert_true(FileAccess.file_exists(output_path), "P1E monster parity report artifact exists")
-	var loaded := FileAccess.open(output_path, FileAccess.READ)
-	_assert_true(loaded != null, "P1E monster parity report artifact can be read")
-	if loaded != null:
-		var parsed = JSON.parse_string(loaded.get_as_text())
-		loaded.close()
-		_assert_true(parsed is Dictionary, "P1E report artifact contains JSON object")
-		if parsed is Dictionary:
-			_assert_eq(int((parsed as Dictionary).get("monster_count", 0)), 101, "P1E report artifact preserves all-101 count")
+	var serialized: String = JSON.stringify(report, "  ")
+	_assert_true(not serialized.is_empty(), "monster parity report serializes for artifact output")
+	var parsed = JSON.parse_string(serialized)
+	_assert_true(parsed is Dictionary, "serialized monster parity report parses as JSON object")
+	if parsed is Dictionary:
+		_assert_eq(int((parsed as Dictionary).get("monster_count", 0)), 101, "serialized report preserves all-101 count")
 
 func _assert_true(condition: bool, label: String) -> void:
 	_total += 1

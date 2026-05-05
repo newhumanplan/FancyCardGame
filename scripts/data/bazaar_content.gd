@@ -16,6 +16,12 @@ const RARITY_SILVER: int = 2
 const RARITY_GOLD: int = 3
 const RARITY_DIAMOND: int = 4
 
+const MONSTER_DIRECT_NUMERIC_SKILL_BINDINGS: Dictionary = {
+	"deadly_eye": {"bonus_key": "crit_chance", "target": "weapons", "mechanic": "skill:deadly_eye:weapon_crit_bonus"},
+	"keen_eye": {"bonus_key": "crit_chance", "target": "all_items", "mechanic": "skill:keen_eye:all_item_crit_bonus"},
+	"strength": {"bonus_key": "damage", "target": "weapons", "mechanic": "skill:strength:weapon_damage_bonus"},
+}
+
 const TOP_MONSTER_SPECIAL_IDS: Array[String] = [
 	"banannabal", "fanged_inglet", "haunted_kimono", "kyver_drone", "pyro", "viper",
 	"coconut_crab", "giant_mosquito", "boarrior", "covetous_thief", "dabbling_apprentice",
@@ -876,6 +882,7 @@ static func create_monster(monster_id: String = "", level: int = 1) -> MonsterDa
 	var poison_bonus: int = _get_monster_numeric_bonus(monster.monster_skills, "poison_bonus")
 	var shield_bonus: int = _get_monster_numeric_bonus(monster.monster_skills, "shield_bonus")
 	var damage_bonus: int = _get_monster_numeric_bonus(monster.monster_skills, "damage_bonus")
+	var direct_numeric_bonuses: Array[Dictionary] = _get_monster_direct_numeric_skill_bonuses(monster.monster_skills)
 	for item_entry in _get_monster_item_entries(spec):
 		var item_id: String = str(item_entry.get("id", ""))
 		var item_spec: Dictionary = _find_item_spec(item_id)
@@ -893,6 +900,7 @@ static func create_monster(monster_id: String = "", level: int = 1) -> MonsterDa
 			monster_item["shield"] = int(monster_item["shield"]) + shield_bonus
 		if damage_bonus > 0 and int(monster_item.get("damage", 0)) > 0:
 			monster_item["damage"] = int(monster_item["damage"]) + damage_bonus
+		_apply_monster_direct_numeric_bonuses(monster_item, direct_numeric_bonuses)
 		monster.monster_items.append(monster_item)
 	return monster
 
@@ -1019,7 +1027,7 @@ static func _build_monster_special_entry(spec: Dictionary, metadata: Dictionary)
 		var skill_id: String = _monster_skill_entry_id(skill_entry)
 		var normalized: Dictionary = PlayerSkillCatalogClass.normalize_skill_ref(skill_entry)
 		if _monster_skill_has_direct_runtime(skill_entry):
-			_add_unique_string(supported_mechanics, "skill:%s:direct_monster_runtime" % skill_id)
+			_add_unique_string(supported_mechanics, _monster_skill_direct_runtime_mechanic(skill_entry))
 		elif str(normalized.get("support_status", "")) == PlayerSkillCatalogClass.SUPPORT_IMPLEMENTED:
 			unsupported_reasons.append("skill:%s:player_skill_runtime_not_bound_to_monster_ai:%s" % [skill_id, str(normalized.get("implementation_kind", "implemented"))])
 		else:
@@ -1171,6 +1179,57 @@ static func _monster_risk_group(risk_score: int) -> String:
 static func _monster_skill_has_direct_runtime(skill_entry: Dictionary) -> bool:
 	for key in ["start_poison", "start_burn", "start_shield", "burn_bonus", "poison_bonus", "shield_bonus", "damage_bonus"]:
 		if int(skill_entry.get(key, 0)) > 0:
+			return true
+	return not _get_monster_direct_numeric_skill_binding(skill_entry).is_empty()
+
+static func _monster_skill_direct_runtime_mechanic(skill_entry: Dictionary) -> String:
+	var skill_id: String = _monster_skill_entry_id(skill_entry)
+	var binding: Dictionary = _get_monster_direct_numeric_skill_binding(skill_entry)
+	if not binding.is_empty():
+		return str(binding.get("mechanic", "skill:%s:direct_monster_runtime" % skill_id))
+	return "skill:%s:direct_monster_runtime" % skill_id
+
+static func _get_monster_direct_numeric_skill_binding(skill_entry: Dictionary) -> Dictionary:
+	var skill_id: String = _monster_skill_entry_id(skill_entry)
+	if skill_id.is_empty() or not MONSTER_DIRECT_NUMERIC_SKILL_BINDINGS.has(skill_id):
+		return {}
+	return (MONSTER_DIRECT_NUMERIC_SKILL_BINDINGS[skill_id] as Dictionary).duplicate(true)
+
+static func _get_monster_direct_numeric_skill_bonuses(skills: Array) -> Array[Dictionary]:
+	var bonuses: Array[Dictionary] = []
+	for skill in skills:
+		if not skill is Dictionary:
+			continue
+		var skill_entry: Dictionary = skill as Dictionary
+		var binding: Dictionary = _get_monster_direct_numeric_skill_binding(skill_entry)
+		if binding.is_empty():
+			continue
+		var value: float = PlayerSkillCatalogClass.get_tier_value(skill_entry)
+		if value <= 0.0:
+			continue
+		bonuses.append({
+			"skill_id": _monster_skill_entry_id(skill_entry),
+			"bonus_key": str(binding.get("bonus_key", "")),
+			"target": str(binding.get("target", "all_items")),
+			"value": value,
+		})
+	return bonuses
+
+static func _apply_monster_direct_numeric_bonuses(monster_item: Dictionary, bonuses: Array[Dictionary]) -> void:
+	for bonus in bonuses:
+		if not _monster_item_matches_numeric_skill_target(monster_item, str(bonus.get("target", ""))):
+			continue
+		match str(bonus.get("bonus_key", "")):
+			"damage":
+				monster_item["damage"] = maxi(int(monster_item.get("damage", 0)) + int(round(float(bonus.get("value", 0.0)))), 0)
+			"crit_chance":
+				monster_item["crit_chance"] = clampf(float(monster_item.get("crit_chance", 0.0)) + float(bonus.get("value", 0.0)) / 100.0, 0.0, 3.0)
+
+static func _monster_item_matches_numeric_skill_target(monster_item: Dictionary, target: String) -> bool:
+	match target:
+		"weapons":
+			return int(monster_item.get("type", ItemDataClass.Type.UTILITY)) == ItemDataClass.Type.WEAPON
+		"all_items":
 			return true
 	return false
 
