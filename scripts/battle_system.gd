@@ -1186,6 +1186,10 @@ func _resolve_effect_amount(
 				amount = 0.0 if owner_item == null else owner_item.haste_duration
 			"enemy_status.poison":
 				amount = _get_status_total("enemy", EffectDefinitionClass.EFFECT_POISON)
+			"other_items.burn_percent_by_rarity":
+				amount = _get_other_items_status_total(owner_item, EffectDefinitionClass.EFFECT_BURN) * _get_rarity_value(owner_item, effect_data.get("percent_by_rarity", []), 0.0)
+			"weakest_weapon.damage":
+				amount = _get_weakest_weapon_damage()
 	elif effect_data.has("amount"):
 		amount = float(effect_data.get("amount", 0.0))
 	elif effect_data.has("amount_by_rarity"):
@@ -1210,7 +1214,7 @@ func _resolve_target_count(
 	elif target_data.has("count_from") and owner_item != null:
 		match str(target_data.get("count_from", "")):
 			"source.slow_count":
-				count = owner_item.slow_count
+				count = owner_item.slow_count + int(round(_get_item_runtime_bonus(owner_item, "slow_count")))
 			"source.freeze_count":
 				count = owner_item.freeze_count
 			"source.haste_count":
@@ -1285,14 +1289,16 @@ func _resolve_effect_targets(
 				for item in inventory.items:
 					if item != null:
 						targets.append({"kind": "player_item", "item": item})
-		"matching_tag_items", "non_matching_tag_items":
+		"matching_tag_items", "non_matching_tag_items", "other_matching_tag_items":
 			var tag: String = str(target_data.get("tag", ""))
 			if inventory != null:
 				for item in inventory.items:
 					if item == null:
 						continue
 					var has_tag: bool = _item_has_tag(item, tag)
-					if (selector == "matching_tag_items" and has_tag) or (selector == "non_matching_tag_items" and not has_tag):
+					if selector == "other_matching_tag_items" and item == owner_item:
+						continue
+					if (selector == "matching_tag_items" and has_tag) or (selector == "other_matching_tag_items" and has_tag) or (selector == "non_matching_tag_items" and not has_tag):
 						targets.append({"kind": "player_item", "item": item})
 		"matching_any_tag_highest_cooldown":
 			var tags: Array = target_data.get("tags", [])
@@ -2182,6 +2188,37 @@ func _get_other_ruby_burn_bonus(item: ItemData) -> float:
 		if candidate != null and candidate != item and candidate.source_id == "ruby":
 			bonus += _get_rarity_value(candidate, [3, 4, 5, 6], 3.0)
 	return bonus
+
+func _get_other_items_status_total(item: ItemData, status_key: String) -> float:
+	if inventory == null or item == null:
+		return 0.0
+	var total: float = 0.0
+	for candidate in inventory.items:
+		if candidate == null or candidate == item:
+			continue
+		match status_key:
+			EffectDefinitionClass.EFFECT_BURN:
+				total += candidate.burn_damage + _get_item_runtime_bonus(candidate, EffectDefinitionClass.EFFECT_BURN)
+			EffectDefinitionClass.EFFECT_POISON:
+				total += candidate.poison_damage + _get_item_runtime_bonus(candidate, EffectDefinitionClass.EFFECT_POISON)
+			EffectDefinitionClass.EFFECT_REGENERATION:
+				total += candidate.regeneration + _get_item_runtime_bonus(candidate, EffectDefinitionClass.EFFECT_REGENERATION)
+			EffectDefinitionClass.EFFECT_HEAL:
+				total += float(candidate.heal) + _get_item_runtime_bonus(candidate, EffectDefinitionClass.EFFECT_HEAL)
+			EffectDefinitionClass.EFFECT_DAMAGE:
+				total += float(candidate.get_rarity_adjusted_damage()) + _get_item_runtime_bonus(candidate, EffectDefinitionClass.EFFECT_DAMAGE)
+	return maxf(total, 0.0)
+
+func _get_weakest_weapon_damage() -> float:
+	if inventory == null:
+		return 0.0
+	var weakest: float = INF
+	for candidate in inventory.items:
+		if candidate == null or not _is_weapon_item(candidate):
+			continue
+		var damage_value: float = float(candidate.get_rarity_adjusted_damage()) + _get_item_runtime_bonus(candidate, EffectDefinitionClass.EFFECT_DAMAGE)
+		weakest = minf(weakest, damage_value)
+	return 0.0 if weakest == INF else maxf(weakest, 0.0)
 
 func _charge_items_by_source_id(source_id: String, seconds: float) -> void:
 	if inventory == null or seconds <= 0.0:

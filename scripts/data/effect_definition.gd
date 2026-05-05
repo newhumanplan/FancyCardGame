@@ -243,6 +243,9 @@ static func build_item_effects(item: ItemDataClass) -> Array[Dictionary]:
 			handled_keywords[EFFECT_BURN] = true
 			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_COOLDOWN_READY, EFFECT_RELOAD, {"side": "self", "selector": "adjacent"}, {"type": EFFECT_RELOAD, "amount": 1}))
 			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_TAG_USED, EFFECT_BURN, {"side": "enemy", "selector": "hero"}, {"type": EFFECT_BURN, "amount_by_rarity": [8, 12, 16]}, {"tag": "Potion"}))
+		"amber":
+			handled_keywords[EFFECT_RUNTIME_BONUS] = true
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_BATTLE_START, EFFECT_RUNTIME_BONUS, {"side": "self", "selector": "other_matching_tag_items", "tag": "Slow"}, {"type": EFFECT_RUNTIME_BONUS, "bonus_key": "slow_count", "amount": 1.0, "scope": "combat"}))
 		"battery":
 			handled_keywords[EFFECT_CHARGE] = true
 			definitions.append({
@@ -259,6 +262,9 @@ static func build_item_effects(item: ItemDataClass) -> Array[Dictionary]:
 			handled_keywords[EFFECT_MULTICAST] = true
 			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_COOLDOWN_READY, EFFECT_RELOAD, {"side": "self", "selector": "adjacent_matching_tag_items", "tag": "Potion"}, {"type": EFFECT_RELOAD, "amount": 1}))
 			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_COOLDOWN_READY, EFFECT_MULTICAST, {"side": "self", "selector": "adjacent_matching_tag_items", "tag": "Potion"}, {"type": EFFECT_MULTICAST, "amount": 1}))
+		"blue_piggles_l":
+			handled_keywords[EFFECT_RUNTIME_BONUS] = true
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_BATTLE_START, EFFECT_RUNTIME_BONUS, {"side": "self", "selector": "left_item"}, {"type": EFFECT_RUNTIME_BONUS, "bonus_key": "crit_rate", "amount_by_rarity": [4, 8, 12, 16], "scope": "combat"}))
 		"candles":
 			handled_keywords[EFFECT_CHARGE] = true
 			definitions.append({
@@ -298,6 +304,9 @@ static func build_item_effects(item: ItemDataClass) -> Array[Dictionary]:
 		"floor_spike":
 			handled_keywords[EFFECT_CHARGE] = true
 			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_TAG_USED, EFFECT_CHARGE, {"side": "self", "selector": "this_item"}, {"type": EFFECT_CHARGE, "amount": 1}, {"tag": "Weapon"}))
+		"fire_claw":
+			handled_keywords[EFFECT_RUNTIME_BONUS] = true
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_BATTLE_START, EFFECT_RUNTIME_BONUS, {"side": "self", "selector": "this_item"}, {"type": EFFECT_RUNTIME_BONUS, "bonus_key": EFFECT_BURN, "amount_from": "other_items.burn_percent_by_rarity", "percent_by_rarity": [0.5, 0.75, 1.0], "scope": "combat"}))
 		"fungal_spores":
 			handled_keywords[EFFECT_RUNTIME_BONUS] = true
 			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_COOLDOWN_READY, EFFECT_RUNTIME_BONUS, {"side": "self", "selector": "matching_tag_items", "tag": "Poison"}, {"type": EFFECT_RUNTIME_BONUS, "bonus_key": EFFECT_POISON, "amount_by_rarity": [2, 3, 4, 5], "scope": "combat"}))
@@ -393,11 +402,17 @@ static func build_item_effects(item: ItemDataClass) -> Array[Dictionary]:
 			handled_keywords[EFFECT_RUNTIME_BONUS] = true
 			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_COOLDOWN_READY, EFFECT_RELOAD, {"side": "self", "selector": "ammo_items", "count": 2}, {"type": EFFECT_RELOAD, "amount": 1}))
 			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_RELOAD, EFFECT_REGENERATION, {"side": "self", "selector": "hero"}, {"type": EFFECT_REGENERATION, "amount": 2}))
+		"seaweed":
+			handled_keywords[EFFECT_RUNTIME_BONUS] = true
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_TAG_USED, EFFECT_RUNTIME_BONUS, {"side": "self", "selector": "this_item"}, {"type": EFFECT_RUNTIME_BONUS, "bonus_key": EFFECT_HEAL, "amount_by_rarity": [5, 10, 15, 20], "scope": "combat"}, {"tag": "Aquatic"}))
 		"shadowed_cloak":
 			handled_keywords[EFFECT_HASTE] = true
 			handled_keywords[EFFECT_RUNTIME_BONUS] = true
 			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_ITEM_USED, EFFECT_HASTE, {"side": "self", "selector": "source_item"}, {"type": EFFECT_HASTE, "amount_by_rarity": [1, 2, 3, 4]}, {"event_source_relation": "right_adjacent"}))
 			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_ITEM_USED, EFFECT_RUNTIME_BONUS, {"side": "self", "selector": "source_item"}, {"type": EFFECT_RUNTIME_BONUS, "bonus_key": EFFECT_DAMAGE, "amount_by_rarity": [3, 5, 7, 9], "scope": "combat"}, {"event_source_relation": "right_adjacent", "tag": "Weapon"}))
+		"spices":
+			handled_keywords[EFFECT_RUNTIME_BONUS] = true
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_BATTLE_START, EFFECT_RUNTIME_BONUS, {"side": "self", "selector": "matching_tag_items", "tag": "Weapon"}, {"type": EFFECT_RUNTIME_BONUS, "bonus_key": EFFECT_DAMAGE, "amount_from": "weakest_weapon.damage", "scope": "combat"}))
 		"smelling_salts":
 			handled_keywords[EFFECT_HASTE] = true
 			definitions.append({
@@ -678,6 +693,8 @@ static func _runtime_bonus_runtime_path(source_id: String) -> String:
 			return "BattleSystem item aura runtime bonus"
 		"incendiary_rounds", "jellyfish":
 			return "BattleSystem adjacent item-use and battle-start item runtime bonus"
+		"amber", "blue_piggles_l", "fire_claw", "seaweed", "spices":
+			return "BattleSystem high-frequency item runtime bonus"
 		"genie_lamp", "thieves_guild_medallion":
 			return "SellService service unlock"
 	return ""
