@@ -372,6 +372,17 @@ static func build_item_effects(item: ItemDataClass) -> Array[Dictionary]:
 		"nitro":
 			handled_keywords[EFFECT_CHARGE] = true
 			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_COOLDOWN_READY, EFFECT_CHARGE, {"side": "self", "selector": "slowest_other_items", "count": 1}, {"type": EFFECT_CHARGE, "amount_by_rarity": [1, 2, 3, 4]}))
+		"cosmic_plumage":
+			handled_keywords[EFFECT_CHARGE] = true
+			handled_keywords[EFFECT_RUNTIME_BONUS] = true
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_BATTLE_START, "shield_runtime_bonus", {"side": "self", "selector": "matching_tag_items", "tag": "Shield"}, {"type": EFFECT_RUNTIME_BONUS, "bonus_key": EFFECT_SHIELD, "amount_by_rarity": [10, 20, 30], "scope": "combat"}))
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_BATTLE_START, "weapon_runtime_bonus", {"side": "self", "selector": "matching_tag_items", "tag": "Weapon"}, {"type": EFFECT_RUNTIME_BONUS, "bonus_key": EFFECT_DAMAGE, "amount_by_rarity": [10, 20, 30], "scope": "combat"}))
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_CRIT, EFFECT_CHARGE, {"side": "self", "selector": "this_item"}, {"type": EFFECT_CHARGE, "amount": 3.0}, {"event_source_is_owner": true}))
+		"nargile":
+			handled_keywords[EFFECT_CHARGE] = true
+			handled_keywords[EFFECT_RUNTIME_BONUS] = true
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_BATTLE_START, EFFECT_RUNTIME_BONUS, {"side": "self", "selector": "adjacent"}, {"type": EFFECT_RUNTIME_BONUS, "bonus_key": "crit_rate", "amount_by_rarity": [25, 50], "scope": "combat"}))
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_CRIT, EFFECT_CHARGE, {"side": "self", "selector": "this_item"}, {"type": EFFECT_CHARGE, "amount": 2.0}, {"event_source_is_owner": true}))
 		"octopus":
 			handled_keywords[EFFECT_MULTICAST] = true
 			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_COOLDOWN_READY, EFFECT_MULTICAST, {"side": "self", "selector": "this_item"}, {"type": EFFECT_MULTICAST, "amount": 7}))
@@ -402,6 +413,9 @@ static func build_item_effects(item: ItemDataClass) -> Array[Dictionary]:
 			handled_keywords[EFFECT_RUNTIME_BONUS] = true
 			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_COOLDOWN_READY, EFFECT_RELOAD, {"side": "self", "selector": "ammo_items", "count": 2}, {"type": EFFECT_RELOAD, "amount": 1}))
 			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_RELOAD, EFFECT_REGENERATION, {"side": "self", "selector": "hero"}, {"type": EFFECT_REGENERATION, "amount": 2}))
+		"pearl":
+			handled_keywords[EFFECT_CHARGE] = true
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_TAG_USED, EFFECT_CHARGE, {"side": "self", "selector": "this_item"}, {"type": EFFECT_CHARGE, "amount": 1.0}, {"tag": "Aquatic", "event_source_not_owner": true}))
 		"seaweed":
 			handled_keywords[EFFECT_RUNTIME_BONUS] = true
 			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_TAG_USED, EFFECT_RUNTIME_BONUS, {"side": "self", "selector": "this_item"}, {"type": EFFECT_RUNTIME_BONUS, "bonus_key": EFFECT_HEAL, "amount_by_rarity": [5, 10, 15, 20], "scope": "combat"}, {"tag": "Aquatic"}))
@@ -693,7 +707,7 @@ static func _runtime_bonus_runtime_path(source_id: String) -> String:
 			return "BattleSystem item aura runtime bonus"
 		"incendiary_rounds", "jellyfish":
 			return "BattleSystem adjacent item-use and battle-start item runtime bonus"
-		"amber", "blue_piggles_l", "fire_claw", "seaweed", "spices":
+		"amber", "blue_piggles_l", "cosmic_plumage", "fire_claw", "nargile", "seaweed", "spices":
 			return "BattleSystem high-frequency item runtime bonus"
 		"genie_lamp", "thieves_guild_medallion":
 			return "SellService service unlock"
