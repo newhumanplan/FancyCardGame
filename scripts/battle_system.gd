@@ -1301,16 +1301,16 @@ func _resolve_effect_targets(
 				for item in inventory.items:
 					if item != null:
 						targets.append({"kind": "player_item", "item": item})
-		"matching_tag_items", "non_matching_tag_items", "other_matching_tag_items":
+		"matching_tag_items", "non_matching_tag_items", "other_matching_tag_items", "other_non_matching_tag_items":
 			var tag: String = str(target_data.get("tag", ""))
 			if inventory != null:
 				for item in inventory.items:
 					if item == null:
 						continue
 					var has_tag: bool = _item_has_tag(item, tag)
-					if selector == "other_matching_tag_items" and item == owner_item:
+					if (selector == "other_matching_tag_items" or selector == "other_non_matching_tag_items") and item == owner_item:
 						continue
-					if (selector == "matching_tag_items" and has_tag) or (selector == "other_matching_tag_items" and has_tag) or (selector == "non_matching_tag_items" and not has_tag):
+					if (selector == "matching_tag_items" and has_tag) or (selector == "other_matching_tag_items" and has_tag) or (selector == "non_matching_tag_items" and not has_tag) or (selector == "other_non_matching_tag_items" and not has_tag):
 						targets.append({"kind": "player_item", "item": item})
 		"matching_any_tag_highest_cooldown":
 			var tags: Array = target_data.get("tags", [])
@@ -1365,6 +1365,12 @@ func _resolve_effect_targets(
 				for item in inventory.items:
 					if item != null and _is_weapon_item(item) and _item_has_lifesteal(item):
 						targets.append({"kind": "player_item", "item": item})
+		"adjacent_matching_size_items":
+			var size_name: String = str(target_data.get("size", "")).to_lower()
+			if owner_item != null:
+				for adjacent in _get_adjacent_player_items(owner_item):
+					if adjacent != null and _item_size_matches(adjacent, size_name):
+						targets.append({"kind": "player_item", "item": adjacent})
 		"matching_tag_highest_cooldown":
 			var tag: String = str(target_data.get("tag", ""))
 			var candidates: Array[ItemData] = []

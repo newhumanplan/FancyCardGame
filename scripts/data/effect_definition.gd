@@ -323,6 +323,10 @@ static func build_item_effects(item: ItemDataClass) -> Array[Dictionary]:
 		"gatling_gun":
 			handled_keywords[EFFECT_MULTICAST] = true
 			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_COOLDOWN_READY, EFFECT_MULTICAST, {"side": "self", "selector": "this_item"}, {"type": EFFECT_MULTICAST, "amount": 1}))
+		"dock_lines":
+			if not _definitions_handle_effect(definitions, EFFECT_SLOW):
+				handled_keywords[EFFECT_SLOW] = true
+				definitions.append(_hook_definition(item.source_id, TRIGGER_ON_COOLDOWN_READY, EFFECT_SLOW, {"side": "enemy", "selector": "slowest_items", "count": 2}, {"type": EFFECT_SLOW, "amount": 3.0, "count_crit_scaled": true, "crit_scaled": true}))
 		"goop_flail":
 			handled_keywords[EFFECT_MULTICAST] = true
 			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_COOLDOWN_READY, EFFECT_MULTICAST, {"side": "self", "selector": "this_item"}, {"type": EFFECT_MULTICAST, "amount": 2}))
@@ -425,6 +429,9 @@ static func build_item_effects(item: ItemDataClass) -> Array[Dictionary]:
 		"pesky_pete":
 			handled_keywords[EFFECT_MULTICAST] = true
 			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_COOLDOWN_READY, EFFECT_MULTICAST, {"side": "self", "selector": "this_item"}, {"type": EFFECT_MULTICAST, "amount_from": "adjacent_items.matching_any_tag_count", "tags": ["Friend", "Property"]}))
+		"piggles":
+			handled_keywords[EFFECT_CHARGE] = true
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_COOLDOWN_READY, EFFECT_CHARGE, {"side": "self", "selector": "adjacent_matching_size_items", "size": "small"}, {"type": EFFECT_CHARGE, "amount_by_rarity": [1, 2, 3, 4]}))
 		"rapid_injection_system":
 			handled_keywords[EFFECT_POISON] = true
 			handled_keywords[EFFECT_REGENERATION] = true
@@ -537,6 +544,9 @@ static func build_item_effects(item: ItemDataClass) -> Array[Dictionary]:
 					"crit_scaled": true,
 				},
 			})
+		"wand":
+			handled_keywords[EFFECT_CHARGE] = true
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_COOLDOWN_READY, EFFECT_CHARGE, {"side": "self", "selector": "other_non_matching_tag_items", "tag": "Weapon"}, {"type": EFFECT_CHARGE, "amount_by_rarity": [1, 1, 1, 2]}))
 		"weakpoint_detector":
 			handled_keywords[EFFECT_CHARGE] = true
 			handled_keywords[EFFECT_RUNTIME_BONUS] = true
@@ -715,8 +725,10 @@ static func _runtime_bonus_runtime_path(source_id: String) -> String:
 			return "BattleSystem reactive combat runtime bonus"
 		"bluenanas", "chocolate_bar", "coconut", "green_gumball", "vial_of_blood", "arken_s_ring", "eagle_talisman", "agility_boots", "blue_gumball", "feather", "gunpowder", "gearnola_bar", "rocket_boots", "snowflake":
 			return "SellService permanent sell mutation"
-		"cinders", "extract", "med_kit", "sharpening_stone":
+		"cinders", "extract", "gland", "med_kit", "sharpening_stone":
 			return "SellService permanent targeted stat mutation"
+		"incense", "venomous_dose":
+			return "BattleSystem root status and fight Regen effects"
 		"satchel":
 			return "ItemAcquisition permanent Potion buy mutation and BattleSystem reload regen"
 		"tazidian_dagger", "boiling_flask":
