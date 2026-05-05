@@ -201,6 +201,7 @@ const _NUMERIC_SKILL_RULES := {
 
 const _TRIGGER_SKILL_RULES := {
 	"aggressive": {"values": [2.0, 4.0, 6.0, 8.0], "starting_tier": "bronze"},
+	"ambush": {"values": [15.0, 30.0], "starting_tier": "gold"},
 	"anything_to_win": {"values": [1.0, 2.0, 3.0], "starting_tier": "silver"},
 	"assault_focus": {"values": [2.0, 4.0], "starting_tier": "gold"},
 	"beautiful_friendship": {"values": [3.0, 6.0], "starting_tier": "gold"},
@@ -266,9 +267,42 @@ const _TRIGGER_SKILL_RULES := {
 }
 
 const _EXPLICIT_UNSUPPORTED_SKILL_RULES := {
-	"initial_chill": {
-		"reason": "phase1_freeze_bonus_runtime_not_verified",
-	},
+	"aerial_assault": {"reason": "flying_state_runtime_not_modelled_for_item_start_flying"},
+	"ancient_vengeance": {"reason": "enemy_weapon_use_reactive_relic_charge_not_modelled_for_player_skill_runtime"},
+	"bonk": {"reason": "cooldowns_as_dynamic_scalar_text_unresolved"},
+	"burst_of_flame": {"reason": "first_enemy_below_half_health_trigger_not_modelled"},
+	"chilling_touch": {"reason": "first_freeze_all_enemy_items_trigger_needs_global_status_event_batching"},
+	"clean_storefront": {"reason": "combat_value_bonus_runtime_not_modelled"},
+	"counterstrike": {"reason": "enemy_weapon_use_limited_counter_trigger_not_modelled"},
+	"desperate_cleanse": {"reason": "first_self_below_half_health_cleanse_runtime_not_modelled"},
+	"expert_pilot": {"reason": "vehicle_damage_and_shield_percent_aura_not_modelled"},
+	"fiery_rebirth": {"reason": "death_prevention_heal_to_full_runtime_not_modelled"},
+	"free_ride": {"reason": "rightmost_item_vehicle_override_and_vehicle_cooldown_aura_not_modelled"},
+	"hard_shell": {"reason": "first_self_below_half_health_shield_percent_trigger_not_modelled"},
+	"haunting_flight": {"reason": "flying_state_runtime_not_modelled_for_small_items"},
+	"heavy_weaponry": {"reason": "missing_official_skill_text_only_monster_reference_available"},
+	"hunker_down": {"reason": "first_self_below_half_health_shield_percent_trigger_not_modelled"},
+	"initial_chill": {"reason": "freeze_bonus_runtime_not_verified"},
+	"into_the_void": {"reason": "temporary_board_item_destruction_not_modelled"},
+	"jack_of_all_trades_duplicate": {"reason": "duplicate_monster_skill_id_requires_canonical_merge_with_jack_of_all_trades"},
+	"master_salesman": {"reason": "combat_value_multiplier_runtime_not_modelled"},
+	"nanobot_construction": {"reason": "large_item_cooldown_reduction_per_small_item_percent_text_unresolved"},
+	"panic": {"reason": "first_self_below_half_health_reload_items_trigger_not_modelled"},
+	"passive_power": {"reason": "no_cooldown_item_multi_stat_percent_aura_not_modelled"},
+	"petrifying_gaze": {"reason": "first_self_below_half_health_freeze_all_enemy_items_trigger_not_modelled"},
+	"pickpocket": {"reason": "battle_start_gold_reward_runtime_not_modelled_in_battle_system"},
+	"power_broker": {"reason": "weapon_damage_from_income_runtime_aura_not_modelled"},
+	"precision_tools": {"reason": "tool_hasted_event_permanent_damage_bonus_not_modelled"},
+	"product_showcase": {"reason": "ammo_depleted_adjacent_charge_trigger_not_modelled"},
+	"prosperity": {"reason": "shield_bonus_from_total_item_value_runtime_aura_not_modelled"},
+	"ravenous": {"reason": "first_self_below_half_health_temporary_destroy_item_not_modelled"},
+	"relax_bro": {"reason": "crit_chance_trigger_text_unresolved"},
+	"siphoned_shielding": {"reason": "shield_bonus_from_enemy_poison_runtime_aura_not_modelled"},
+	"sparring_partner_skill": {"reason": "death_prevention_cleanse_double_max_health_and_enemy_gold_not_modelled"},
+	"titanium_casing": {"reason": "the_core_use_trigger_and_shield_item_bonus_not_modelled"},
+	"toxic_fuel": {"reason": "poisoned_side_conditional_cooldown_percent_aura_not_modelled"},
+	"trader": {"reason": "persistent_item_value_bonus_not_modelled_for_skills"},
+	"void_render": {"reason": "combat_destroy_item_trigger_weapon_and_burn_bonus_not_modelled"},
 }
 
 static var _skills_config_loaded: bool = false
@@ -379,6 +413,8 @@ static func get_effect_definitions(skill_ref: Variant) -> Array[Dictionary]:
 	match skill_id:
 		"aggressive":
 			return [_skill_definition("aggressive_on_weapon_crit_source", EffectDefinitionClass.TRIGGER_ON_TAG_USED, EffectDefinitionClass.EFFECT_RUNTIME_BONUS, get_tier_value(resolved), {"side": "self", "selector": "source_item"}, {"tag": "Weapon"}, 0, {"bonus_key": "crit_rate"})]
+		"ambush":
+			return [_skill_definition("ambush_battle_start_enemy_max_health_damage", EffectDefinitionClass.TRIGGER_ON_BATTLE_START, EffectDefinitionClass.EFFECT_DAMAGE, 0.0, {"side": "enemy", "selector": "hero"}, {}, 0, {"amount_from": "enemy.max_health_percent", "percent": get_tier_value(resolved) / 100.0})]
 		"anything_to_win":
 			return [
 				_skill_definition("anything_to_win_non_weapon_burn", EffectDefinitionClass.TRIGGER_ON_ITEM_USED, EffectDefinitionClass.EFFECT_BURN, get_tier_value(resolved), {"side": "enemy", "selector": "hero"}, {"no_event_source_tag": "Weapon"}),

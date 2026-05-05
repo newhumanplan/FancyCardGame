@@ -81,7 +81,7 @@ func test_registered_skill_expectations_match_runtime() -> void:
 	var initial_chill: Dictionary = PlayerSkillCatalogClass.get_skill_entry("initial_chill")
 	_assert_eq(
 		str(initial_chill.get("unsupported_reason", "")),
-		"phase1_freeze_bonus_runtime_not_verified",
+		"freeze_bonus_runtime_not_verified",
 		"Initial Chill unsupported reason is explicit"
 	)
 

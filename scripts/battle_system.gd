@@ -1127,27 +1127,26 @@ func _resolve_effect_amount(
 	execution_context: Dictionary
 ) -> float:
 	var amount: float = 0.0
-	if effect_data.has("amount"):
-		amount = float(effect_data.get("amount", 0.0))
-	elif effect_data.has("amount_by_rarity"):
-		amount = _get_rarity_value(owner_item, effect_data.get("amount_by_rarity", []), 0.0)
-	elif effect_data.has("amount_from") and owner_item != null:
+	if effect_data.has("amount_from"):
 		match str(effect_data.get("amount_from", "")):
 			"source.damage":
-				amount = float(maxi(
-					owner_item.get_rarity_adjusted_damage()
-					+ int(round(_get_item_runtime_bonus(owner_item, "damage")))
-					+ _get_player_item_skill_damage_bonus(owner_item),
-					0
-				))
+				if owner_item != null:
+					amount = float(maxi(
+						owner_item.get_rarity_adjusted_damage()
+						+ int(round(_get_item_runtime_bonus(owner_item, "damage")))
+						+ _get_player_item_skill_damage_bonus(owner_item),
+						0
+					))
 			"source.shield":
-				amount = float(
-					ItemEffectsClass.calculate_shield(owner_item)
-					+ int(round(_get_item_runtime_bonus(owner_item, "shield")))
-					+ _get_player_item_skill_shield_bonus(owner_item)
-				)
+				if owner_item != null:
+					amount = float(
+						ItemEffectsClass.calculate_shield(owner_item)
+						+ int(round(_get_item_runtime_bonus(owner_item, "shield")))
+						+ _get_player_item_skill_shield_bonus(owner_item)
+					)
 			"source.heal":
-				amount = float(ItemEffectsClass.calculate_heal(owner_item) + int(round(_get_item_runtime_bonus(owner_item, "heal"))))
+				if owner_item != null:
+					amount = float(ItemEffectsClass.calculate_heal(owner_item) + int(round(_get_item_runtime_bonus(owner_item, "heal"))))
 			"hero.max_health_percent":
 				var percent: float = 0.0
 				if effect_data.has("percent"):
@@ -1156,29 +1155,39 @@ func _resolve_effect_amount(
 					percent = _get_rarity_value(owner_item, effect_data.get("percent_by_rarity", []), 0.0)
 				var hero: HeroData = null if game_manager == null else game_manager.selected_hero
 				amount = 0.0 if hero == null else float(hero.max_hp) * percent
+			"enemy.max_health_percent":
+				var percent: float = float(effect_data.get("percent", 0.0))
+				amount = 0.0 if current_monster == null else float(current_monster.max_hp) * percent
 			"source.poison":
-				amount = owner_item.poison_damage
-				amount += _get_item_runtime_bonus(owner_item, "poison")
-				amount += _get_other_emerald_poison_bonus(owner_item)
+				if owner_item != null:
+					amount = owner_item.poison_damage
+					amount += _get_item_runtime_bonus(owner_item, "poison")
+					amount += _get_other_emerald_poison_bonus(owner_item)
 				amount += float(execution_context.get("poison_bonus", 0.0))
 			"source.poison_bonus":
-				amount = _get_item_runtime_bonus(owner_item, "poison")
-				amount += _get_other_emerald_poison_bonus(owner_item)
+				if owner_item != null:
+					amount = _get_item_runtime_bonus(owner_item, "poison")
+					amount += _get_other_emerald_poison_bonus(owner_item)
 				amount += float(execution_context.get("poison_bonus", 0.0))
 			"source.burn":
-				amount = owner_item.burn_damage
-				amount += _get_item_runtime_bonus(owner_item, "burn")
-				if owner_item.burn_damage > 0.0:
-					amount += _get_other_ruby_burn_bonus(owner_item)
+				amount = 0.0 if owner_item == null else owner_item.burn_damage
+				if owner_item != null:
+					amount += _get_item_runtime_bonus(owner_item, "burn")
+					if owner_item.burn_damage > 0.0:
+						amount += _get_other_ruby_burn_bonus(owner_item)
 				amount += float(execution_context.get("burn_bonus", 0.0))
 			"source.regeneration":
-				amount = owner_item.regeneration + _get_item_runtime_bonus(owner_item, "regeneration")
+				amount = 0.0 if owner_item == null else owner_item.regeneration + _get_item_runtime_bonus(owner_item, "regeneration")
 			"source.slow_duration":
-				amount = owner_item.slow_duration
+				amount = 0.0 if owner_item == null else owner_item.slow_duration
 			"source.freeze_duration":
-				amount = owner_item.freeze_duration
+				amount = 0.0 if owner_item == null else owner_item.freeze_duration
 			"source.haste_duration":
-				amount = owner_item.haste_duration
+				amount = 0.0 if owner_item == null else owner_item.haste_duration
+	elif effect_data.has("amount"):
+		amount = float(effect_data.get("amount", 0.0))
+	elif effect_data.has("amount_by_rarity"):
+		amount = _get_rarity_value(owner_item, effect_data.get("amount_by_rarity", []), 0.0)
 	if bool(effect_data.get("include_runtime_poison_bonus", false)) and owner_item != null:
 		amount += _get_item_runtime_bonus(owner_item, "poison")
 	if bool(effect_data.get("include_burn_synergy_bonus", false)) and owner_item != null:
