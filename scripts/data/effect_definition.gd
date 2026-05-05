@@ -320,9 +320,18 @@ static func build_item_effects(item: ItemDataClass) -> Array[Dictionary]:
 			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_COOLDOWN_READY, EFFECT_BURN, {"side": "enemy", "selector": "hero"}, {"type": EFFECT_BURN, "amount_from": "source.damage"}))
 		"frozen_flame":
 			handled_keywords[EFFECT_RUNTIME_BONUS] = true
+		"frozen_bludgeon":
+			handled_keywords[EFFECT_RUNTIME_BONUS] = true
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_ENEMY_STATUS_APPLIED, EFFECT_RUNTIME_BONUS, {"side": "self", "selector": "matching_tag_items", "tag": "Weapon"}, {"type": EFFECT_RUNTIME_BONUS, "bonus_key": EFFECT_DAMAGE, "amount_by_rarity": [4, 6, 8, 10], "scope": "combat"}, {"status_type": EFFECT_FREEZE}))
 		"gatling_gun":
 			handled_keywords[EFFECT_MULTICAST] = true
 			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_COOLDOWN_READY, EFFECT_MULTICAST, {"side": "self", "selector": "this_item"}, {"type": EFFECT_MULTICAST, "amount": 1}))
+		"barbed_wire":
+			handled_keywords[EFFECT_RUNTIME_BONUS] = true
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_SHIELD_GAINED, EFFECT_RUNTIME_BONUS, {"side": "self", "selector": "this_item"}, {"type": EFFECT_RUNTIME_BONUS, "bonus_key": EFFECT_DAMAGE, "amount_by_rarity": [0, 5, 10, 15], "scope": "combat"}))
+		"black_rose":
+			handled_keywords[EFFECT_RUNTIME_BONUS] = true
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_ENEMY_STATUS_APPLIED, EFFECT_RUNTIME_BONUS, {"side": "self", "selector": "this_item"}, {"type": EFFECT_RUNTIME_BONUS, "bonus_key": EFFECT_REGENERATION, "amount_by_rarity": [0, 1, 2, 3], "scope": "combat"}, {"status_type": EFFECT_POISON}))
 		"dock_lines":
 			if not _definitions_handle_effect(definitions, EFFECT_SLOW):
 				handled_keywords[EFFECT_SLOW] = true
@@ -481,6 +490,8 @@ static func build_item_effects(item: ItemDataClass) -> Array[Dictionary]:
 		"tesla_coil":
 			handled_keywords[EFFECT_CHARGE] = true
 			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_TAG_USED, EFFECT_CHARGE, {"side": "self", "selector": "slowest_items", "count": 1}, {"type": EFFECT_CHARGE, "amount": 1}, {"tag": "Tech", "event_source_is_owner_or_adjacent": true}))
+		"thurible":
+			handled_keywords[EFFECT_RUNTIME_BONUS] = true
 		"succulents":
 			handled_keywords[EFFECT_RUNTIME_BONUS] = true
 			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_COOLDOWN_READY, EFFECT_RUNTIME_BONUS, {"side": "self", "selector": "this_item"}, {"type": EFFECT_RUNTIME_BONUS, "bonus_key": EFFECT_HEAL, "amount_by_rarity": [1, 2, 3, 4], "scope": "permanent"}, {}, "after_consume"))
@@ -565,6 +576,11 @@ static func build_item_effects(item: ItemDataClass) -> Array[Dictionary]:
 		"vitality_potion":
 			handled_keywords[EFFECT_HEAL] = true
 			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_COOLDOWN_READY, EFFECT_HEAL, {"side": "self", "selector": "hero"}, {"type": EFFECT_HEAL, "amount_from": "hero.max_health_percent", "percent_by_rarity": [0.0, 0.0, 0.5, 1.0]}))
+		"void_ray":
+			handled_keywords[EFFECT_MULTICAST] = true
+			handled_keywords[EFFECT_RUNTIME_BONUS] = true
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_COOLDOWN_READY, EFFECT_MULTICAST, {"side": "self", "selector": "this_item"}, {"type": EFFECT_MULTICAST, "amount": 1}))
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_SHIELD_GAINED, EFFECT_RUNTIME_BONUS, {"side": "self", "selector": "this_item"}, {"type": EFFECT_RUNTIME_BONUS, "bonus_key": EFFECT_BURN, "amount_by_rarity": [0, 0, 1, 2], "scope": "combat"}))
 
 	_append_non_combat_hook_definitions(definitions, handled_keywords, item)
 	var runtime_bonus_path: String = _runtime_bonus_runtime_path(item.source_id)
@@ -751,10 +767,20 @@ static func _runtime_bonus_runtime_path(source_id: String) -> String:
 			return "BattleSystem adjacent item-use self-poison and regeneration runtime"
 		"ouroboros_statue":
 			return "BattleSystem poison-triggered fight Regen runtime"
+		"barbed_wire":
+			return "BattleSystem shield-triggered fight Damage runtime"
+		"black_rose":
+			return "BattleSystem poison-triggered fight Regeneration runtime"
+		"frozen_bludgeon":
+			return "BattleSystem freeze-triggered weapon Damage runtime"
 		"soul_ring":
 			return "BattleSystem battle-start Regen and Regen-scaled poison runtime"
+		"thurible":
+			return "BattleSystem root Burn and fight Regeneration effects"
 		"venomander":
 			return "BattleSystem root Poison and fight Regeneration effects"
+		"void_ray":
+			return "BattleSystem cooldown multicast and shield-triggered Burn runtime"
 		"genie_lamp", "thieves_guild_medallion":
 			return "SellService service unlock"
 	return ""
