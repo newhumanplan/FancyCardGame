@@ -17,18 +17,26 @@ const RARITY_GOLD: int = 3
 const RARITY_DIAMOND: int = 4
 
 const MONSTER_DIRECT_NUMERIC_SKILL_BINDINGS: Dictionary = {
+	"ammo_stash": {"bonus_key": "max_ammo", "target": "leftmost_ammo_item", "mechanic": "skill:ammo_stash:leftmost_ammo_item_max_ammo"},
+	"command_ship": {"bonus_key": "cooldown_percent", "target": "non_vehicle_items_if_vehicle_present", "mechanic": "skill:command_ship:non_vehicle_cooldown_reduction"},
 	"critical_aid": {"bonus_key": "crit_chance", "target": "heal_items", "mechanic": "skill:critical_aid:heal_item_crit_bonus"},
 	"deadly_eye": {"bonus_key": "crit_chance", "target": "weapons", "mechanic": "skill:deadly_eye:weapon_crit_bonus"},
+	"diamond_fangs": {"bonus_key": "cooldown_percent", "target": "small_diamond_items", "mechanic": "skill:diamond_fangs:small_diamond_item_cooldown_reduction"},
 	"final_flame": {"bonus_key": "burn", "target": "rightmost_burn_item", "mechanic": "skill:final_flame:rightmost_burn_bonus"},
 	"flamedancer": {"bonus_key": "crit_chance", "target": "burn_items", "mechanic": "skill:flamedancer:burn_item_crit_bonus"},
 	"first_responder": {"bonus_key": "heal", "target": "leftmost_heal_item", "mechanic": "skill:first_responder:leftmost_heal_bonus"},
 	"follow_up_care": {"bonus_key": "heal", "target": "rightmost_heal_item", "mechanic": "skill:follow_up_care:rightmost_heal_bonus"},
+	"friend_zone": {"bonus_key": "cooldown_percent", "target": "friend_items", "mechanic": "skill:friend_zone:friend_cooldown_reduction"},
 	"frontal_shielding": {"bonus_key": "shield", "target": "leftmost_shield_item", "mechanic": "skill:frontal_shielding:leftmost_shield_bonus"},
+	"full_arsenal": {"bonus_key": "cooldown_percent_per_present_tag", "target": "all_items", "presence_tags": ["Vehicle", "Weapon", "Tool"], "mechanic": "skill:full_arsenal:vehicle_weapon_tool_cooldown_reduction"},
+	"gunner": {"bonus_key": "max_ammo", "target": "ammo_items", "mechanic": "skill:gunner:ammo_item_max_ammo"},
+	"hyper_focus": {"bonus_key": "cooldown_percent", "target": "only_medium_item", "mechanic": "skill:hyper_focus:solo_medium_item_cooldown_reduction"},
 	"initial_dose": {"bonus_key": "poison", "target": "leftmost_poison_item", "mechanic": "skill:initial_dose:leftmost_poison_bonus"},
 	"keen_eye": {"bonus_key": "crit_chance", "target": "all_items", "mechanic": "skill:keen_eye:all_item_crit_bonus"},
 	"left_handed": {"bonus_key": "damage", "target": "leftmost_weapon", "mechanic": "skill:left_handed:leftmost_weapon_damage_bonus"},
 	"right_handed": {"bonus_key": "damage", "target": "rightmost_weapon", "mechanic": "skill:right_handed:rightmost_weapon_damage_bonus"},
 	"strength": {"bonus_key": "damage", "target": "weapons", "mechanic": "skill:strength:weapon_damage_bonus"},
+	"vengeance": {"bonus_key": "cooldown_percent", "target": "edge_items", "mechanic": "skill:vengeance:edge_item_cooldown_reduction"},
 }
 
 const TOP_MONSTER_SPECIAL_IDS: Array[String] = [
@@ -936,9 +944,13 @@ static func item_to_monster_item(item_data: ItemDataClass) -> Dictionary:
 		"crit_chance": item_data.crit_chance,
 		"cooldown": cooldown,
 		"current_cooldown": cooldown,
+		"ammo": item_data.get_max_ammo(),
+		"max_ammo": item_data.get_max_ammo(),
+		"current_ammo": item_data.get_max_ammo(),
 		"size": item_data.get_size_text(),
 		"slot_count": item_data.get_slot_count(),
 		"source_id": item_data.source_id,
+		"tags": item_data.tags.duplicate(),
 		"description": item_data.source_effect_text,
 		"effects": item_data.effects.duplicate(true),
 		"effect_warnings": item_data.effect_warnings.duplicate(),
@@ -1220,6 +1232,7 @@ static func _get_monster_direct_numeric_skill_bonuses(skills: Array) -> Array[Di
 			"skill_id": _monster_skill_entry_id(skill_entry),
 			"bonus_key": str(binding.get("bonus_key", "")),
 			"target": str(binding.get("target", "all_items")),
+			"presence_tags": (binding.get("presence_tags", []) as Array).duplicate(),
 			"value": value,
 		})
 	return bonuses
@@ -1246,6 +1259,41 @@ static func _apply_monster_direct_numeric_bonuses(monster_items: Array, bonuses:
 					monster_item["burn"] = maxi(int(monster_item.get("burn", 0)) + int(round(float(bonus.get("value", 0.0)))), 0)
 				"poison":
 					monster_item["poison"] = maxi(int(monster_item.get("poison", 0)) + int(round(float(bonus.get("value", 0.0)))), 0)
+				"regen":
+					monster_item["regen"] = maxi(int(monster_item.get("regen", 0)) + int(round(float(bonus.get("value", 0.0)))), 0)
+				"max_ammo":
+					var max_ammo: int = maxi(int(monster_item.get("max_ammo", monster_item.get("ammo", 0))) + int(round(float(bonus.get("value", 0.0)))), 0)
+					monster_item["max_ammo"] = max_ammo
+					monster_item["ammo"] = max_ammo
+					monster_item["current_ammo"] = max_ammo
+				"cooldown_percent":
+					_apply_monster_item_cooldown_percent(monster_item, float(bonus.get("value", 0.0)))
+				"cooldown_percent_per_present_tag":
+					var present_tag_count: int = _count_present_monster_item_tags(monster_items, bonus.get("presence_tags", []))
+					_apply_monster_item_cooldown_percent(monster_item, float(bonus.get("value", 0.0)) * float(present_tag_count))
+
+static func _apply_monster_item_cooldown_percent(monster_item: Dictionary, percent: float) -> void:
+	if percent <= 0.0:
+		return
+	var cooldown: float = maxf(float(monster_item.get("cooldown", 0.0)), 0.0)
+	if cooldown <= 0.0:
+		return
+	monster_item["base_cooldown"] = float(monster_item.get("base_cooldown", cooldown))
+	var reduced: float = maxf(cooldown * (1.0 - percent / 100.0), 0.0)
+	monster_item["cooldown"] = reduced
+	monster_item["current_cooldown"] = reduced
+
+static func _count_present_monster_item_tags(monster_items: Array, tags: Array) -> int:
+	var count: int = 0
+	for tag_value in tags:
+		var tag: String = str(tag_value)
+		if tag.is_empty():
+			continue
+		for item in monster_items:
+			if item is Dictionary and _monster_item_has_tag(item as Dictionary, tag):
+				count += 1
+				break
+	return count
 
 static func _get_monster_numeric_skill_target_indexes(monster_items: Array, target: String) -> Array[int]:
 	var indexes: Array[int] = []
@@ -1285,6 +1333,37 @@ static func _get_monster_numeric_skill_target_indexes(monster_items: Array, targ
 			if rightmost_burn >= 0:
 				indexes.append(rightmost_burn)
 			return indexes
+		"leftmost_ammo_item":
+			var leftmost_ammo: int = _find_monster_numeric_item_index(monster_items, "ammo", false)
+			if leftmost_ammo >= 0:
+				indexes.append(leftmost_ammo)
+			return indexes
+		"rightmost_regen_item":
+			var rightmost_regen: int = _find_monster_numeric_item_index(monster_items, "regen", true)
+			if rightmost_regen >= 0:
+				indexes.append(rightmost_regen)
+			return indexes
+		"edge_items":
+			if not monster_items.is_empty():
+				indexes.append(0)
+				var last_index: int = monster_items.size() - 1
+				if last_index > 0:
+					indexes.append(last_index)
+			return indexes
+		"non_vehicle_items_if_vehicle_present":
+			if _any_monster_item_has_tag(monster_items, "Vehicle"):
+				for index in range(monster_items.size()):
+					if monster_items[index] is Dictionary and not _monster_item_has_tag(monster_items[index] as Dictionary, "Vehicle"):
+						indexes.append(index)
+			return indexes
+		"only_medium_item":
+			var medium_indexes: Array[int] = []
+			for index in range(monster_items.size()):
+				if monster_items[index] is Dictionary and int((monster_items[index] as Dictionary).get("slot_count", 1)) == 2:
+					medium_indexes.append(index)
+			if medium_indexes.size() == 1:
+				indexes.append(medium_indexes[0])
+			return indexes
 	for index in range(monster_items.size()):
 		if monster_items[index] is Dictionary and _monster_item_matches_numeric_skill_target(monster_items[index] as Dictionary, target):
 			indexes.append(index)
@@ -1318,10 +1397,32 @@ static func _monster_item_matches_numeric_skill_target(monster_item: Dictionary,
 			return int(monster_item.get("type", ItemDataClass.Type.UTILITY)) == ItemDataClass.Type.WEAPON
 		"all_items":
 			return true
+		"ammo_items":
+			return int(monster_item.get("ammo", monster_item.get("max_ammo", 0))) > 0
 		"burn_items":
 			return int(monster_item.get("burn", 0)) > 0
 		"heal_items":
 			return int(monster_item.get("heal", 0)) > 0
+		"friend_items":
+			return _monster_item_has_tag(monster_item, "Friend")
+		"small_diamond_items":
+			return int(monster_item.get("slot_count", 1)) == 1 and int(monster_item.get("rarity", RARITY_BRONZE)) == RARITY_DIAMOND
+		"non_vehicle_items_if_vehicle_present":
+			return not _monster_item_has_tag(monster_item, "Vehicle")
+		"only_medium_item":
+			return int(monster_item.get("slot_count", 1)) == 2
+	return false
+
+static func _any_monster_item_has_tag(monster_items: Array, tag: String) -> bool:
+	for item in monster_items:
+		if item is Dictionary and _monster_item_has_tag(item as Dictionary, tag):
+			return true
+	return false
+
+static func _monster_item_has_tag(monster_item: Dictionary, tag: String) -> bool:
+	for value in monster_item.get("tags", []):
+		if str(value) == tag:
+			return true
 	return false
 
 static func _item_runtime_mechanics(item: ItemDataClass) -> Array[String]:
