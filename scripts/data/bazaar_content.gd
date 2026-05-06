@@ -10,6 +10,7 @@ const WikiEventCatalogClass = preload("res://scripts/data/wiki_event_catalog.gd"
 const EffectDefinitionClass = preload("res://scripts/data/effect_definition.gd")
 const EnchantmentCatalogClass = preload("res://scripts/data/enchantment_catalog.gd")
 const PlayerSkillCatalogClass = preload("res://scripts/data/player_skill_catalog.gd")
+const EconomyManagerClass = preload("res://scripts/data/economy_manager.gd")
 
 const RARITY_BRONZE: int = 1
 const RARITY_SILVER: int = 2
@@ -817,7 +818,7 @@ static func _apply_spec_to_item(
 	var start_rarity: int = _get_spec_start_rarity(spec)
 	var raw_ammo: Variant = spec.get("ammo", 0)
 	var ammo_fallback: int = int(raw_ammo) if raw_ammo is int or raw_ammo is float else 0
-	item.buy_price = _get_int_for_rarity(spec.get("cost", []), item_rarity, 0, start_rarity)
+	item.buy_price = EconomyManagerClass.calculate_item_price(item_rarity, item.size as int, item.type as int, 1)
 	item.cooldown = _get_float_for_rarity(spec.get("cooldown", []), item_rarity, 0.0, start_rarity)
 	item.ammo = _get_int_for_rarity(raw_ammo, item_rarity, ammo_fallback, start_rarity)
 	item.damage = _get_int_for_rarity(spec.get("damage", []), item_rarity, 0, start_rarity)

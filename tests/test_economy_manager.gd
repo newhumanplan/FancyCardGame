@@ -42,9 +42,21 @@ func _print_summary() -> void:
 func test_calculate_item_price_for_multiple_rarity_and_size_cases() -> void:
 	var economy = _economy()
 
-	_assert_eq(economy.calculate_item_price(1, 0, 0, 1), 12, "calculate_item_price handles common small weapon on day 1")
-	_assert_eq(economy.calculate_item_price(3, 1, 2, 4), 67, "calculate_item_price handles epic medium heal item on day 4")
-	_assert_eq(economy.calculate_item_price(4, 2, 3, 7), 200, "calculate_item_price clamps very expensive items to max price")
+	var expected_by_size: Dictionary = {
+		0: [2, 4, 8, 16],
+		1: [4, 8, 16, 32],
+		2: [6, 12, 24, 48],
+	}
+	for size in expected_by_size.keys():
+		var expected_prices: Array = expected_by_size[size]
+		for rarity_index in range(expected_prices.size()):
+			var rarity: int = rarity_index + 1
+			_assert_eq(
+				economy.calculate_item_price(rarity, int(size), 0, 1),
+				int(expected_prices[rarity_index]),
+				"default price table size=%d rarity=%d" % [int(size), rarity]
+			)
+	_assert_eq(economy.calculate_item_price(3, 1, 0, 1), economy.calculate_item_price(3, 1, 3, 10), "default price ignores item type and day")
 
 
 func test_apply_prestige_discount_for_full_and_zero_prestige() -> void:

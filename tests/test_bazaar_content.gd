@@ -57,8 +57,11 @@ func test_full_mak_item_catalog_and_starting_tiers() -> void:
 	_assert_eq(amber.slow_duration, 3.0, "Amber slow duration")
 
 	var regeneration_potion: ItemDataClass = BazaarContentClass.create_item("regeneration_potion", BazaarContentClass.RARITY_GOLD)
-	_assert_eq(regeneration_potion.buy_price, 8, "Gold Regeneration Potion uses second wiki cost tier")
+	_assert_eq(regeneration_potion.buy_price, 8, "Gold Regeneration Potion uses default small gold buy price")
 	_assert_eq(int(regeneration_potion.regeneration), 16, "Gold Regeneration Potion regen value")
+
+	var sulphur: ItemDataClass = BazaarContentClass.create_item("sulphur", BazaarContentClass.RARITY_BRONZE)
+	_assert_eq(sulphur.buy_price, 2, "catalog cost arrays do not override default small bronze buy price")
 
 func test_all_confirmed_hero_item_collections() -> void:
 	var minimums: Dictionary = {

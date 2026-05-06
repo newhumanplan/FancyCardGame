@@ -187,20 +187,23 @@ func refill_ammo(amount: int = 1) -> int:
 ## 获取稀有度名称
 func get_rarity_name() -> String:
 	match rarity:
-		1: return "普通"
-		2: return "稀有"
-		3: return "史诗"
-		4: return "传说"
+		1: return "青铜"
+		2: return "白银"
+		3: return "黄金"
+		4: return "钻石"
 		_: return "未知"
+
+static func get_rarity_border_color(rarity_value: int) -> Color:
+	match clampi(rarity_value, 1, 4):
+		1: return Color(0.74, 0.45, 0.22, 1.0)
+		2: return Color(0.82, 0.86, 0.88, 1.0)
+		3: return Color(1.00, 0.74, 0.20, 1.0)
+		4: return Color(0.72, 0.96, 1.00, 1.0)
+	return Color.WHITE
 
 ## 获取稀有度颜色
 func get_rarity_color() -> Color:
-	match rarity:
-		1: return Color.GRAY
-		2: return Color.GREEN
-		3: return Color.PURPLE
-		4: return Color.ORANGE
-		_: return Color.WHITE
+	return get_rarity_border_color(rarity)
 
 ## 获取类型名称
 func get_type_name() -> String:

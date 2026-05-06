@@ -21,23 +21,18 @@ const EVENT_GOLD_MAX: int = 40
 
 ## ============ 商店定价配置 ============
 
-## 物品基础价格（按稀有度）
-## 索引: 0=不使用, 1=普通, 2=稀有, 3=史诗, 4=传说
-const ITEM_BASE_PRICES: Array[int] = [0, 10, 25, 50, 80]
-
-## 尺寸价格倍率
-const SIZE_PRICE_MULTIPLIER: Dictionary = {
-	0: 1.0,   # SMALL
-	1: 1.5,   # MEDIUM
-	2: 2.5,   # LARGE
+## 默认买入价格 = size base × rarity multiplier. Discounts apply after this baseline.
+const ITEM_SIZE_BASE_PRICES: Dictionary = {
+	0: 2,   # SMALL
+	1: 4,   # MEDIUM
+	2: 6,   # LARGE
 }
 
-## 类型价格倍率
-const TYPE_PRICE_MULTIPLIER: Dictionary = {
-	0: 1.2,   # WEAPON
-	1: 1.0,   # SHIELD
-	2: 0.8,   # HEAL
-	3: 1.5,   # UTILITY
+const ITEM_RARITY_PRICE_MULTIPLIERS: Dictionary = {
+	1: 1,   # Bronze
+	2: 2,   # Silver
+	3: 4,   # Gold
+	4: 8,   # Diamond
 }
 
 ## ============ 经济曲线 ============
@@ -67,22 +62,13 @@ const RARITY_UNLOCK_DAYS: Array[int] = [0, 1, 2, 4, 6]
 
 ## ============ 核心方法 ============
 
-static func _resolve_multiplier(source: Dictionary, key: int) -> float:
-	return float(source.get(key, 1.0))
-
-## 计算物品价格（基于稀有度、尺寸、类型、天数）
+## 计算默认物品买入价格。item_type/day 保留在签名中用于兼容，但不影响默认价格。
 static func calculate_item_price(item_rarity: int, item_size: int, item_type: int, day: int) -> int:
-	day = maxi(day, 1)
-	if item_rarity < 1 or item_rarity > 4:
-		return 10
-
-	var price: int = ITEM_BASE_PRICES[item_rarity]
-	price = int(float(price) * _resolve_multiplier(SIZE_PRICE_MULTIPLIER, item_size))
-	price = int(float(price) * _resolve_multiplier(TYPE_PRICE_MULTIPLIER, item_type))
-	price = int(float(price) * (1.0 + day * 0.05))
-	price = mini(price, MAX_ITEM_PRICE)
-	price = maxi(price, 5)
-	return price
+	var safe_rarity: int = clampi(item_rarity, 1, 4)
+	var safe_size: int = clampi(item_size, 0, 2)
+	var base_price: int = int(ITEM_SIZE_BASE_PRICES.get(safe_size, 2))
+	var rarity_multiplier: int = int(ITEM_RARITY_PRICE_MULTIPLIERS.get(safe_rarity, 1))
+	return base_price * rarity_multiplier
 
 ## 计算怪物战斗预期收入
 static func calculate_monster_gold(day: int) -> int:

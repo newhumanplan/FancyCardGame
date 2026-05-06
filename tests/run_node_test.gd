@@ -17,3 +17,8 @@ func _initialize() -> void:
 	var test_node: Node = Node.new()
 	test_node.set_script(test_script)
 	root.add_child(test_node)
+	await process_frame
+	await process_frame
+	var total: int = int(test_node.get("_total"))
+	var passed: int = int(test_node.get("_passed"))
+	quit(0 if total <= 0 or passed == total else 1)

@@ -388,12 +388,12 @@ func _display_item(item: ItemDataClass, is_synergy_highlight: bool = false) -> v
 	if is_synergy_highlight:
 		# 协同高亮效果 - 金色发光
 		style.bg_color = item_color * 0.5
-		style.border_color = Color(1.0, 0.84, 0.0)  # 金色
-		style.set_border_width_all(3)
+		style.border_color = item_color.lerp(Color(1.0, 0.84, 0.0), 0.35)
+		style.set_border_width_all(4)
 	else:
-		style.bg_color = item_color * 0.4
+		style.bg_color = item_color.darkened(0.45)
 		style.border_color = item_color
-		style.set_border_width_all(2)
+		style.set_border_width_all(3)
 
 	style.set_corner_radius_all(4)
 	bg.add_theme_stylebox_override("panel", style)
@@ -659,13 +659,9 @@ func _update_cooldown_overlays() -> void:
 
 ## 获取物品颜色(基于稀有度)
 func _get_item_color(item: ItemDataClass) -> Color:
-	match item.rarity:
-		1: return Color(0.6, 0.6, 0.6)  # 普通 - 灰色
-		2: return Color(0.2, 0.8, 0.2)  # 优秀 - 绿色
-		3: return Color(0.2, 0.5, 0.9)  # 精良 - 蓝色
-		4: return Color(0.7, 0.4, 0.9)  # 史诗 - 紫色
-		5: return Color(1.0, 0.7, 0.2)  # 传说 - 橙色
-		_: return Color.WHITE
+	if item == null:
+		return Color.WHITE
+	return item.get_rarity_color()
 
 ## 槽位输入处理
 func _on_slot_input(event: InputEvent, slot_index: int) -> void:
@@ -715,10 +711,10 @@ func _on_item_hover(item: ItemDataClass, panel: Control, hovering: bool) -> void
 			style.border_width_top = 3
 			style.border_width_bottom = 3
 		else:
-			style.border_width_left = 2
-			style.border_width_right = 2
-			style.border_width_top = 2
-			style.border_width_bottom = 2
+			style.border_width_left = 3
+			style.border_width_right = 3
+			style.border_width_top = 3
+			style.border_width_bottom = 3
 
 	if hovering:
 		hover_timer.stop()

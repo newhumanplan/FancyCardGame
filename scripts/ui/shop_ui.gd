@@ -47,8 +47,8 @@ signal item_purchased(item: ItemDataClass)
 ## 回调函数引用
 var on_shop_closed_callback: Callable = Callable()
 
-## 稀有度名称映射（4 级稀有度：普通/稀有/史诗/传说）
-const RARITY_NAMES: Array[String] = ["普通", "稀有", "史诗", "传说"]
+## 稀有度名称映射（4 级稀有度：青铜/白银/黄金/钻石）
+const RARITY_NAMES: Array[String] = ["青铜", "白银", "黄金", "钻石"]
 
 func _ready() -> void:
 	# 连接关闭按钮
@@ -229,8 +229,8 @@ func _create_item_display(item: ItemDataClass, idx: int) -> Control:
 	# 卡片样式
 	var card_style = StyleBoxFlat.new()
 	card_style.bg_color = Color(0.15, 0.15, 0.25, 0.95)
-	card_style.set_border_width_all(1)
-	card_style.border_color = Color(0.4, 0.4, 0.6, 0.8)
+	card_style.set_border_width_all(4)
+	card_style.border_color = item.get_rarity_color()
 	card_style.set_corner_radius_all(6)
 	card_panel.add_theme_stylebox_override("panel", card_style)
 
@@ -340,12 +340,7 @@ func _create_item_display(item: ItemDataClass, idx: int) -> Control:
 
 ## 获取稀有度颜色（4 级系统）
 func _get_rarity_color(rarity: int) -> Color:
-	match rarity:
-		1: return Color(0.7, 0.7, 0.7)  # 普通 - 灰
-		2: return Color(0.2, 0.9, 0.2)  # 稀有 - 绿
-		3: return Color(0.7, 0.4, 1.0)  # 史诗 - 紫
-		4: return Color(1.0, 0.7, 0.2)  # 传说 - 金
-		_: return Color.WHITE
+	return ItemDataClass.get_rarity_border_color(rarity)
 
 ## 获取商店物品图片路径
 func _get_shop_item_texture_path(item: ItemDataClass) -> String:

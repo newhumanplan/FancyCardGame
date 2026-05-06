@@ -5,6 +5,7 @@ const EventManagerClass = preload("res://scripts/data/event_manager.gd")
 const HeroDataClass = preload("res://scripts/data/hero_data.gd")
 const ItemDataClass = preload("res://scripts/data/item_data.gd")
 const LinearInventoryClass = preload("res://scripts/data/linear_inventory.gd")
+const EconomyManagerClass = preload("res://scripts/data/economy_manager.gd")
 
 var _total: int = 0
 var _passed: int = 0
@@ -95,6 +96,12 @@ func test_economy_service_generates_and_refreshes_merchant_shelves() -> void:
 	)
 	_assert_equal(shelf.size(), 4, "EconomyService generates requested merchant shelf size")
 	_assert_true(shelf[0].buy_price > 0, "EconomyService prices generated merchant items")
+	for item in shelf:
+		_assert_equal(
+			item.buy_price,
+			EconomyManagerClass.calculate_item_price(item.rarity, item.size as int, item.type as int, 3),
+			"EconomyService normalizes generated source-backed shop item default price: %s" % item.source_id
+		)
 
 	var locked_indices: Array[int] = [0]
 	var refreshed: Array[ItemDataClass] = EconomyService.refresh_merchant_shelf(
@@ -115,6 +122,7 @@ func _reset_services_with_hero() -> void:
 	RewardService.reset_runtime_state()
 	EconomyService.reset()
 	RunStateService.reset(true)
+	RunStateService.prestige = 0
 	HeroStateService.reset()
 	var hero = HeroFactoryService.create_hero(HeroDataClass.HeroType.MAK)
 	GameManager.select_hero(hero)

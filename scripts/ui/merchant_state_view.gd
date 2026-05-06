@@ -826,22 +826,13 @@ func _make_value_badge_style(is_available: bool) -> StyleBoxFlat:
 	return style
 
 func _get_rarity_color(rarity: int) -> Color:
-	match rarity:
-		1:
-			return Color(0.78, 0.78, 0.74, 1.0)
-		2:
-			return Color(0.34, 0.95, 0.44, 1.0)
-		3:
-			return Color(0.78, 0.52, 1.00, 1.0)
-		4:
-			return Color(1.00, 0.76, 0.30, 1.0)
-	return Color.WHITE
+	return ItemDataClass.get_rarity_border_color(rarity)
 
 func _make_item_card_style(item: ItemDataClass) -> StyleBoxFlat:
 	var style: StyleBoxFlat = StyleBoxFlat.new()
 	style.bg_color = Color(0.08, 0.08, 0.12, 0.88)
 	style.border_color = _get_rarity_color(item.rarity)
-	style.set_border_width_all(2)
+	style.set_border_width_all(3)
 	style.set_corner_radius_all(5)
 	style.shadow_color = Color(0.0, 0.0, 0.0, 0.30)
 	style.shadow_size = 6

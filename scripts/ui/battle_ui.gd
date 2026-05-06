@@ -2379,14 +2379,14 @@ func _create_player_card_style(item_data: ItemDataClass, hovered: bool = false, 
 	var style: StyleBoxFlat = StyleBoxFlat.new()
 	style.bg_color = colors["background"]
 	if selected:
-		style.border_color = Color(1.0, 0.84, 0.0, 1.0)
-		style.set_border_width_all(3)
+		style.border_color = colors["border"].lerp(Color(1.0, 0.84, 0.0, 1.0), 0.35)
+		style.set_border_width_all(4)
 	elif hovered:
-		style.border_color = PVP_HAND_BORDER_COLOR.lerp(Color.WHITE, 0.3)
-		style.set_border_width_all(3)
+		style.border_color = colors["border"].lerp(Color.WHITE, 0.22)
+		style.set_border_width_all(4)
 	else:
-		style.border_color = PVP_HAND_BORDER_COLOR
-		style.set_border_width_all(2)
+		style.border_color = colors["border"]
+		style.set_border_width_all(3)
 	style.set_corner_radius_all(6)
 	return style
 
@@ -2444,27 +2444,11 @@ func _get_monster_item_effective_damage(monster_item: Dictionary) -> int:
 	return maxi(int(float(base_damage) * damage_mult), 0)
 
 func _get_card_colors_by_rarity(rarity: int) -> Dictionary:
-	match rarity:
-		2:
-			return {
-				"background": Color(0.16, 0.28, 0.16, 1.0),
-				"border": Color(0.34, 0.75, 0.34, 1.0)
-			}
-		3:
-			return {
-				"background": Color(0.15, 0.20, 0.35, 1.0),
-				"border": Color(0.33, 0.55, 0.92, 1.0)
-			}
-		4:
-			return {
-				"background": Color(0.25, 0.14, 0.32, 1.0),
-				"border": Color(0.73, 0.43, 0.95, 1.0)
-			}
-		_:
-			return {
-				"background": Color(0.26, 0.26, 0.28, 1.0),
-				"border": Color(0.88, 0.88, 0.90, 1.0)
-			}
+	var border: Color = ItemDataClass.get_rarity_border_color(rarity)
+	return {
+		"background": border.darkened(0.72),
+		"border": border,
+	}
 
 func _create_skill_slot_label(initial_text: String) -> Label:
 	var skill_label: Label = Label.new()
