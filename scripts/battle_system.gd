@@ -1195,7 +1195,7 @@ func _resolve_effect_amount(
 			"source.slow_duration":
 				amount = 0.0 if owner_item == null else owner_item.slow_duration
 			"source.freeze_duration":
-				amount = 0.0 if owner_item == null else owner_item.freeze_duration
+				amount = 0.0 if owner_item == null else owner_item.freeze_duration + _get_item_runtime_bonus(owner_item, "freeze_duration")
 			"source.haste_duration":
 				amount = 0.0 if owner_item == null else owner_item.haste_duration
 			"enemy_status.poison":
@@ -1747,11 +1747,31 @@ func _apply_permanent_item_bonus(item: ItemData, key: String, value: float) -> b
 func _get_item_runtime_bonus(item: ItemData, key: String) -> float:
 	if item == null:
 		return 0.0
+	var stored_bonus: float = 0.0
 	var item_id: int = item.get_instance_id()
-	if not item_runtime_bonuses.has(item_id):
+	if item_runtime_bonuses.has(item_id):
+		var bonuses: Dictionary = item_runtime_bonuses.get(item_id, {})
+		stored_bonus = float(bonuses.get(key, 0.0))
+	return stored_bonus + _get_dynamic_item_runtime_bonus(item, key)
+
+func _get_dynamic_item_runtime_bonus(item: ItemData, key: String) -> float:
+	if item == null:
 		return 0.0
-	var bonuses: Dictionary = item_runtime_bonuses.get(item_id, {})
-	return float(bonuses.get(key, 0.0))
+	if key == EffectDefinitionClass.EFFECT_DAMAGE and _is_weapon_item(item):
+		return _get_poppy_field_weapon_damage_bonus(item)
+	return 0.0
+
+func _get_poppy_field_weapon_damage_bonus(item: ItemData) -> float:
+	if inventory == null or item == null:
+		return 0.0
+	var enemy_poison: float = float(enemy_status_state.get(EffectDefinitionClass.EFFECT_POISON, 0.0))
+	if enemy_poison <= 0.0:
+		return 0.0
+	var bonus: float = 0.0
+	for candidate in inventory.items:
+		if candidate != null and candidate != item and candidate.source_id == "poppy_field":
+			bonus += enemy_poison * _get_rarity_value(candidate, [0.0, 0.5, 0.75, 1.0], 0.0)
+	return bonus
 
 func _add_item_runtime_bonus(item: ItemData, key: String, value: float) -> void:
 	if item == null or value == 0.0:

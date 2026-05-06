@@ -456,6 +456,9 @@ static func build_item_effects(item: ItemDataClass) -> Array[Dictionary]:
 			handled_keywords[EFFECT_RUNTIME_BONUS] = true
 			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_COOLDOWN_READY, EFFECT_RELOAD, {"side": "self", "selector": "ammo_items", "count": 2}, {"type": EFFECT_RELOAD, "amount": 1}))
 			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_RELOAD, EFFECT_REGENERATION, {"side": "self", "selector": "hero"}, {"type": EFFECT_REGENERATION, "amount": 2}))
+		"sapphire":
+			handled_keywords[EFFECT_RUNTIME_BONUS] = true
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_BATTLE_START, EFFECT_RUNTIME_BONUS, {"side": "self", "selector": "other_matching_tag_items", "tag": "Freeze"}, {"type": EFFECT_RUNTIME_BONUS, "bonus_key": "freeze_duration", "amount": 0.5, "scope": "combat"}))
 		"pearl":
 			handled_keywords[EFFECT_CHARGE] = true
 			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_TAG_USED, EFFECT_CHARGE, {"side": "self", "selector": "this_item"}, {"type": EFFECT_CHARGE, "amount": 1.0}, {"tag": "Aquatic", "event_source_not_owner": true}))
@@ -783,7 +786,7 @@ static func _runtime_bonus_runtime_path(source_id: String) -> String:
 			return "BattleSystem item aura runtime bonus"
 		"incendiary_rounds", "jellyfish":
 			return "BattleSystem adjacent item-use and battle-start item runtime bonus"
-		"amber", "blue_piggles_l", "cosmic_plumage", "elemental_depth_charge", "fire_claw", "hot_sauce", "nargile", "pesky_pete", "seaweed", "spices":
+		"amber", "blue_piggles_l", "cosmic_plumage", "elemental_depth_charge", "fire_claw", "hot_sauce", "nargile", "pesky_pete", "poppy_field", "seaweed", "spices":
 			return "BattleSystem high-frequency item runtime bonus"
 		"rapid_injection_system":
 			return "BattleSystem adjacent item-use self-poison and regeneration runtime"
