@@ -60,6 +60,7 @@ func _run_wrapped_test(path: String) -> void:
 		return
 
 	var wrapper: Node = wrapper_script.new()
+	set_meta("node_test_runner_controls_quit", true)
 	root.add_child(wrapper)
 	await process_frame
 	await process_frame
@@ -76,6 +77,8 @@ func _run_wrapped_test(path: String) -> void:
 
 
 func _quit_after_cleanup(exit_code: int) -> void:
+	if has_meta("node_test_runner_controls_quit"):
+		remove_meta("node_test_runner_controls_quit")
 	await process_frame
 	await process_frame
 	quit(exit_code)

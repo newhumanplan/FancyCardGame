@@ -140,4 +140,5 @@ func _assert_equal(actual: Variant, expected: Variant, label: String) -> void:
 
 func _print_summary() -> void:
 	print("SUMMARY: %d/%d passed" % [_passed, _total])
-	get_tree().quit(1 if _passed < _total else 0)
+	if not get_tree().has_meta("node_test_runner_controls_quit"):
+		get_tree().quit(1 if _passed < _total else 0)
