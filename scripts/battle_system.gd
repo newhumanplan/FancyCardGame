@@ -275,6 +275,8 @@ func _trigger_player_items() -> void:
 			},
 			"after_consume"
 		)
+		if bool(post_consume_result.get("executed", false)):
+			item.current_cooldown = minf(item.current_cooldown, _get_effective_cooldown(_get_player_item_effective_cooldown(item)))
 		_merge_use_context(total_context, post_consume_result.get("context", {}))
 		reactive_events.append_array(post_consume_result.get("events", []))
 		_merge_use_context(total_context, _process_reactive_effect_events(reactive_events))
@@ -825,6 +827,8 @@ func _execute_item_effect_definitions(
 		var definition_timing: String = str(definition.get("timing", "before_consume"))
 		if definition_timing != timing:
 			continue
+		if not _should_execute_effect_definition(owner, definition, root_event):
+			continue
 		var effect_data: Dictionary = definition.get("effect", {})
 		if str(effect_data.get("type", "")) == EffectDefinitionClass.EFFECT_MULTICAST:
 			continue
@@ -842,6 +846,8 @@ func _execute_item_effect_definitions(
 		)
 		_merge_use_context(result.get("context", {}), execution_result.get("context", {}))
 		result["events"].append_array(execution_result.get("events", []))
+		if bool(execution_result.get("executed", false)):
+			_mark_effect_definition_triggered(owner, definition, root_event)
 		result["executed"] = bool(result.get("executed", false)) or bool(execution_result.get("executed", false))
 	if timing == "before_consume":
 		var extra_poison: float = _get_item_runtime_bonus(item, "poison") + _get_other_emerald_poison_bonus(item)
@@ -1196,6 +1202,9 @@ func _resolve_effect_amount(
 				amount = _get_status_total("enemy", EffectDefinitionClass.EFFECT_POISON)
 			"player_status.regeneration":
 				amount = _get_status_total("self", EffectDefinitionClass.EFFECT_REGENERATION)
+			"source.cooldown_percent":
+				var percent: float = float(effect_data.get("percent", 0.0))
+				amount = 0.0 if owner_item == null else owner_item.cooldown * percent
 			"other_items.burn_percent_by_rarity":
 				amount = _get_other_items_status_total(owner_item, EffectDefinitionClass.EFFECT_BURN) * _get_rarity_value(owner_item, effect_data.get("percent_by_rarity", []), 0.0)
 			"other_items.matching_tag_count":
