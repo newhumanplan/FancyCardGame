@@ -1339,13 +1339,16 @@ func _resolve_effect_targets(
 			)
 			for index in range(mini(count, candidates.size())):
 				targets.append({"kind": "player_item", "item": candidates[index]})
-		"matching_size_highest_cooldown":
+		"matching_size_highest_cooldown", "other_matching_size_highest_cooldown":
 			var size_name: String = str(target_data.get("size", "")).to_lower()
 			var candidates: Array[ItemData] = []
 			if inventory != null:
 				for item in inventory.items:
-					if item != null and _item_size_matches(item, size_name) and item.current_cooldown > 0.0:
-						candidates.append(item)
+					if item == null or not _item_size_matches(item, size_name) or item.current_cooldown <= 0.0:
+						continue
+					if selector == "other_matching_size_highest_cooldown" and item == owner_item:
+						continue
+					candidates.append(item)
 			candidates.sort_custom(func(a: ItemData, b: ItemData) -> bool:
 				return a.current_cooldown > b.current_cooldown
 			)

@@ -358,6 +358,9 @@ static func build_item_effects(item: ItemDataClass) -> Array[Dictionary]:
 			handled_keywords[EFFECT_RUNTIME_BONUS] = true
 			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_BATTLE_START, EFFECT_AMMO, {"side": "self", "selector": "adjacent"}, {"type": EFFECT_AMMO, "amount": 1}))
 			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_ITEM_USED, EFFECT_BURN, {"side": "enemy", "selector": "hero"}, {"type": EFFECT_BURN, "amount_by_rarity": [1, 2, 3]}, {"event_source_is_owner_or_adjacent": true, "event_source_not_owner": true}))
+		"hot_sauce":
+			handled_keywords[EFFECT_MULTICAST] = true
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_COOLDOWN_READY, EFFECT_MULTICAST, {"side": "self", "selector": "this_item"}, {"type": EFFECT_MULTICAST, "amount_from": "adjacent_items.matching_any_tag_count", "tags": ["Food"]}))
 		"infinite_potion":
 			handled_keywords[EFFECT_RELOAD] = true
 			definitions.append({
@@ -396,6 +399,15 @@ static func build_item_effects(item: ItemDataClass) -> Array[Dictionary]:
 			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_COOLDOWN_READY, "enemy_burn", {"side": "enemy", "selector": "hero"}, {"type": EFFECT_BURN, "amount_by_rarity": [0, 4, 6, 8]}))
 			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_COOLDOWN_READY, "self_burn", {"side": "self", "selector": "hero"}, {"type": EFFECT_BURN, "amount_by_rarity": [0, 4, 6, 8]}))
 			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_COOLDOWN_READY, EFFECT_CHARGE, {"side": "self", "selector": "slowest_other_items", "count": 1}, {"type": EFFECT_CHARGE, "amount_by_rarity": [1, 2, 3, 4]}))
+		"plasma_grenade":
+			handled_keywords[EFFECT_BURN] = true
+			handled_keywords[EFFECT_SLOW] = true
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_COOLDOWN_READY, "enemy_burn", {"side": "enemy", "selector": "hero"}, {"type": EFFECT_BURN, "amount_by_rarity": [5, 10, 15, 20]}))
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_COOLDOWN_READY, "self_burn", {"side": "self", "selector": "hero"}, {"type": EFFECT_BURN, "amount_by_rarity": [5, 10, 15, 20]}))
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_COOLDOWN_READY, EFFECT_SLOW, {"side": "enemy", "selector": "slowest_items", "count": 99}, {"type": EFFECT_SLOW, "amount_by_rarity": [1, 1, 1, 2]}))
+		"curry":
+			handled_keywords[EFFECT_CHARGE] = true
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_COOLDOWN_READY, EFFECT_CHARGE, {"side": "self", "selector": "other_matching_size_highest_cooldown", "size": "small", "count": 1}, {"type": EFFECT_CHARGE, "amount_by_rarity": [0, 3, 4, 5]}))
 		"ouroboros_statue":
 			handled_keywords[EFFECT_REGENERATION] = true
 			handled_keywords[EFFECT_RUNTIME_BONUS] = true
@@ -771,7 +783,7 @@ static func _runtime_bonus_runtime_path(source_id: String) -> String:
 			return "BattleSystem item aura runtime bonus"
 		"incendiary_rounds", "jellyfish":
 			return "BattleSystem adjacent item-use and battle-start item runtime bonus"
-		"amber", "blue_piggles_l", "cosmic_plumage", "elemental_depth_charge", "fire_claw", "nargile", "pesky_pete", "seaweed", "spices":
+		"amber", "blue_piggles_l", "cosmic_plumage", "elemental_depth_charge", "fire_claw", "hot_sauce", "nargile", "pesky_pete", "seaweed", "spices":
 			return "BattleSystem high-frequency item runtime bonus"
 		"rapid_injection_system":
 			return "BattleSystem adjacent item-use self-poison and regeneration runtime"
