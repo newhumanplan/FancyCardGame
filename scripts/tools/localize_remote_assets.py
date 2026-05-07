@@ -10,7 +10,7 @@ import subprocess
 import tempfile
 from collections import Counter, defaultdict
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 from urllib.parse import urlparse
 
 import requests
@@ -222,6 +222,76 @@ EVENT_UNAVAILABLE_MAP: dict[str, dict[str, Any]] = {
 }
 
 
+MONSTER_LOCALIZE_MAP: dict[str, dict[str, Any]] = {
+    "ventriloquist": {
+        "source_name": "Bazaar DB",
+        "source_page": "https://bazaardb.gg/card/3w6jcf0q5vxg3p0jufveo2q29/Ventriloquist",
+        "source_url": "https://s.bazaardb.gg/v1/z11.0/c944bdfe7485aea389d2141ff2c468ae54d6e5f7_p@400.webp?v=6",
+        "source_note": "Localized from the current Bazaar DB Ventriloquist monster portrait.",
+    },
+    "greenheart_guardian": {
+        "source_name": "Bazaar DB",
+        "source_page": "https://bazaardb.gg/card/12xnhh8tx5zb66gy28329x0844v/Greenheart-Guardian",
+        "source_url": "https://s.bazaardb.gg/v1/z13.0/e8f77662d5e8b98f7cf1597599752edea6a051a5_p@400.webp?v=6",
+        "source_note": "Localized from the current Bazaar DB Greenheart Guardian monster portrait.",
+    },
+    "awakened_primordial": {
+        "source_name": "Bazaar DB",
+        "source_page": "https://bazaardb.gg/card/15y57m9q9qm7g7h6l06wxbms76t/Awakened-Primordial",
+        "source_url": "https://s.bazaardb.gg/v1/z13.0/72e92b216050cf29c33df312819f2da2c4bfd399_p@400.webp?v=6",
+        "source_note": "Localized from the current Bazaar DB Awakened Primordial monster portrait.",
+    },
+    "blowguns_trap": {
+        "source_name": "Bazaar DB",
+        "source_page": "https://bazaardb.gg/card/d1xxf87l420n68m5hg9nx0tshs/Mythkeeper",
+        "source_url": "https://s.bazaardb.gg/v1/z13.0/ae1d72739fc24e4b0b7f05bd9a872c276de3ac2f_p@256.webp?v=6",
+        "source_note": "Localized from Bazaar DB Temple Expedition Blowguns Trap encounter art.",
+    },
+    "boulder_trap": {
+        "source_name": "Bazaar DB",
+        "source_page": "https://bazaardb.gg/card/d1xxf87l420n68m5hg9nx0tshs/Mythkeeper",
+        "source_url": "https://s.bazaardb.gg/v1/z13.0/bc07b69529f94c8a8da26be87286d7fd2a5f947a_p@256.webp?v=6",
+        "source_note": "Localized from Bazaar DB Temple Expedition Boulder Trap encounter art.",
+    },
+    "cloudtop_admiral": {
+        "source_name": "Bazaar DB",
+        "source_page": "https://bazaardb.gg/card/ehlr6f8ulet3qgs68y9nvpqu5/Cloudtop-Admiral",
+        "source_url": "https://s.bazaardb.gg/v0/z9.0a/encounter/4f1ab562b5afdad7a73c81a551e989ed232f566a@400.webp?v=2",
+        "source_note": "Localized from the Bazaar DB Cloudtop Admiral monster portrait.",
+    },
+    "grandfather_klok": {
+        "source_name": "Bazaar DB",
+        "source_page": "https://bazaardb.gg/card/14v4tkc45vb1x4f8qx39gx7xyqm/Grandfather-Klok",
+        "source_url": "https://s.bazaardb.gg/v1/z13.0/7592400bb1d7905d52560cb31eb504ef0d8e7129_p@400.webp?v=6",
+        "source_note": "Localized from the current Bazaar DB Grandfather Klok monster portrait.",
+    },
+    "morguloth": {
+        "source_name": "Bazaar DB",
+        "source_page": "https://bazaardb.gg/card/53252nyjtm5ggjllpy51c1g8sz/Morguloth",
+        "source_url": "https://s.bazaardb.gg/v1/z13.0/547cb0f6d97e587b25d88a0cfc54e38eeb7af267_p@400.webp?v=6",
+        "source_note": "Localized from the current Bazaar DB Morguloth monster portrait.",
+    },
+    "mythkeeper": {
+        "source_name": "Bazaar DB",
+        "source_page": "https://bazaardb.gg/card/d1xxf87l420n68m5hg9nx0tshs/Mythkeeper",
+        "source_url": "https://s.bazaardb.gg/v1/z13.0/a2ca510f219d350b3bc161863c06b51517a26242_p@400.webp?v=6",
+        "source_note": "Localized from the current Bazaar DB Mythkeeper monster portrait.",
+    },
+    "product_demonstrator": {
+        "source_name": "Bazaar DB",
+        "source_page": "https://bazaardb.gg/card/8fcgxx4zq4zg0vbzpy7jwkzn6f/Product-Demonstrator",
+        "source_url": "https://s.bazaardb.gg/v1/z13.0/0116cd2cbf8cbe6b389359e84c9f702b9619417a_p@400.webp?v=6",
+        "source_note": "Localized from the current Bazaar DB Product Demonstrator monster portrait.",
+    },
+    "terrorform": {
+        "source_name": "Bazaar DB",
+        "source_page": "https://bazaardb.gg/card/3p7nwl8ed650uevb5uevb6csn/Terrorform",
+        "source_url": "https://s.bazaardb.gg/v0/z10.0/encounter/d8f6df48bdebd8733429b5e6ea6aef3974cbebac@400.webp?v=2",
+        "source_note": "Localized from the Bazaar DB Terrorform monster portrait.",
+    },
+}
+
+
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--status-dir", required=True)
@@ -285,13 +355,19 @@ def _infer_domain(url_or_page: str) -> str:
 
 
 def _download_file(url: str, suffix: str) -> Path:
-    response = requests.get(url, headers={"User-Agent": USER_AGENT}, timeout=60)
-    response.raise_for_status()
-    handle, raw_path = tempfile.mkstemp(suffix=suffix)
-    os.close(handle)
-    temp_path = Path(raw_path)
-    temp_path.write_bytes(response.content)
-    return temp_path
+    last_error: Optional[Exception] = None
+    for _attempt in range(3):
+        try:
+            response = requests.get(url, headers={"User-Agent": USER_AGENT}, timeout=(15, 180))
+            response.raise_for_status()
+            handle, raw_path = tempfile.mkstemp(suffix=suffix)
+            os.close(handle)
+            temp_path = Path(raw_path)
+            temp_path.write_bytes(response.content)
+            return temp_path
+        except requests.RequestException as exc:
+            last_error = exc
+    raise RuntimeError("download failed for %s: %s" % (url, last_error))
 
 
 def _convert_to_png(source_path: Path, destination_path: Path) -> None:
@@ -439,6 +515,8 @@ def _direct_source_for_item(entry_id: str) -> dict[str, Any]:
 
 
 def _target_local_path(entry: dict[str, Any]) -> str:
+    if entry["kind"] == "monster_portrait":
+        return "assets/art/monsters/wiki/%s%s" % (entry["id"], PNG_EXT)
     return "assets/art/%s/wiki/%s%s" % (
         "events" if entry["kind"] == "event_art" else ("items" if entry["kind"] == "item_icon" else "skills"),
         entry["id"],
@@ -549,6 +627,8 @@ def main() -> None:
     # Localize event art with confirmed usable direct assets.
     for event_id, source_info in EVENT_LOCALIZE_MAP.items():
         entry = entry_by_key[("event_art", event_id)]
+        if str(entry.get("status", "")) == "confirmed_local" and str(entry.get("local_path", "")):
+            continue
         destination_local_path = _target_local_path(entry)
         _download_and_convert(str(source_info["source_url"]), destination_local_path)
         if not _is_nonempty_image(_local_res_path(destination_local_path)):
@@ -559,6 +639,78 @@ def main() -> None:
                 source_url=str(source_info["source_url"]),
                 reason="downloaded_asset_is_visually_empty",
                 note="Downloaded asset converted successfully but contains no visible non-transparent pixels.",
+            )
+            unavailable_assets.append(
+                {
+                    "kind": entry["kind"],
+                    "id": entry["id"],
+                    "name": entry["name"],
+                    "reason": entry["unavailable_reason"],
+                    "source_name": entry["source_name"],
+                    "source_page": entry["source_page"],
+                    "source_url": entry["source_url"],
+                }
+            )
+            continue
+        _update_localized_entry(
+            entry,
+            destination_local_path,
+            source_name=str(source_info["source_name"]),
+            source_page=str(source_info["source_page"]),
+            source_url=str(source_info["source_url"]),
+            source_note=str(source_info["source_note"]),
+        )
+        localized_assets.append(
+            {
+                "kind": entry["kind"],
+                "id": entry["id"],
+                "name": entry["name"],
+                "local_path": entry["local_path"],
+                "source_name": entry["source_name"],
+                "source_page": entry["source_page"],
+                "source_url": entry["source_url"],
+            }
+        )
+
+    # Localize monster portraits with confirmed direct source assets.
+    for monster_id, source_info in MONSTER_LOCALIZE_MAP.items():
+        entry = entry_by_key[("monster_portrait", monster_id)]
+        if str(entry.get("status", "")) == "confirmed_local" and str(entry.get("local_path", "")):
+            continue
+        destination_local_path = _target_local_path(entry)
+        destination = _local_res_path(destination_local_path)
+        if not destination.exists() or not _is_nonempty_image(destination):
+            try:
+                _download_and_convert(str(source_info["source_url"]), destination_local_path)
+            except Exception as exc:
+                _mark_unavailable(
+                    entry,
+                    source_name=str(source_info["source_name"]),
+                    source_page=str(source_info["source_page"]),
+                    source_url=str(source_info["source_url"]),
+                    reason="source_download_failed",
+                    note="Confirmed source URL could not be downloaded from executor network: %s" % exc,
+                )
+                unavailable_assets.append(
+                    {
+                        "kind": entry["kind"],
+                        "id": entry["id"],
+                        "name": entry["name"],
+                        "reason": entry["unavailable_reason"],
+                        "source_name": entry["source_name"],
+                        "source_page": entry["source_page"],
+                        "source_url": entry["source_url"],
+                    }
+                )
+                continue
+        if not _is_nonempty_image(destination):
+            _mark_unavailable(
+                entry,
+                source_name=str(source_info["source_name"]),
+                source_page=str(source_info["source_page"]),
+                source_url=str(source_info["source_url"]),
+                reason="downloaded_asset_is_visually_empty",
+                note="Downloaded monster portrait converted successfully but contains no visible non-transparent pixels.",
             )
             unavailable_assets.append(
                 {

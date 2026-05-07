@@ -68,8 +68,18 @@ func _image_path_loads(local_path: String) -> bool:
 	var res_path := "res://%s" % local_path
 	if not FileAccess.file_exists(res_path):
 		return false
+	var bytes := FileAccess.get_file_as_bytes(res_path)
+	if bytes.is_empty():
+		return false
 	var image := Image.new()
-	return image.load(res_path) == OK
+	var extension := local_path.get_extension().to_lower()
+	if extension == "png":
+		return image.load_png_from_buffer(bytes) == OK
+	if extension in ["jpg", "jpeg"]:
+		return image.load_jpg_from_buffer(bytes) == OK
+	if extension == "webp":
+		return image.load_webp_from_buffer(bytes) == OK
+	return false
 
 
 func _assert_true(condition: bool, label: String) -> void:

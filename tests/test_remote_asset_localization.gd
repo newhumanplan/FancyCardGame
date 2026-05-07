@@ -39,8 +39,24 @@ func _validate_remote_status(entries: Array) -> void:
 		"item_icon": 0,
 		"skill_icon": 0,
 		"event_art": 0,
+		"monster_portrait": 0,
 	}
 	var unavailable_event_ids: Array[String] = []
+	var unavailable_monster_ids: Array[String] = []
+	var unexpected_unavailable_monsters: Array[String] = []
+	var allowed_unavailable_monsters := {
+		"ventriloquist": true,
+		"greenheart_guardian": true,
+		"awakened_primordial": true,
+		"blowguns_trap": true,
+		"boulder_trap": true,
+		"cloudtop_admiral": true,
+		"grandfather_klok": true,
+		"morguloth": true,
+		"mythkeeper": true,
+		"product_demonstrator": true,
+		"terrorform": true,
+	}
 	for raw_entry in entries:
 		if not raw_entry is Dictionary:
 			continue
@@ -53,16 +69,27 @@ func _validate_remote_status(entries: Array) -> void:
 			remote_counts[kind] += 1
 		elif kind == "event_art" and status == "unavailable_after_research":
 			unavailable_event_ids.append(str(entry.get("id", "")))
+		elif kind == "monster_portrait" and status == "unavailable_after_research":
+			var monster_id := str(entry.get("id", ""))
+			unavailable_monster_ids.append(monster_id)
+			if not allowed_unavailable_monsters.has(monster_id):
+				unexpected_unavailable_monsters.append(monster_id)
+			if str(entry.get("source_url", "")).is_empty() or str(entry.get("unavailable_reason", "")).is_empty():
+				unexpected_unavailable_monsters.append("%s:missing_reason_or_source" % monster_id)
 
 	unavailable_event_ids.sort()
+	unavailable_monster_ids.sort()
+	unexpected_unavailable_monsters.sort()
 	_assert_eq(remote_counts["item_icon"], 0, "all item icons are localized or explicitly retired")
 	_assert_eq(remote_counts["skill_icon"], 0, "all skill icons are localized or explicitly retired")
 	_assert_eq(remote_counts["event_art"], 0, "event art no longer uses confirmed_remote_only markers")
+	_assert_eq(remote_counts["monster_portrait"], 0, "monster portraits no longer use confirmed_remote_only markers")
 	_assert_eq(
 		",".join(unavailable_event_ids),
 		"dooleys_workshop,jules_cafe,start_of_run",
 		"only the explicitly researched event-art blockers remain unavailable"
 	)
+	_assert_eq(unexpected_unavailable_monsters.size(), 0, "only P1F researched monster portrait blockers may remain unavailable with explicit source evidence: %s" % ",".join(unexpected_unavailable_monsters))
 
 
 func _validate_confirmed_local_paths(entries: Array) -> void:
@@ -72,7 +99,7 @@ func _validate_confirmed_local_paths(entries: Array) -> void:
 			continue
 		var entry := raw_entry as Dictionary
 		var kind := str(entry.get("kind", ""))
-		if kind not in ["item_icon", "skill_icon", "event_art"]:
+		if kind not in ["item_icon", "skill_icon", "event_art", "monster_portrait"]:
 			continue
 		if str(entry.get("status", "")) != "confirmed_local":
 			continue
@@ -84,13 +111,27 @@ func _validate_confirmed_local_paths(entries: Array) -> void:
 		if not FileAccess.file_exists(res_path):
 			broken_entries.append("%s:%s:missing_file" % [kind, str(entry.get("id", ""))])
 			continue
-		var image := Image.new()
-		if image.load(res_path) != OK:
+		if not _image_loads_from_file_bytes(local_path):
 			broken_entries.append("%s:%s:unloadable" % [kind, str(entry.get("id", ""))])
 			continue
 		if str(entry.get("source_url", "")).is_empty() or str(entry.get("source_page", "")).is_empty():
 			broken_entries.append("%s:%s:missing_provenance" % [kind, str(entry.get("id", ""))])
 	_assert_eq(broken_entries.size(), 0, "confirmed local icon/event art files exist, load, and retain provenance: %s" % ", ".join(broken_entries))
+
+
+func _image_loads_from_file_bytes(local_path: String) -> bool:
+	var bytes := FileAccess.get_file_as_bytes("res://%s" % local_path)
+	if bytes.is_empty():
+		return false
+	var image := Image.new()
+	var extension := local_path.get_extension().to_lower()
+	if extension == "png":
+		return image.load_png_from_buffer(bytes) == OK
+	if extension in ["jpg", "jpeg"]:
+		return image.load_jpg_from_buffer(bytes) == OK
+	if extension == "webp":
+		return image.load_webp_from_buffer(bytes) == OK
+	return false
 
 
 func _validate_alias_lookup_paths() -> void:
