@@ -23,6 +23,7 @@ const MONSTER_DIRECT_NUMERIC_SKILL_BINDINGS: Dictionary = {
 	"critical_aid": {"bonus_key": "crit_chance", "target": "heal_items", "mechanic": "skill:critical_aid:heal_item_crit_bonus"},
 	"deadly_eye": {"bonus_key": "crit_chance", "target": "weapons", "mechanic": "skill:deadly_eye:weapon_crit_bonus"},
 	"diamond_fangs": {"bonus_key": "cooldown_percent", "target": "small_diamond_items", "mechanic": "skill:diamond_fangs:small_diamond_item_cooldown_reduction"},
+	"exposing_toxins": {"bonus_key": "crit_chance", "target": "all_items", "mechanic": "skill:exposing_toxins:all_item_poison_crit_bonus"},
 	"final_flame": {"bonus_key": "burn", "target": "rightmost_burn_item", "mechanic": "skill:final_flame:rightmost_burn_bonus"},
 	"flamedancer": {"bonus_key": "crit_chance", "target": "burn_items", "mechanic": "skill:flamedancer:burn_item_crit_bonus"},
 	"first_responder": {"bonus_key": "heal", "target": "leftmost_heal_item", "mechanic": "skill:first_responder:leftmost_heal_bonus"},
@@ -36,7 +37,9 @@ const MONSTER_DIRECT_NUMERIC_SKILL_BINDINGS: Dictionary = {
 	"keen_eye": {"bonus_key": "crit_chance", "target": "all_items", "mechanic": "skill:keen_eye:all_item_crit_bonus"},
 	"left_handed": {"bonus_key": "damage", "target": "leftmost_weapon", "mechanic": "skill:left_handed:leftmost_weapon_damage_bonus"},
 	"right_handed": {"bonus_key": "damage", "target": "rightmost_weapon", "mechanic": "skill:right_handed:rightmost_weapon_damage_bonus"},
+	"reaching_the_summit": {"bonus_key": "crit_chance", "target": "all_items", "mechanic": "skill:reaching_the_summit:all_item_freeze_crit_bonus"},
 	"strength": {"bonus_key": "damage", "target": "weapons", "mechanic": "skill:strength:weapon_damage_bonus"},
+	"tracer_fire": {"bonus_key": "crit_chance", "target": "all_items", "mechanic": "skill:tracer_fire:all_item_burn_crit_bonus"},
 	"vengeance": {"bonus_key": "cooldown_percent", "target": "edge_items", "mechanic": "skill:vengeance:edge_item_cooldown_reduction"},
 }
 

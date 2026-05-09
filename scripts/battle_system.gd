@@ -547,6 +547,7 @@ func _after_player_item_used(item: ItemData, context: Dictionary) -> void:
 func _after_monster_item_used(item_index: int) -> void:
 	if current_monster == null:
 		return
+	_apply_electric_eels_enemy_use_charge()
 	if item_index < 0 or item_index + 1 >= current_monster.monster_items.size():
 		return
 	var observer: Dictionary = current_monster.monster_items[item_index + 1]
@@ -557,6 +558,24 @@ func _after_monster_item_used(item_index: int) -> void:
 		return
 	current_monster.current_shield = maxf(current_monster.current_shield + float(shield_amount), 0.0)
 	print("🛡️ [%s] 的 [Duct Tape] 响应左侧物品，获得 %d 护盾" % [current_monster.monster_name, shield_amount])
+
+func _apply_electric_eels_enemy_use_charge() -> void:
+	if inventory == null:
+		return
+	for candidate in inventory.items:
+		if candidate != null and candidate.source_id == "electric_eels":
+			_charge_player_item(candidate, 2.0)
+
+func _handle_player_item_gained_haste(item: ItemData, trigger_count: int) -> void:
+	if inventory == null or item == null or trigger_count <= 0:
+		return
+	if item.source_id == "pufferfish":
+		_charge_player_item(item, 2.0 * float(trigger_count))
+	elif item.source_id == "goggles":
+		var bonus: float = _get_rarity_value(item, [2, 4, 6, 8], 2.0) * float(trigger_count)
+		for adjacent in _get_adjacent_player_items(item):
+			if adjacent != null:
+				_add_item_runtime_bonus(adjacent, "crit_rate", bonus)
 
 func _is_active_player_item(item: ItemData) -> bool:
 	if item == null:
@@ -1030,6 +1049,11 @@ func _definition_condition_matches(
 	if bool(condition.get("event_source_not_owner", false)):
 		if owner_item == null or source_item == null or owner_item == source_item:
 			return false
+	if bool(condition.get("event_source_is_adjacent", false)):
+		if owner_item == null or source_item == null or owner_item == source_item:
+			return false
+		if not _get_adjacent_player_items(owner_item).has(source_item):
+			return false
 	if bool(condition.get("event_source_has_lifesteal", false)) and not _item_has_lifesteal(source_item):
 		return false
 	if condition.has("event_source_size"):
@@ -1170,7 +1194,11 @@ func _resolve_effect_amount(
 				var hero: HeroData = null if game_manager == null else game_manager.selected_hero
 				amount = 0.0 if hero == null else float(hero.max_hp) * percent
 			"enemy.max_health_percent":
-				var percent: float = float(effect_data.get("percent", 0.0))
+				var percent: float = 0.0
+				if effect_data.has("percent"):
+					percent = float(effect_data.get("percent", 0.0))
+				elif effect_data.has("percent_by_rarity"):
+					percent = _get_rarity_value(owner_item, effect_data.get("percent_by_rarity", []), 0.0)
 				amount = 0.0 if current_monster == null else float(current_monster.max_hp) * percent
 			"source.poison":
 				if owner_item != null:
@@ -1620,6 +1648,10 @@ func _apply_effect_definition(
 						applied_count += 1
 			if applied_count <= 0:
 				return result
+			if effect_type == EffectDefinitionClass.EFFECT_HASTE:
+				for target in targets:
+					if str(target.get("kind", "")) == "player_item":
+						_handle_player_item_gained_haste(target.get("item", null) as ItemData, 1)
 			result["executed"] = true
 			match effect_type:
 				EffectDefinitionClass.EFFECT_SLOW:
@@ -2359,6 +2391,7 @@ func _haste_player_items(count: int, seconds: float, source_item: ItemData = nul
 		if applied >= count:
 			break
 		_charge_player_item(item, seconds)
+		_handle_player_item_gained_haste(item, 1)
 		applied += 1
 	return applied
 
