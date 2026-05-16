@@ -78,7 +78,7 @@ func test_p2a2_report_resolves_half_health_status_reasons() -> void:
 		"skill:petrifying_gaze:first_self_below_half_health_freeze_all_enemy_items_trigger_not_modelled",
 	]:
 		_assert_true(not reason_counts.has(reason), "P2A-2 reason resolved: %s" % reason)
-	_assert_true(reason_counts.has("skill:fiery_rebirth:death_prevention_heal_to_full_runtime_not_modelled"), "Fiery Rebirth remains explicit death-prevention blocker")
+	_assert_true(not reason_counts.has("skill:fiery_rebirth:death_prevention_heal_to_full_runtime_not_modelled"), "Fiery Rebirth death-prevention blocker is resolved by P2A-3")
 
 func _start_custom_monster(inv: LinearInventoryClass, items: Array, skills: Array) -> MonsterDataClass:
 	var hero = BazaarContentClass.create_mak_hero()

@@ -215,13 +215,69 @@ func _damage_current_monster(damage: int, use_shield: bool = true) -> int:
 		return 0
 	var previous_hp: int = current_monster.current_hp
 	var actual_damage: int = 0
-	if use_shield:
-		actual_damage = current_monster.take_damage(damage)
-	else:
-		actual_damage = mini(damage, current_monster.current_hp)
-		current_monster.current_hp = maxi(current_monster.current_hp - actual_damage, 0)
+	var pending_damage: int = maxi(damage, 0)
+	if use_shield and current_monster.current_shield > 0.0:
+		var absorbed: float = minf(current_monster.current_shield, float(pending_damage))
+		current_monster.current_shield = maxf(current_monster.current_shield - absorbed, 0.0)
+		pending_damage = maxi(pending_damage - int(absorbed), 0)
+	if pending_damage <= 0:
+		return 0
+	actual_damage = mini(pending_damage, current_monster.current_hp)
+	if actual_damage >= current_monster.current_hp and _try_fiery_rebirth("monster"):
+		return actual_damage
+	current_monster.current_hp = maxi(current_monster.current_hp - actual_damage, 0)
 	_check_monster_first_below_half_health(previous_hp)
 	return actual_damage
+
+func _damage_player(damage: int) -> int:
+	if game_manager == null or damage <= 0:
+		return 0
+	var current_hp: int = int(game_manager.get("player_health"))
+	var actual_damage: int = mini(maxi(damage, 0), current_hp)
+	if actual_damage <= 0:
+		return 0
+	if actual_damage >= current_hp and _try_fiery_rebirth("player"):
+		return actual_damage
+	game_manager.take_damage(actual_damage)
+	return actual_damage
+
+func _try_fiery_rebirth(owner_side: String) -> bool:
+	if owner_side == "monster":
+		if current_monster == null or not _monster_has_skill("fiery_rebirth"):
+			return false
+		if bool(_effect_runtime_state.get("monster_fiery_rebirth_triggered", false)):
+			return false
+		_effect_runtime_state["monster_fiery_rebirth_triggered"] = true
+		current_monster.current_hp = current_monster.max_hp
+		_record_monster_skill_trace("fiery_rebirth", "fiery_rebirth_would_die_heal_to_full", EffectDefinitionClass.TRIGGER_ON_DAMAGE_TAKEN, EffectDefinitionClass.EFFECT_HEAL, float(current_monster.max_hp), 1)
+		return true
+	if owner_side == "player":
+		if not _has_player_skill("fiery_rebirth"):
+			return false
+		if bool(_effect_runtime_state.get("player_fiery_rebirth_triggered", false)):
+			return false
+		_effect_runtime_state["player_fiery_rebirth_triggered"] = true
+		var max_health: int = game_manager.get_max_health() if game_manager != null else 0
+		if max_health <= 0:
+			return false
+		game_manager.set("player_health", max_health)
+		_record_effect_trace(
+			{"kind": "player_skill", "id": "fiery_rebirth"},
+			{"id": "fiery_rebirth_would_die_heal_to_full", "trigger": EffectDefinitionClass.TRIGGER_ON_DAMAGE_TAKEN, "effect": {"type": EffectDefinitionClass.EFFECT_HEAL}},
+			EffectDefinitionClass.TRIGGER_ON_DAMAGE_TAKEN,
+			float(max_health),
+			1
+		)
+		return true
+	return false
+
+func _monster_has_skill(skill_id: String) -> bool:
+	if current_monster == null:
+		return false
+	for skill_ref in PlayerSkillCatalogClass.resolve_skill_refs(current_monster.monster_skills):
+		if str(skill_ref.get("id", "")) == skill_id:
+			return true
+	return false
 
 func _record_monster_skill_trace(skill_id: String, definition_id: String, trigger: String, effect_type: String, amount: float, target_count: int) -> void:
 	_record_effect_trace(
@@ -463,7 +519,7 @@ func _trigger_monster_items() -> void:
 		var shield_absorbed: float = 0.0 if hero == null else hero.remove_shield(float(total_player_damage))
 		var remaining_damage: int = total_player_damage - int(shield_absorbed)
 		if remaining_damage > 0:
-			game_manager.take_damage(remaining_damage)
+			_damage_player(remaining_damage)
 		if burn > 0:
 			_add_status_to_state(player_status_state, ItemEffectsClass.EFFECT_BURN, float(burn))
 		if poison > 0:
@@ -1641,7 +1697,7 @@ func _apply_effect_definition(
 						_damage_current_monster(damage_amount)
 						did_damage = true
 				elif game_manager != null:
-					game_manager.take_damage(damage_amount)
+					_damage_player(damage_amount)
 					did_damage = true
 			if not did_damage:
 				return result
@@ -2772,9 +2828,9 @@ func _apply_status_damage(target: String, raw_damage: int, is_burn: bool) -> voi
 			var absorbed: float = hero.remove_shield(float(damage))
 			damage = maxi(damage - int(absorbed), 0)
 		if damage > 0:
-			game_manager.take_damage(damage)
+			_damage_player(damage)
 	else:
-		game_manager.take_damage(damage)
+		_damage_player(damage)
 
 func _apply_status_heal(target: String, amount: int) -> void:
 	var heal_amount: int = maxi(amount, 0)

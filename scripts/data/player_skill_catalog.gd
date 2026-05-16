@@ -213,6 +213,7 @@ const _TRIGGER_SKILL_RULES := {
 	"flashy_mechanic": {"values": [3.0, 6.0, 9.0], "starting_tier": "silver"},
 	"flashy_reload": {"values": [1.0], "starting_tier": "diamond"},
 	"chilling_touch": {"values": [3.0, 5.0, 7.0], "starting_tier": "silver"},
+	"fiery_rebirth": {"values": [1.0], "starting_tier": "bronze"},
 	"foreboding_winds": {"values": [2.0, 4.0], "starting_tier": "gold"},
 	"hard_shell": {"values": [20.0, 30.0, 40.0, 50.0], "starting_tier": "bronze"},
 	"hunker_down": {"values": [30.0, 50.0, 80.0], "starting_tier": "silver"},

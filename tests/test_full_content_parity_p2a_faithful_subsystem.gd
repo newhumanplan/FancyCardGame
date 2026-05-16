@@ -67,7 +67,7 @@ func test_flashy_reload_monster_crit_reload_other_ammo_runtime() -> void:
 func test_hard_subsystem_blockers_remain_explicit() -> void:
 	var report: Dictionary = BazaarContentClass.get_all_monster_parity_report()
 	var reason_counts: Dictionary = report.get("grouped_missing_mechanics", {}).get("reason_counts", {})
-	_assert_true(reason_counts.has("skill:fiery_rebirth:death_prevention_heal_to_full_runtime_not_modelled"), "Fiery Rebirth remains explicit death-prevention ordering blocker")
+	_assert_true(not reason_counts.has("skill:fiery_rebirth:death_prevention_heal_to_full_runtime_not_modelled"), "Fiery Rebirth death-prevention blocker is resolved by P2A-3")
 	_assert_true(reason_counts.has("skill:ravenous:first_self_below_half_health_temporary_destroy_item_not_modelled"), "Ravenous remains explicit board-destruction blocker")
 
 func _start_custom_monster(items: Array, skills: Array) -> MonsterDataClass:
