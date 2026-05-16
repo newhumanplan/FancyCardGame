@@ -44,8 +44,12 @@ const MONSTER_DIRECT_NUMERIC_SKILL_BINDINGS: Dictionary = {
 }
 
 const MONSTER_TRIGGER_SKILL_BINDINGS: Dictionary = {
+	"chilling_touch": {"mechanic": "skill:chilling_touch:monster_first_freeze_slow_all_enemy_items_trigger"},
 	"flashy_mechanic": {"mechanic": "skill:flashy_mechanic:monster_tool_adjacent_crit_trigger"},
 	"flashy_reload": {"mechanic": "skill:flashy_reload:monster_crit_reload_other_ammo_trigger"},
+	"hard_shell": {"mechanic": "skill:hard_shell:monster_first_below_half_health_shield_percent_trigger"},
+	"hunker_down": {"mechanic": "skill:hunker_down:monster_first_below_half_health_shield_percent_trigger"},
+	"petrifying_gaze": {"mechanic": "skill:petrifying_gaze:monster_first_below_half_health_freeze_all_enemy_items_trigger"},
 	"time_to_tinker": {"mechanic": "skill:time_to_tinker:monster_haste_shield_trigger"},
 }
 

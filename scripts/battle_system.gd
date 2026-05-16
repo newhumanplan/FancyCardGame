@@ -159,13 +159,69 @@ func _apply_monster_skill_status_trigger(status_type: String, trigger_count: int
 		return
 	for skill_ref in PlayerSkillCatalogClass.resolve_skill_refs(current_monster.monster_skills):
 		var skill_id: String = str(skill_ref.get("id", ""))
-		if skill_id != "time_to_tinker" or status_type != EffectDefinitionClass.EFFECT_HASTE:
-			continue
-		var shield_amount: int = int(round(PlayerSkillCatalogClass.get_tier_value(skill_ref) * float(trigger_count)))
-		if shield_amount <= 0:
-			continue
-		current_monster.current_shield = maxf(current_monster.current_shield + float(shield_amount), 0.0)
-		_record_monster_skill_trace(skill_id, "time_to_tinker_on_haste_shield", EffectDefinitionClass.TRIGGER_ON_ENEMY_STATUS_APPLIED, EffectDefinitionClass.EFFECT_SHIELD, float(shield_amount), 1)
+		match skill_id:
+			"time_to_tinker":
+				if status_type != EffectDefinitionClass.EFFECT_HASTE:
+					continue
+				var shield_amount: int = int(round(PlayerSkillCatalogClass.get_tier_value(skill_ref) * float(trigger_count)))
+				if shield_amount <= 0:
+					continue
+				current_monster.current_shield = maxf(current_monster.current_shield + float(shield_amount), 0.0)
+				_record_monster_skill_trace(skill_id, "time_to_tinker_on_haste_shield", EffectDefinitionClass.TRIGGER_ON_ENEMY_STATUS_APPLIED, EffectDefinitionClass.EFFECT_SHIELD, float(shield_amount), 1)
+			"chilling_touch":
+				if status_type != EffectDefinitionClass.EFFECT_FREEZE:
+					continue
+				if bool(_effect_runtime_state.get("monster_chilling_touch_triggered", false)):
+					continue
+				var slow_seconds: float = PlayerSkillCatalogClass.get_tier_value(skill_ref)
+				var slowed_count: int = _slow_player_items(99, slow_seconds)
+				if slowed_count <= 0:
+					continue
+				_effect_runtime_state["monster_chilling_touch_triggered"] = true
+				_record_monster_skill_trace(skill_id, "chilling_touch_first_freeze_slow_all_enemy_items", EffectDefinitionClass.TRIGGER_ON_ENEMY_STATUS_APPLIED, EffectDefinitionClass.EFFECT_SLOW, slow_seconds, slowed_count)
+
+func _apply_monster_first_below_half_health_triggers() -> void:
+	if current_monster == null:
+		return
+	for skill_ref in PlayerSkillCatalogClass.resolve_skill_refs(current_monster.monster_skills):
+		var skill_id: String = str(skill_ref.get("id", ""))
+		match skill_id:
+			"hard_shell", "hunker_down":
+				var shield_percent: float = PlayerSkillCatalogClass.get_tier_value(skill_ref) / 100.0
+				var shield_amount: int = int(round(float(current_monster.max_hp) * shield_percent))
+				if shield_amount <= 0:
+					continue
+				current_monster.current_shield = maxf(current_monster.current_shield + float(shield_amount), 0.0)
+				_record_monster_skill_trace(skill_id, "%s_first_below_half_health_shield" % skill_id, EffectDefinitionClass.TRIGGER_ON_DAMAGE_TAKEN, EffectDefinitionClass.EFFECT_SHIELD, float(shield_amount), 1)
+			"petrifying_gaze":
+				var freeze_seconds: float = PlayerSkillCatalogClass.get_tier_value(skill_ref)
+				var frozen_count: int = _slow_player_items(99, freeze_seconds)
+				if frozen_count <= 0:
+					continue
+				_record_monster_skill_trace(skill_id, "petrifying_gaze_first_below_half_health_freeze_all_enemy_items", EffectDefinitionClass.TRIGGER_ON_DAMAGE_TAKEN, EffectDefinitionClass.EFFECT_FREEZE, freeze_seconds, frozen_count)
+
+func _check_monster_first_below_half_health(previous_hp: int) -> void:
+	if current_monster == null or current_monster.max_hp <= 0 or not current_monster.is_alive():
+		return
+	if bool(_effect_runtime_state.get("monster_first_below_half_health_triggered", false)):
+		return
+	var half_health: float = float(current_monster.max_hp) * 0.5
+	if float(previous_hp) >= half_health and float(current_monster.current_hp) < half_health:
+		_effect_runtime_state["monster_first_below_half_health_triggered"] = true
+		_apply_monster_first_below_half_health_triggers()
+
+func _damage_current_monster(damage: int, use_shield: bool = true) -> int:
+	if current_monster == null or damage <= 0:
+		return 0
+	var previous_hp: int = current_monster.current_hp
+	var actual_damage: int = 0
+	if use_shield:
+		actual_damage = current_monster.take_damage(damage)
+	else:
+		actual_damage = mini(damage, current_monster.current_hp)
+		current_monster.current_hp = maxi(current_monster.current_hp - actual_damage, 0)
+	_check_monster_first_below_half_health(previous_hp)
+	return actual_damage
 
 func _record_monster_skill_trace(skill_id: String, definition_id: String, trigger: String, effect_type: String, amount: float, target_count: int) -> void:
 	_record_effect_trace(
@@ -417,7 +473,9 @@ func _trigger_monster_items() -> void:
 		if slow_count > 0 and slow_duration > 0.0:
 			_slow_player_items(slow_count, slow_duration)
 		if freeze_count > 0 and freeze_duration > 0.0:
-			_slow_player_items(freeze_count, freeze_duration)
+			var frozen_count: int = _slow_player_items(freeze_count, freeze_duration)
+			if frozen_count > 0:
+				_apply_monster_skill_status_trigger(EffectDefinitionClass.EFFECT_FREEZE, 1)
 		if haste_count > 0 and haste_duration > 0.0:
 			var hasted_count: int = _haste_monster_items(haste_count, haste_duration, item_index)
 			if hasted_count > 0:
@@ -446,7 +504,7 @@ func _trigger_monster_items() -> void:
 		if reflect_rate > 0 and total_player_damage > 0 and current_monster.is_alive():
 			var reflected: int = int(float(total_player_damage) * reflect_rate)
 			if reflected > 0:
-				current_monster.take_damage(reflected)
+				_damage_current_monster(reflected)
 				print("🔄 反弹 %d 伤害!" % reflected)
 		if game_manager.player_health <= 0:
 			break
@@ -1580,7 +1638,7 @@ func _apply_effect_definition(
 					continue
 				if str(target.get("side", "")) == "enemy":
 					if current_monster != null and current_monster.is_alive():
-						current_monster.take_damage(damage_amount)
+						_damage_current_monster(damage_amount)
 						did_damage = true
 				elif game_manager != null:
 					game_manager.take_damage(damage_amount)
@@ -2700,9 +2758,9 @@ func _apply_status_damage(target: String, raw_damage: int, is_burn: bool) -> voi
 		if is_burn and current_monster.current_shield > 0.0:
 			damage = maxi(int(ceil(float(damage) * 0.5)), 1)
 		if is_burn:
-			current_monster.take_damage(damage)
+			_damage_current_monster(damage)
 		else:
-			current_monster.current_hp = maxi(current_monster.current_hp - damage, 0)
+			_damage_current_monster(damage, false)
 		return
 
 	if game_manager == null:

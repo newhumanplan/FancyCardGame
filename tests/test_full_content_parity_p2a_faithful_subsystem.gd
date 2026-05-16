@@ -22,8 +22,12 @@ func test_p2a_report_resolves_selected_trigger_reasons() -> void:
 	var report: Dictionary = BazaarContentClass.get_all_monster_parity_report()
 	var reason_counts: Dictionary = report.get("grouped_missing_mechanics", {}).get("reason_counts", {})
 	for reason in [
+		"skill:chilling_touch:first_freeze_all_enemy_items_trigger_needs_global_status_event_batching",
 		"skill:flashy_mechanic:player_skill_runtime_not_bound_to_monster_ai:trigger_rule",
 		"skill:flashy_reload:player_skill_runtime_not_bound_to_monster_ai:trigger_rule",
+		"skill:hard_shell:first_self_below_half_health_shield_percent_trigger_not_modelled",
+		"skill:hunker_down:first_self_below_half_health_shield_percent_trigger_not_modelled",
+		"skill:petrifying_gaze:first_self_below_half_health_freeze_all_enemy_items_trigger_not_modelled",
 		"skill:time_to_tinker:player_skill_runtime_not_bound_to_monster_ai:trigger_rule",
 	]:
 		_assert_true(not reason_counts.has(reason), "P2A selected trigger reason resolved: %s" % reason)
@@ -63,8 +67,8 @@ func test_flashy_reload_monster_crit_reload_other_ammo_runtime() -> void:
 func test_hard_subsystem_blockers_remain_explicit() -> void:
 	var report: Dictionary = BazaarContentClass.get_all_monster_parity_report()
 	var reason_counts: Dictionary = report.get("grouped_missing_mechanics", {}).get("reason_counts", {})
-	_assert_true(reason_counts.has("skill:chilling_touch:first_freeze_all_enemy_items_trigger_needs_global_status_event_batching"), "Chilling Touch remains explicit global status batching blocker")
-	_assert_true(reason_counts.has("skill:petrifying_gaze:first_self_below_half_health_freeze_all_enemy_items_trigger_not_modelled"), "Petrifying Gaze remains explicit half-health blocker")
+	_assert_true(reason_counts.has("skill:fiery_rebirth:death_prevention_heal_to_full_runtime_not_modelled"), "Fiery Rebirth remains explicit death-prevention ordering blocker")
+	_assert_true(reason_counts.has("skill:ravenous:first_self_below_half_health_temporary_destroy_item_not_modelled"), "Ravenous remains explicit board-destruction blocker")
 
 func _start_custom_monster(items: Array, skills: Array) -> MonsterDataClass:
 	var hero = BazaarContentClass.create_mak_hero()
