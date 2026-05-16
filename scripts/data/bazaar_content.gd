@@ -43,6 +43,12 @@ const MONSTER_DIRECT_NUMERIC_SKILL_BINDINGS: Dictionary = {
 	"vengeance": {"bonus_key": "cooldown_percent", "target": "edge_items", "mechanic": "skill:vengeance:edge_item_cooldown_reduction"},
 }
 
+const MONSTER_TRIGGER_SKILL_BINDINGS: Dictionary = {
+	"flashy_mechanic": {"mechanic": "skill:flashy_mechanic:monster_tool_adjacent_crit_trigger"},
+	"flashy_reload": {"mechanic": "skill:flashy_reload:monster_crit_reload_other_ammo_trigger"},
+	"time_to_tinker": {"mechanic": "skill:time_to_tinker:monster_haste_shield_trigger"},
+}
+
 const TOP_MONSTER_SPECIAL_IDS: Array[String] = [
 	"banannabal", "fanged_inglet", "haunted_kimono", "kyver_drone", "pyro", "viper",
 	"coconut_crab", "giant_mosquito", "boarrior", "covetous_thief", "dabbling_apprentice",
@@ -1205,13 +1211,16 @@ static func _monster_skill_has_direct_runtime(skill_entry: Dictionary) -> bool:
 	for key in ["start_poison", "start_burn", "start_shield", "burn_bonus", "poison_bonus", "shield_bonus", "damage_bonus"]:
 		if int(skill_entry.get(key, 0)) > 0:
 			return true
-	return not _get_monster_direct_numeric_skill_binding(skill_entry).is_empty()
+	return not _get_monster_direct_numeric_skill_binding(skill_entry).is_empty() or not _get_monster_trigger_skill_binding(skill_entry).is_empty()
 
 static func _monster_skill_direct_runtime_mechanic(skill_entry: Dictionary) -> String:
 	var skill_id: String = _monster_skill_entry_id(skill_entry)
 	var binding: Dictionary = _get_monster_direct_numeric_skill_binding(skill_entry)
 	if not binding.is_empty():
 		return str(binding.get("mechanic", "skill:%s:direct_monster_runtime" % skill_id))
+	var trigger_binding: Dictionary = _get_monster_trigger_skill_binding(skill_entry)
+	if not trigger_binding.is_empty():
+		return str(trigger_binding.get("mechanic", "skill:%s:monster_trigger_runtime" % skill_id))
 	return "skill:%s:direct_monster_runtime" % skill_id
 
 static func _get_monster_direct_numeric_skill_binding(skill_entry: Dictionary) -> Dictionary:
@@ -1219,6 +1228,12 @@ static func _get_monster_direct_numeric_skill_binding(skill_entry: Dictionary) -
 	if skill_id.is_empty() or not MONSTER_DIRECT_NUMERIC_SKILL_BINDINGS.has(skill_id):
 		return {}
 	return (MONSTER_DIRECT_NUMERIC_SKILL_BINDINGS[skill_id] as Dictionary).duplicate(true)
+
+static func _get_monster_trigger_skill_binding(skill_entry: Dictionary) -> Dictionary:
+	var skill_id: String = _monster_skill_entry_id(skill_entry)
+	if skill_id.is_empty() or not MONSTER_TRIGGER_SKILL_BINDINGS.has(skill_id):
+		return {}
+	return (MONSTER_TRIGGER_SKILL_BINDINGS[skill_id] as Dictionary).duplicate(true)
 
 static func _get_monster_direct_numeric_skill_bonuses(skills: Array) -> Array[Dictionary]:
 	var bonuses: Array[Dictionary] = []

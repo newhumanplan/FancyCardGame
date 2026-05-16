@@ -130,6 +130,85 @@ func _apply_monster_start_skills() -> void:
 				start_shield
 			])
 
+func _apply_monster_skill_item_used_triggers(item_index: int, item: Dictionary, is_crit: bool) -> void:
+	if current_monster == null:
+		return
+	for skill_ref in PlayerSkillCatalogClass.resolve_skill_refs(current_monster.monster_skills):
+		var skill_id: String = str(skill_ref.get("id", ""))
+		match skill_id:
+			"flashy_mechanic":
+				if not _monster_item_has_tag(item, "Tool"):
+					continue
+				var bonus: float = PlayerSkillCatalogClass.get_tier_value(skill_ref) / 100.0
+				var applied_count: int = 0
+				for adjacent_index in _get_adjacent_monster_item_indexes(item_index):
+					var adjacent_item: Dictionary = current_monster.monster_items[adjacent_index]
+					adjacent_item["crit_chance"] = clampf(float(adjacent_item.get("crit_chance", 0.0)) + bonus, 0.0, 3.0)
+					applied_count += 1
+				if applied_count > 0:
+					_record_monster_skill_trace(skill_id, "flashy_mechanic_tool_adjacent_crit", EffectDefinitionClass.TRIGGER_ON_TAG_USED, EffectDefinitionClass.EFFECT_RUNTIME_BONUS, bonus, applied_count)
+			"flashy_reload":
+				if not is_crit:
+					continue
+				var reload_amount: int = maxi(int(round(PlayerSkillCatalogClass.get_tier_value(skill_ref))), 1)
+				if _reload_other_monster_ammo_item(item_index, reload_amount):
+					_record_monster_skill_trace(skill_id, "flashy_reload_on_crit_reload_ammo", EffectDefinitionClass.TRIGGER_ON_CRIT, EffectDefinitionClass.EFFECT_RELOAD, float(reload_amount), 1)
+
+func _apply_monster_skill_status_trigger(status_type: String, trigger_count: int) -> void:
+	if current_monster == null or trigger_count <= 0:
+		return
+	for skill_ref in PlayerSkillCatalogClass.resolve_skill_refs(current_monster.monster_skills):
+		var skill_id: String = str(skill_ref.get("id", ""))
+		if skill_id != "time_to_tinker" or status_type != EffectDefinitionClass.EFFECT_HASTE:
+			continue
+		var shield_amount: int = int(round(PlayerSkillCatalogClass.get_tier_value(skill_ref) * float(trigger_count)))
+		if shield_amount <= 0:
+			continue
+		current_monster.current_shield = maxf(current_monster.current_shield + float(shield_amount), 0.0)
+		_record_monster_skill_trace(skill_id, "time_to_tinker_on_haste_shield", EffectDefinitionClass.TRIGGER_ON_ENEMY_STATUS_APPLIED, EffectDefinitionClass.EFFECT_SHIELD, float(shield_amount), 1)
+
+func _record_monster_skill_trace(skill_id: String, definition_id: String, trigger: String, effect_type: String, amount: float, target_count: int) -> void:
+	_record_effect_trace(
+		{"kind": "monster_skill", "id": skill_id},
+		{"id": definition_id, "trigger": trigger, "effect": {"type": effect_type}},
+		trigger,
+		amount,
+		target_count
+	)
+
+func _monster_item_has_tag(item: Dictionary, tag: String) -> bool:
+	for value in item.get("tags", []):
+		if str(value).to_lower() == tag.to_lower():
+			return true
+	return false
+
+func _get_adjacent_monster_item_indexes(item_index: int) -> Array[int]:
+	var indexes: Array[int] = []
+	if current_monster == null:
+		return indexes
+	for adjacent_index in [item_index - 1, item_index + 1]:
+		if adjacent_index >= 0 and adjacent_index < current_monster.monster_items.size():
+			indexes.append(adjacent_index)
+	return indexes
+
+func _reload_other_monster_ammo_item(source_index: int, amount: int) -> bool:
+	if current_monster == null or amount <= 0:
+		return false
+	for index in range(current_monster.monster_items.size()):
+		if index == source_index:
+			continue
+		var candidate: Dictionary = current_monster.monster_items[index]
+		var max_ammo: int = int(candidate.get("max_ammo", candidate.get("ammo", 0)))
+		if max_ammo <= 0:
+			continue
+		var current_ammo: int = int(candidate.get("current_ammo", candidate.get("ammo", max_ammo)))
+		if current_ammo >= max_ammo:
+			continue
+		candidate["current_ammo"] = mini(current_ammo + amount, max_ammo)
+		candidate["ammo"] = candidate["current_ammo"]
+		return true
+	return false
+
 func _apply_passive_combat_effects() -> void:
 	if game_manager == null or game_manager.selected_hero == null:
 		return
@@ -299,7 +378,11 @@ func _trigger_monster_items() -> void:
 			continue
 		if float(item.get("current_cooldown", 0.0)) > 0:
 			continue
+		var item_crit_rate: float = clampf(float(item.get("crit_chance", 0.0)), 0.0, 1.0)
+		var is_crit: bool = randf() < item_crit_rate
 		var damage: int = maxi(int(float(item.get("damage", 0)) * damage_mult), 0)
+		if is_crit:
+			damage *= 2
 		var burn: int = maxi(int(item.get("burn", 0)), 0)
 		var poison: int = maxi(int(item.get("poison", 0)), 0)
 		var regen: int = maxi(int(item.get("regen", 0)), 0)
@@ -336,8 +419,11 @@ func _trigger_monster_items() -> void:
 		if freeze_count > 0 and freeze_duration > 0.0:
 			_slow_player_items(freeze_count, freeze_duration)
 		if haste_count > 0 and haste_duration > 0.0:
-			_haste_monster_items(haste_count, haste_duration, item_index)
+			var hasted_count: int = _haste_monster_items(haste_count, haste_duration, item_index)
+			if hasted_count > 0:
+				_apply_monster_skill_status_trigger(EffectDefinitionClass.EFFECT_HASTE, hasted_count)
 		monster_item_triggered.emit(current_monster.monster_name, item_name, total_player_damage)
+		_apply_monster_skill_item_used_triggers(item_index, item, is_crit)
 		if total_player_damage > 0 or burn > 0 or poison > 0 or regen > 0 or slow_count > 0 or freeze_count > 0 or haste_count > 0:
 			var detail_parts: Array[String] = []
 			if damage > 0:
