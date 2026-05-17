@@ -867,7 +867,7 @@ func _create_pvp_player_bar() -> void:
 
 	var right_skills: Control = Control.new()
 	right_skills.name = "RightSkills"
-	_set_percent_rect(right_skills, 0.57, 0.62, 0.77, 0.74)
+	_set_percent_rect(right_skills, 0.58, 0.62, 0.74, 0.74)
 	pvp_root.add_child(right_skills)
 
 	pvp_player_skill_labels.clear()
@@ -1142,10 +1142,12 @@ func _populate_shell_opponent_item_layer(item_layer: Control, row: HBoxContainer
 	if current_monster == null:
 		return
 
-	for item_index in range(current_monster.monster_items.size()):
-		var monster_item: Dictionary = current_monster.monster_items[item_index]
-		var slot_index: int = clampi(int(monster_item.get("slot_index", item_index)), 0, PVP_HAND_SLOT_COUNT - 1)
-		var slot_count: int = clampi(int(monster_item.get("slot_count", 1)), 1, 3)
+	var placed_items: Array[Dictionary] = _assign_shell_monster_item_slots(current_monster.monster_items)
+	for placed_item in placed_items:
+		var monster_item: Dictionary = placed_item.get("item", {})
+		var item_index: int = int(placed_item.get("item_index", 0))
+		var slot_index: int = int(placed_item.get("slot_index", 0))
+		var slot_count: int = int(placed_item.get("slot_count", 1))
 		slot_count = mini(slot_count, PVP_HAND_SLOT_COUNT - slot_index)
 		if slot_count <= 0:
 			continue
@@ -1156,6 +1158,69 @@ func _populate_shell_opponent_item_layer(item_layer: Control, row: HBoxContainer
 		item_panel.custom_minimum_size = item_rect.size
 		item_layer.add_child(item_panel)
 		pvp_opponent_card_panels.append(item_panel)
+
+func _assign_shell_monster_item_slots(monster_items: Array) -> Array[Dictionary]:
+	var assigned: Array[Dictionary] = []
+	var occupied: Array[bool] = []
+	occupied.resize(PVP_HAND_SLOT_COUNT)
+	for slot in range(PVP_HAND_SLOT_COUNT):
+		occupied[slot] = false
+	var next_slot: int = 0
+	for item_index in range(monster_items.size()):
+		var monster_item: Dictionary = monster_items[item_index]
+		var slot_count: int = clampi(int(monster_item.get("slot_count", _get_monster_item_slot_count(monster_item))), 1, 3)
+		var preferred_slot: int = next_slot
+		if monster_item.has("slot_index"):
+			preferred_slot = clampi(int(monster_item.get("slot_index", next_slot)), 0, PVP_HAND_SLOT_COUNT - 1)
+		var slot_index: int = _find_available_shell_slot_span(occupied, preferred_slot, slot_count)
+		if slot_index < 0:
+			slot_index = _find_available_shell_slot_span(occupied, 0, slot_count)
+		while slot_index < 0 and slot_count > 1:
+			slot_count -= 1
+			slot_index = _find_available_shell_slot_span(occupied, 0, slot_count)
+		if slot_index < 0:
+			continue
+		_mark_shell_slot_span_occupied(occupied, slot_index, slot_count)
+		var resolved: Dictionary = {
+			"item": monster_item,
+			"item_index": item_index,
+			"slot_index": slot_index,
+			"slot_count": slot_count,
+		}
+		assigned.append(resolved)
+		next_slot = maxi(next_slot, slot_index + slot_count)
+	return assigned
+
+func _find_available_shell_slot_span(occupied: Array[bool], preferred_slot: int, slot_count: int) -> int:
+	if slot_count <= 0 or occupied.is_empty():
+		return -1
+	var start_slot: int = clampi(preferred_slot, 0, maxi(PVP_HAND_SLOT_COUNT - slot_count, 0))
+	for slot_index in range(start_slot, PVP_HAND_SLOT_COUNT - slot_count + 1):
+		if _is_shell_slot_span_free(occupied, slot_index, slot_count):
+			return slot_index
+	return -1
+
+func _is_shell_slot_span_free(occupied: Array[bool], start_slot: int, slot_count: int) -> bool:
+	if start_slot < 0 or start_slot + slot_count > occupied.size():
+		return false
+	for slot_index in range(start_slot, start_slot + slot_count):
+		if bool(occupied[slot_index]):
+			return false
+	return true
+
+func _mark_shell_slot_span_occupied(occupied: Array[bool], start_slot: int, slot_count: int) -> void:
+	for slot_index in range(start_slot, mini(start_slot + slot_count, occupied.size())):
+		occupied[slot_index] = true
+
+func _get_monster_item_slot_count(monster_item: Dictionary) -> int:
+	var size_text: String = str(monster_item.get("size", "Small")).to_lower()
+	match size_text:
+		"medium":
+			return 2
+		"large":
+			return 3
+		_:
+			return 1
 
 func _get_shell_slot_span_rect(row: HBoxContainer, start_slot: int, slot_count: int, inset: float = 4.0) -> Rect2:
 	if row == null or start_slot < 0 or start_slot >= row.get_child_count():
@@ -2749,6 +2814,7 @@ func _get_monster_cooldown_text(monster_item: Dictionary, short_text: bool = fal
 func _get_player_skill_names() -> Array[String]:
 	var names: Array[String] = []
 	var seen: Dictionary = {}
+	var selected_hero: HeroDataClass = null if game_manager == null else game_manager.selected_hero
 
 	if battle_system != null and "skill_manager" in battle_system:
 		var skill_manager: Variant = battle_system.skill_manager
@@ -2756,33 +2822,32 @@ func _get_player_skill_names() -> Array[String]:
 			var equipped_skills: Array = skill_manager.get_equipped_skills()
 			for skill_entry in equipped_skills:
 				var skill_data: SkillDataClass = skill_entry as SkillDataClass
-				if skill_data != null and not skill_data.skill_name.is_empty():
-					if not seen.has(skill_data.skill_name):
-						seen[skill_data.skill_name] = true
-						names.append(skill_data.skill_name)
+				if skill_data == null or skill_data.id.is_empty() or _is_profile_catalog_skill(selected_hero, skill_data.id):
+					continue
+				var skill_name: String = skill_data.skill_name
+				if skill_name.is_empty():
+					skill_name = skill_data.name
+				if not skill_name.is_empty() and not seen.has(skill_name):
+					seen[skill_name] = true
+					names.append(skill_name)
 
-	if game_manager.selected_hero != null:
-		for hero_skill in game_manager.selected_hero.skills:
-			var skill_name: String = PlayerSkillCatalogClass.get_skill_display_name(hero_skill)
+	if selected_hero != null:
+		for hero_skill in selected_hero.skills:
+			var skill_id: String = str(hero_skill)
+			if skill_id.is_empty() or _is_profile_catalog_skill(selected_hero, skill_id):
+				continue
+			var skill_name: String = PlayerSkillCatalogClass.get_skill_display_name(skill_id)
 			if not skill_name.is_empty() and not seen.has(skill_name):
 				seen[skill_name] = true
 				names.append(skill_name)
 
-	if names.is_empty() and game_manager.selected_hero != null:
-		var passive_skills: Array = game_manager.selected_hero.get("passive_skills")
-		for passive_skill in passive_skills:
-			var passive_name: String = ""
-			if passive_skill != null:
-				passive_name = str(passive_skill.get("skill_name"))
-				if passive_name.is_empty():
-					passive_name = str(passive_skill.get("name"))
-			if passive_name.is_empty():
-				continue
-			names.append(passive_name)
-			if names.size() >= 3:
-				break
-
 	return names
+
+func _is_profile_catalog_skill(hero: HeroDataClass, skill_id: String) -> bool:
+	if hero == null or skill_id.is_empty():
+		return false
+	var profile_skill_ids: Array[String] = BazaarContentClass.get_hero_starter_skill_ids(hero.hero_type)
+	return profile_skill_ids.has(skill_id)
 
 func _get_monster_skill_names() -> Array[String]:
 	var names: Array[String] = []
@@ -2825,5 +2890,7 @@ func _update_skill_labels(skill_labels: Array[Label], skill_names: Array[String]
 
 		if index < skill_names.size():
 			skill_label.text = skill_names[index]
+			skill_label.visible = true
 		else:
-			skill_label.text = "Empty"
+			skill_label.text = ""
+			skill_label.visible = false

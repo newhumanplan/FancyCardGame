@@ -5,6 +5,7 @@ extends Control
 
 const PlayerSkillCatalogClass = preload("res://scripts/data/player_skill_catalog.gd")
 const SkillArtCatalogClass = preload("res://scripts/data/skill_art_catalog.gd")
+const BazaarContentClass = preload("res://scripts/data/bazaar_content.gd")
 
 signal stash_requested()
 
@@ -142,11 +143,13 @@ func _setup_chest_icon() -> void:
 
 func _reset_passive_area() -> void:
 	for child in passive_skill_area.get_children():
+		passive_skill_area.remove_child(child)
 		child.queue_free()
 	passive_skill_area.visible = false
 
 func _refresh_skills() -> void:
 	for child in passive_skill_area.get_children():
+		passive_skill_area.remove_child(child)
 		child.queue_free()
 	var hero: Object = null
 	if _game_manager != null:
@@ -157,16 +160,11 @@ func _refresh_skills() -> void:
 
 	var skill_entries: Array[Dictionary] = []
 	var seen_names: Dictionary = {}
-	for passive_skill in hero.get("passive_skills"):
-		if passive_skill == null:
-			continue
-		var passive_name: String = str(passive_skill.skill_name)
-		if passive_name.is_empty() or seen_names.has(passive_name):
-			continue
-		seen_names[passive_name] = true
-		skill_entries.append({"id": "", "name": passive_name})
 	for hero_skill in hero.get("skills"):
-		var resolved_skill: Dictionary = PlayerSkillCatalogClass.get_skill_entry(hero_skill)
+		var skill_id: String = str(hero_skill)
+		if skill_id.is_empty() or _is_profile_catalog_skill(hero, skill_id):
+			continue
+		var resolved_skill: Dictionary = PlayerSkillCatalogClass.get_skill_entry(skill_id)
 		var skill_name: String = str(resolved_skill.get("name", ""))
 		if skill_name.is_empty() or seen_names.has(skill_name):
 			continue
@@ -179,6 +177,13 @@ func _refresh_skills() -> void:
 	passive_skill_area.visible = not skill_entries.is_empty()
 	for skill_entry in skill_entries:
 		passive_skill_area.add_child(_create_skill_badge(skill_entry))
+
+func _is_profile_catalog_skill(hero: Object, skill_id: String) -> bool:
+	if hero == null or skill_id.is_empty():
+		return false
+	var hero_type: int = int(hero.get("hero_type"))
+	var profile_skill_ids: Array[String] = BazaarContentClass.get_hero_starter_skill_ids(hero_type)
+	return profile_skill_ids.has(skill_id)
 
 func _create_skill_badge(skill_entry: Dictionary) -> Control:
 	var skill_name: String = str(skill_entry.get("name", ""))
