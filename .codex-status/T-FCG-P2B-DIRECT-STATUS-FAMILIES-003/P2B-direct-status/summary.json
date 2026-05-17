@@ -1,0 +1,8 @@
+{
+	"task_id": "T-FCG-P2B-DIRECT-STATUS-FAMILIES-003",
+	"status": "implemented_pending_commit",
+	"implemented_target_reason_count": 31,
+	"remaining_target_reason_count": 31,
+	"after_unique_item_effect_reasons": 91,
+	"pushed": false
+}

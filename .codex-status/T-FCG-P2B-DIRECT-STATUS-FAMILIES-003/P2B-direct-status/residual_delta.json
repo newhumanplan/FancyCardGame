@@ -1,0 +1,318 @@
+{
+	"before_unique_item_effect_reasons": 122,
+	"after_unique_item_effect_reasons": 91,
+	"removed_target_reasons": [
+		"item:lighthouse:unsupported_item_effect:lighthouse:charge",
+		"item:necronomicon:unsupported_item_effect:necronomicon:charge",
+		"item:nitrogen_hammer:unsupported_item_effect:nitrogen_hammer:charge",
+		"item:pendulum:unsupported_item_effect:pendulum:charge",
+		"item:red_f1r3fly:unsupported_item_effect:red_f1r3fly:charge",
+		"item:robe:unsupported_item_effect:robe:charge",
+		"item:slumbering_primordial:unsupported_item_effect:slumbering_primordial:charge",
+		"item:solar_farm:unsupported_item_effect:solar_farm:charge",
+		"item:tortuga:unsupported_item_effect:tortuga:charge",
+		"item:trebuchet:unsupported_item_effect:trebuchet:charge",
+		"item:ylw_m4nt1s:unsupported_item_effect:ylw_m4nt1s:charge",
+		"item:yo_yo:unsupported_item_effect:yo_yo:charge",
+		"item:zoarcid:unsupported_item_effect:zoarcid:charge",
+		"item:cryosleeve:unsupported_item_effect:cryosleeve:freeze",
+		"item:dooltron:unsupported_item_effect:dooltron:freeze",
+		"item:grn_w4sp:unsupported_item_effect:grn_w4sp:freeze",
+		"item:slumbering_primordial:unsupported_item_effect:slumbering_primordial:freeze",
+		"item:weather_glass:unsupported_item_effect:weather_glass:freeze",
+		"item:atm:unsupported_item_effect:atm:shield",
+		"item:void_shield:unsupported_item_effect:void_shield:shield",
+		"item:old_saltclaw:unsupported_item_effect:old_saltclaw:damage",
+		"item:sunlight_spear:unsupported_item_effect:sunlight_spear:damage",
+		"item:dragon_whelp:unsupported_item_effect:dragon_whelp:burn",
+		"item:sunlight_spear:unsupported_item_effect:sunlight_spear:burn",
+		"item:hogwash:unsupported_item_effect:hogwash:heal",
+		"item:textiles:unsupported_item_effect:textiles:heal",
+		"item:weather_glass:unsupported_item_effect:weather_glass:slow",
+		"item:rocket_boots:unsupported_item_effect:rocket_boots:haste",
+		"item:tortuga:unsupported_item_effect:tortuga:haste",
+		"item:torpedo:unsupported_item_effect:torpedo:reload",
+		"item:sunlight_spear:unsupported_item_effect:sunlight_spear:regeneration"
+	],
+	"removed_target_count": 31,
+	"remaining_target_reasons": [
+		"item:ethergy_conduit:unsupported_item_effect:ethergy_conduit:charge",
+		"item:eye_of_the_colossus:unsupported_item_effect:eye_of_the_colossus:charge",
+		"item:ice_cream_truck:unsupported_item_effect:ice_cream_truck:charge",
+		"item:iceberg:unsupported_item_effect:iceberg:freeze",
+		"item:icebreaker:unsupported_item_effect:icebreaker:freeze",
+		"item:lightning_rod:unsupported_item_effect:lightning_rod:freeze",
+		"item:refractor:unsupported_item_effect:refractor:freeze",
+		"item:snowflake:unsupported_item_effect:snowflake:freeze",
+		"item:abacus:unsupported_item_effect:abacus:shield",
+		"item:billboard:unsupported_item_effect:billboard:shield",
+		"item:soul_of_the_district:unsupported_item_effect:soul_of_the_district:shield",
+		"item:spacescraper:unsupported_item_effect:spacescraper:shield",
+		"item:sunderer:unsupported_item_effect:sunderer:shield",
+		"item:daggerwing:unsupported_item_effect:daggerwing:damage",
+		"item:invulnerability_potion:unsupported_item_effect:invulnerability_potion:damage",
+		"item:skyscraper:unsupported_item_effect:skyscraper:damage",
+		"item:soul_of_the_district:unsupported_item_effect:soul_of_the_district:damage",
+		"item:flare_gun:unsupported_item_effect:flare_gun:burn",
+		"item:infernal_greatsword:unsupported_item_effect:infernal_greatsword:burn",
+		"item:billboard:unsupported_item_effect:billboard:heal",
+		"item:subscraper:unsupported_item_effect:subscraper:heal",
+		"item:improvised_bludgeon:unsupported_item_effect:improvised_bludgeon:slow",
+		"item:lightning_rod:unsupported_item_effect:lightning_rod:slow",
+		"item:tripwire:unsupported_item_effect:tripwire:slow",
+		"item:holsters:unsupported_item_effect:holsters:haste",
+		"item:skyscraper:unsupported_item_effect:skyscraper:multicast",
+		"item:sword_of_swords:unsupported_item_effect:sword_of_swords:multicast",
+		"item:thrown_net:unsupported_item_effect:thrown_net:multicast",
+		"item:fire_bomb:unsupported_item_effect:fire_bomb:reload",
+		"item:ice_bomb:unsupported_item_effect:ice_bomb:reload",
+		"item:ritual_dagger:unsupported_item_effect:ritual_dagger:regeneration"
+	],
+	"remaining_target_count": 31,
+	"new_reason_keys": [],
+	"remaining_residuals_by_family": {
+		"abacus": [
+			"item:abacus:unsupported_item_effect:abacus:shield"
+		],
+		"atm": [
+			"item:atm:unsupported_item_effect:atm:runtime_bonus"
+		],
+		"bill_dozer": [
+			"item:bill_dozer:unsupported_item_effect:bill_dozer:runtime_bonus"
+		],
+		"billboard": [
+			"item:billboard:unsupported_item_effect:billboard:heal",
+			"item:billboard:unsupported_item_effect:billboard:shield"
+		],
+		"biomerge_arm": [
+			"item:biomerge_arm:unsupported_item_effect:biomerge_arm:runtime_bonus"
+		],
+		"box_cutter": [
+			"item:box_cutter:unsupported_item_effect:box_cutter:runtime_bonus"
+		],
+		"citrus": [
+			"item:citrus:unsupported_item_effect:citrus:runtime_bonus"
+		],
+		"cosmic_amulet": [
+			"item:cosmic_amulet:unsupported_item_effect:cosmic_amulet:runtime_bonus"
+		],
+		"cryosleeve": [
+			"item:cryosleeve:unsupported_item_effect:cryosleeve:runtime_bonus"
+		],
+		"daggerwing": [
+			"item:daggerwing:unsupported_item_effect:daggerwing:damage",
+			"item:daggerwing:unsupported_item_effect:daggerwing:runtime_bonus"
+		],
+		"death_caps": [
+			"item:death_caps:unsupported_item_effect:death_caps:runtime_bonus"
+		],
+		"dishwasher": [
+			"item:dishwasher:unsupported_item_effect:dishwasher:runtime_bonus"
+		],
+		"dog": [
+			"item:dog:unsupported_item_effect:dog:runtime_bonus"
+		],
+		"ethergy_conduit": [
+			"item:ethergy_conduit:unsupported_item_effect:ethergy_conduit:charge",
+			"item:ethergy_conduit:unsupported_item_effect:ethergy_conduit:runtime_bonus"
+		],
+		"eye_of_the_colossus": [
+			"item:eye_of_the_colossus:unsupported_item_effect:eye_of_the_colossus:charge"
+		],
+		"fire_bomb": [
+			"item:fire_bomb:unsupported_item_effect:fire_bomb:reload"
+		],
+		"flare_gun": [
+			"item:flare_gun:unsupported_item_effect:flare_gun:burn"
+		],
+		"forgotten_god": [
+			"item:forgotten_god:unsupported_item_effect:forgotten_god:runtime_bonus"
+		],
+		"friendly_doll": [
+			"item:friendly_doll:unsupported_item_effect:friendly_doll:runtime_bonus"
+		],
+		"ganjo": [
+			"item:ganjo:unsupported_item_effect:ganjo:runtime_bonus"
+		],
+		"golf_clubs": [
+			"item:golf_clubs:unsupported_item_effect:golf_clubs:runtime_bonus"
+		],
+		"grindstone": [
+			"item:grindstone:unsupported_item_effect:grindstone:runtime_bonus"
+		],
+		"hogwash": [
+			"item:hogwash:unsupported_item_effect:hogwash:runtime_bonus"
+		],
+		"holsters": [
+			"item:holsters:unsupported_item_effect:holsters:haste",
+			"item:holsters:unsupported_item_effect:holsters:runtime_bonus"
+		],
+		"honing_steel": [
+			"item:honing_steel:unsupported_item_effect:honing_steel:runtime_bonus"
+		],
+		"ice_bomb": [
+			"item:ice_bomb:unsupported_item_effect:ice_bomb:reload"
+		],
+		"ice_cream_truck": [
+			"item:ice_cream_truck:unsupported_item_effect:ice_cream_truck:charge"
+		],
+		"ice_pick": [
+			"item:ice_pick:unsupported_item_effect:ice_pick:runtime_bonus"
+		],
+		"iceberg": [
+			"item:iceberg:unsupported_item_effect:iceberg:freeze"
+		],
+		"icebreaker": [
+			"item:icebreaker:unsupported_item_effect:icebreaker:freeze",
+			"item:icebreaker:unsupported_item_effect:icebreaker:runtime_bonus"
+		],
+		"improvised_bludgeon": [
+			"item:improvised_bludgeon:unsupported_item_effect:improvised_bludgeon:runtime_bonus",
+			"item:improvised_bludgeon:unsupported_item_effect:improvised_bludgeon:slow"
+		],
+		"infernal_greatsword": [
+			"item:infernal_greatsword:unsupported_item_effect:infernal_greatsword:burn",
+			"item:infernal_greatsword:unsupported_item_effect:infernal_greatsword:runtime_bonus"
+		],
+		"infused_bracers": [
+			"item:infused_bracers:unsupported_item_effect:infused_bracers:runtime_bonus"
+		],
+		"invulnerability_potion": [
+			"item:invulnerability_potion:unsupported_item_effect:invulnerability_potion:damage"
+		],
+		"jitte": [
+			"item:jitte:unsupported_item_effect:jitte:runtime_bonus"
+		],
+		"landscraper": [
+			"item:landscraper:unsupported_item_effect:landscraper:runtime_bonus"
+		],
+		"langxian": [
+			"item:langxian:unsupported_item_effect:langxian:runtime_bonus"
+		],
+		"lightning_rod": [
+			"item:lightning_rod:unsupported_item_effect:lightning_rod:freeze",
+			"item:lightning_rod:unsupported_item_effect:lightning_rod:slow"
+		],
+		"mantis_shrimp": [
+			"item:mantis_shrimp:unsupported_item_effect:mantis_shrimp:runtime_bonus"
+		],
+		"myrrh": [
+			"item:myrrh:unsupported_item_effect:myrrh:runtime_bonus"
+		],
+		"necronomicon": [
+			"item:necronomicon:unsupported_item_effect:necronomicon:runtime_bonus"
+		],
+		"nitrogen_hammer": [
+			"item:nitrogen_hammer:unsupported_item_effect:nitrogen_hammer:runtime_bonus"
+		],
+		"old_saltclaw": [
+			"item:old_saltclaw:unsupported_item_effect:old_saltclaw:runtime_bonus"
+		],
+		"orbital_polisher": [
+			"item:orbital_polisher:unsupported_item_effect:orbital_polisher:runtime_bonus"
+		],
+		"pickled_peppers": [
+			"item:pickled_peppers:unsupported_item_effect:pickled_peppers:runtime_bonus"
+		],
+		"red_piggles_r": [
+			"item:red_piggles_r:unsupported_item_effect:red_piggles_r:runtime_bonus"
+		],
+		"red_piggles_x": [
+			"item:red_piggles_x:unsupported_item_effect:red_piggles_x:runtime_bonus"
+		],
+		"refractor": [
+			"item:refractor:unsupported_item_effect:refractor:freeze"
+		],
+		"ritual_dagger": [
+			"item:ritual_dagger:unsupported_item_effect:ritual_dagger:regeneration",
+			"item:ritual_dagger:unsupported_item_effect:ritual_dagger:runtime_bonus"
+		],
+		"runic_great_axe": [
+			"item:runic_great_axe:unsupported_item_effect:runic_great_axe:runtime_bonus"
+		],
+		"salamander_pup": [
+			"item:salamander_pup:unsupported_item_effect:salamander_pup:runtime_bonus"
+		],
+		"salt": [
+			"item:salt:unsupported_item_effect:salt:runtime_bonus"
+		],
+		"sharkclaws": [
+			"item:sharkclaws:unsupported_item_effect:sharkclaws:runtime_bonus"
+		],
+		"sharkray": [
+			"item:sharkray:unsupported_item_effect:sharkray:runtime_bonus"
+		],
+		"silencer": [
+			"item:silencer:unsupported_item_effect:silencer:runtime_bonus"
+		],
+		"silk_scarf": [
+			"item:silk_scarf:unsupported_item_effect:silk_scarf:runtime_bonus"
+		],
+		"skyscraper": [
+			"item:skyscraper:unsupported_item_effect:skyscraper:damage",
+			"item:skyscraper:unsupported_item_effect:skyscraper:multicast",
+			"item:skyscraper:unsupported_item_effect:skyscraper:runtime_bonus"
+		],
+		"slumbering_primordial": [
+			"item:slumbering_primordial:unsupported_item_effect:slumbering_primordial:runtime_bonus"
+		],
+		"snowflake": [
+			"item:snowflake:unsupported_item_effect:snowflake:freeze"
+		],
+		"solar_farm": [
+			"item:solar_farm:unsupported_item_effect:solar_farm:runtime_bonus"
+		],
+		"soul_of_the_district": [
+			"item:soul_of_the_district:unsupported_item_effect:soul_of_the_district:damage",
+			"item:soul_of_the_district:unsupported_item_effect:soul_of_the_district:shield"
+		],
+		"spacescraper": [
+			"item:spacescraper:unsupported_item_effect:spacescraper:shield"
+		],
+		"subscraper": [
+			"item:subscraper:unsupported_item_effect:subscraper:heal",
+			"item:subscraper:unsupported_item_effect:subscraper:runtime_bonus"
+		],
+		"sunderer": [
+			"item:sunderer:unsupported_item_effect:sunderer:shield"
+		],
+		"sunlight_spear": [
+			"item:sunlight_spear:unsupported_item_effect:sunlight_spear:runtime_bonus"
+		],
+		"sword_of_swords": [
+			"item:sword_of_swords:unsupported_item_effect:sword_of_swords:multicast",
+			"item:sword_of_swords:unsupported_item_effect:sword_of_swords:runtime_bonus"
+		],
+		"temporary_shelter": [
+			"item:temporary_shelter:unsupported_item_effect:temporary_shelter:runtime_bonus"
+		],
+		"test_subject_alpha": [
+			"item:test_subject_alpha:unsupported_item_effect:test_subject_alpha:runtime_bonus"
+		],
+		"thermal_lance": [
+			"item:thermal_lance:unsupported_item_effect:thermal_lance:runtime_bonus"
+		],
+		"thrown_net": [
+			"item:thrown_net:unsupported_item_effect:thrown_net:multicast",
+			"item:thrown_net:unsupported_item_effect:thrown_net:runtime_bonus"
+		],
+		"torpedo": [
+			"item:torpedo:unsupported_item_effect:torpedo:runtime_bonus"
+		],
+		"tripwire": [
+			"item:tripwire:unsupported_item_effect:tripwire:slow"
+		],
+		"tropical_island": [
+			"item:tropical_island:unsupported_item_effect:tropical_island:runtime_bonus"
+		],
+		"viper_cane": [
+			"item:viper_cane:unsupported_item_effect:viper_cane:runtime_bonus"
+		],
+		"void_shield": [
+			"item:void_shield:unsupported_item_effect:void_shield:runtime_bonus"
+		],
+		"wanted_poster": [
+			"item:wanted_poster:unsupported_item_effect:wanted_poster:runtime_bonus"
+		]
+	}
+}

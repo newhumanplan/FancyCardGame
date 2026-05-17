@@ -1,0 +1,19 @@
+{
+  "task_id": "T-FCG-P2B-DIRECT-STATUS-FAMILIES-003",
+  "godot": {
+    "binary": "/Applications/Godot.app/Contents/MacOS/Godot",
+    "version_observed": "4.6.1.stable.official.14d19694e",
+    "headless_node_tests": "pass",
+    "focused_test": "res://tests/test_full_content_parity_p2b_direct_status_families.gd",
+    "focused_summary": "115/115 passed",
+    "regression_summaries": {
+      "res://tests/test_full_content_parity_p2b_item_effect_families_batch2.gd": "176/176 passed",
+      "res://tests/test_full_content_parity_p2b_item_effect_families.gd": "102/102 passed",
+      "res://tests/test_full_content_parity_p2b_status_semantics.gd": "20/20 passed",
+      "res://tests/test_full_content_parity_p2a_hard_mechanics_aggregate.gd": "44/44 passed",
+      "res://tests/test_full_content_parity_p1r_safe_runtime_residuals.gd": "49/49 passed",
+      "res://tests/test_item_effect_reachable_coverage.gd": "180/180 passed",
+      "res://tests/test_full_content_parity_p1e_monster_report.gd": "585/585 passed"
+    }
+  }
+}

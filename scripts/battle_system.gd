@@ -1775,6 +1775,9 @@ func _resolve_effect_amount(
 			"hero.shield":
 				var shield_hero: HeroData = null if game_manager == null else game_manager.selected_hero
 				amount = 0.0 if shield_hero == null else shield_hero.current_shield
+			"income_by_rarity":
+				var income_multiplier: float = _get_rarity_value(owner_item, effect_data.get("multiplier_by_rarity", []), 0.0)
+				amount = (0.0 if game_manager == null else float(game_manager.income)) * income_multiplier
 			"source.heal":
 				if owner_item != null:
 					amount = float(ItemEffectsClass.calculate_heal(owner_item) + int(round(_get_item_runtime_bonus(owner_item, "heal"))))
@@ -1823,8 +1826,16 @@ func _resolve_effect_amount(
 				amount = 0.0 if owner_item == null else float(_get_player_item_effective_max_ammo(owner_item))
 			"enemy_status.poison":
 				amount = _get_status_total("enemy", EffectDefinitionClass.EFFECT_POISON)
+			"enemy_status.burn":
+				amount = _get_status_total("enemy", EffectDefinitionClass.EFFECT_BURN)
+			"player_status.burn":
+				amount = _get_status_total("self", EffectDefinitionClass.EFFECT_BURN)
 			"player_status.regeneration":
 				amount = _get_status_total("self", EffectDefinitionClass.EFFECT_REGENERATION)
+			"all_status.burn_plus_player_regeneration":
+				amount = _get_status_total("self", EffectDefinitionClass.EFFECT_REGENERATION)
+				amount += _get_status_total("self", EffectDefinitionClass.EFFECT_BURN)
+				amount += _get_status_total("enemy", EffectDefinitionClass.EFFECT_BURN)
 			"source.cooldown_percent":
 				var percent: float = float(effect_data.get("percent", 0.0))
 				amount = 0.0 if owner_item == null else owner_item.cooldown * percent
@@ -1924,6 +1935,12 @@ func _resolve_effect_targets(
 			var source_item: ItemData = execution_context.get("source_item", null) as ItemData
 			if source_item != null:
 				targets.append({"kind": "player_item", "item": source_item})
+		"other_adjacent_to_source_around_owner":
+			var source_item: ItemData = execution_context.get("source_item", null) as ItemData
+			if owner_item != null and source_item != null:
+				for adjacent in _get_adjacent_player_items(owner_item):
+					if adjacent != null and adjacent != source_item:
+						targets.append({"kind": "player_item", "item": adjacent})
 		"left_of_source":
 			var source_item: ItemData = execution_context.get("source_item", null) as ItemData
 			if inventory != null and source_item != null:
@@ -1940,6 +1957,11 @@ func _resolve_effect_targets(
 			if inventory != null:
 				for item in inventory.items:
 					if item != null:
+						targets.append({"kind": "player_item", "item": item})
+		"other_items":
+			if inventory != null:
+				for item in inventory.items:
+					if item != null and item != owner_item:
 						targets.append({"kind": "player_item", "item": item})
 		"matching_tag_items", "non_matching_tag_items", "other_matching_tag_items", "other_non_matching_tag_items":
 			var tag: String = str(target_data.get("tag", ""))

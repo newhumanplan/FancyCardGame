@@ -320,6 +320,9 @@ static func build_item_effects(item: ItemDataClass) -> Array[Dictionary]:
 			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_TAG_USED, EFFECT_CHARGE, {"side": "self", "selector": "this_item"}, {"type": EFFECT_CHARGE, "amount": 1}, {"tag": "Weapon"}))
 		"dooltron":
 			handled_keywords[EFFECT_CHARGE] = true
+			handled_keywords[EFFECT_FREEZE] = true
+			handled_keywords[EFFECT_SHIELD] = true
+			definitions.append(_trigger_condition_marker(item.source_id, EFFECT_FREEZE, "status-trigger condition handles Freeze"))
 			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_ENEMY_STATUS_APPLIED, EFFECT_CHARGE, {"side": "self", "selector": "this_item"}, {"type": EFFECT_CHARGE, "amount_by_rarity": [1, 2]}, {"status_type_any": [EFFECT_HASTE, EFFECT_SLOW, EFFECT_POISON, EFFECT_FREEZE, EFFECT_BURN]}))
 			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_TAG_USED, EFFECT_SHIELD, {"side": "self", "selector": "hero"}, {"type": EFFECT_SHIELD, "amount_by_rarity": [50, 100]}, {"tag": "Friend"}))
 		"dragon_heart":
@@ -391,6 +394,8 @@ static func build_item_effects(item: ItemDataClass) -> Array[Dictionary]:
 			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_ITEM_USED, EFFECT_RELOAD, {"side": "self", "selector": "this_item"}, {"type": EFFECT_RELOAD, "amount": 1}, {"event_source_has_ammo": true, "event_source_not_owner": true}))
 		"grn_w4sp":
 			handled_keywords[EFFECT_CHARGE] = true
+			handled_keywords[EFFECT_FREEZE] = true
+			definitions.append(_trigger_condition_marker(item.source_id, EFFECT_FREEZE, "adjacent status-trigger condition handles Freeze"))
 			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_ENEMY_STATUS_APPLIED, EFFECT_CHARGE, {"side": "self", "selector": "this_item"}, {"type": EFFECT_CHARGE, "amount": 1}, {"status_type_any": [EFFECT_SLOW, EFFECT_FREEZE], "event_source_is_adjacent": true}))
 		"guardian_shell":
 			handled_keywords[EFFECT_SHIELD] = true
@@ -740,6 +745,10 @@ static func build_item_effects(item: ItemDataClass) -> Array[Dictionary]:
 		"weather_glass":
 			handled_keywords[EFFECT_RUNTIME_BONUS] = true
 			handled_keywords[EFFECT_MULTICAST] = true
+			handled_keywords[EFFECT_SLOW] = true
+			handled_keywords[EFFECT_FREEZE] = true
+			definitions.append(_trigger_condition_marker(item.source_id, EFFECT_SLOW, "multicast tag count handles Slow-tagged items"))
+			definitions.append(_trigger_condition_marker(item.source_id, EFFECT_FREEZE, "multicast tag count handles Freeze-tagged items"))
 			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_COOLDOWN_READY, EFFECT_MULTICAST, {"side": "self", "selector": "this_item"}, {"type": EFFECT_MULTICAST, "amount_from": "other_items.matching_any_tag_count", "tags": ["Burn", "Poison", "Slow", "Freeze"]}))
 		"weather_machine":
 			handled_keywords[EFFECT_SLOW] = true
@@ -755,6 +764,88 @@ static func build_item_effects(item: ItemDataClass) -> Array[Dictionary]:
 		"vitality_potion":
 			handled_keywords[EFFECT_HEAL] = true
 			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_COOLDOWN_READY, EFFECT_HEAL, {"side": "self", "selector": "hero"}, {"type": EFFECT_HEAL, "amount_from": "hero.max_health_percent", "percent_by_rarity": [0.0, 0.0, 0.5, 1.0]}))
+		"atm":
+			handled_keywords[EFFECT_SHIELD] = true
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_COOLDOWN_READY, EFFECT_SHIELD, {"side": "self", "selector": "hero"}, {"type": EFFECT_SHIELD, "amount_from": "income_by_rarity", "multiplier_by_rarity": [1, 2, 3, 4]}))
+		"cryosleeve":
+			handled_keywords[EFFECT_FREEZE] = true
+			handled_keywords[EFFECT_SHIELD] = true
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_COOLDOWN_READY, EFFECT_FREEZE, {"side": "self", "selector": "this_item"}, {"type": EFFECT_FREEZE, "amount": 2.0}))
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_COOLDOWN_READY, EFFECT_FREEZE, {"side": "self", "selector": "adjacent"}, {"type": EFFECT_FREEZE, "amount": 2.0}))
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_ENEMY_STATUS_APPLIED, EFFECT_SHIELD, {"side": "self", "selector": "hero"}, {"type": EFFECT_SHIELD, "amount_from": "source.shield"}, {"status_type": EFFECT_FREEZE}))
+		"dragon_whelp":
+			handled_keywords[EFFECT_BURN] = true
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_COOLDOWN_READY, EFFECT_BURN, {"side": "enemy", "selector": "hero"}, {"type": EFFECT_BURN, "amount_from": "source.damage"}))
+		"hogwash":
+			handled_keywords[EFFECT_HEAL] = true
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_COOLDOWN_READY, EFFECT_HEAL, {"side": "self", "selector": "hero"}, {"type": EFFECT_HEAL, "amount_from": "hero.max_health_percent", "percent": 0.1}))
+		"lighthouse":
+			handled_keywords[EFFECT_CHARGE] = true
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_ENEMY_STATUS_APPLIED, EFFECT_CHARGE, {"side": "self", "selector": "this_item"}, {"type": EFFECT_CHARGE, "amount": 2}, {"status_type": EFFECT_SLOW}))
+		"necronomicon":
+			handled_keywords[EFFECT_CHARGE] = true
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_ITEM_USED, EFFECT_CHARGE, {"side": "self", "selector": "this_item"}, {"type": EFFECT_CHARGE, "amount": 1}, {"no_event_source_tag": "Weapon", "event_source_not_owner": true}))
+		"nitrogen_hammer":
+			handled_keywords[EFFECT_CHARGE] = true
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_ENEMY_STATUS_APPLIED, EFFECT_CHARGE, {"side": "self", "selector": "this_item"}, {"type": EFFECT_CHARGE, "amount": 1}, {"status_type": EFFECT_FREEZE}))
+		"old_saltclaw":
+			handled_keywords[EFFECT_DAMAGE] = true
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_COOLDOWN_READY, EFFECT_DAMAGE, {"side": "enemy", "selector": "hero"}, {"type": EFFECT_DAMAGE, "amount": 10, "crit_scaled": true}))
+		"pendulum":
+			handled_keywords[EFFECT_CHARGE] = true
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_ITEM_USED, EFFECT_CHARGE, {"side": "self", "selector": "other_adjacent_to_source_around_owner"}, {"type": EFFECT_CHARGE, "amount_by_rarity": [1, 2]}, {"event_source_is_adjacent": true}))
+		"red_f1r3fly":
+			handled_keywords[EFFECT_CHARGE] = true
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_TAG_USED, EFFECT_CHARGE, {"side": "self", "selector": "this_item"}, {"type": EFFECT_CHARGE, "amount": 1}, {"tag": EFFECT_HASTE, "event_source_is_adjacent": true}))
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_ENEMY_STATUS_APPLIED, EFFECT_CHARGE, {"side": "self", "selector": "this_item"}, {"type": EFFECT_CHARGE, "amount": 1}, {"status_type": EFFECT_SLOW, "event_source_is_adjacent": true}))
+		"robe":
+			handled_keywords[EFFECT_CHARGE] = true
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_ITEM_USED, EFFECT_CHARGE, {"side": "self", "selector": "this_item"}, {"type": EFFECT_CHARGE, "amount": 1}, {"event_source_is_adjacent": true}))
+		"rocket_boots":
+			handled_keywords[EFFECT_HASTE] = true
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_COOLDOWN_READY, EFFECT_HASTE, {"side": "self", "selector": "adjacent"}, {"type": EFFECT_HASTE, "amount_by_rarity": [1, 2, 3, 4]}))
+		"slumbering_primordial":
+			handled_keywords[EFFECT_CHARGE] = true
+			handled_keywords[EFFECT_FREEZE] = true
+			definitions.append(_trigger_condition_marker(item.source_id, EFFECT_FREEZE, "status-trigger condition handles Freeze"))
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_ENEMY_STATUS_APPLIED, EFFECT_CHARGE, {"side": "self", "selector": "this_item"}, {"type": EFFECT_CHARGE, "amount_by_rarity": [1, 2]}, {"status_type_any": [EFFECT_POISON, EFFECT_FREEZE, EFFECT_BURN]}))
+		"solar_farm":
+			handled_keywords[EFFECT_CHARGE] = true
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_ENEMY_STATUS_APPLIED, EFFECT_CHARGE, {"side": "self", "selector": "this_item"}, {"type": EFFECT_CHARGE, "amount": 2}, {"status_type": EFFECT_BURN}))
+		"sunlight_spear":
+			handled_keywords[EFFECT_REGENERATION] = true
+			handled_keywords[EFFECT_BURN] = true
+			handled_keywords[EFFECT_DAMAGE] = true
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_COOLDOWN_READY, EFFECT_REGENERATION, {"side": "self", "selector": "hero"}, {"type": EFFECT_REGENERATION, "amount_by_rarity": [4, 8, 12]}))
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_COOLDOWN_READY, EFFECT_BURN, {"side": "enemy", "selector": "hero"}, {"type": EFFECT_BURN, "amount_from": "player_status.regeneration"}))
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_COOLDOWN_READY, EFFECT_DAMAGE, {"side": "enemy", "selector": "hero"}, {"type": EFFECT_DAMAGE, "amount_from": "all_status.burn_plus_player_regeneration", "crit_scaled": true}))
+		"textiles":
+			handled_keywords[EFFECT_HEAL] = true
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_COOLDOWN_READY, EFFECT_HEAL, {"side": "self", "selector": "hero"}, {"type": EFFECT_HEAL, "amount_from": "hero.shield"}))
+		"torpedo":
+			handled_keywords[EFFECT_RELOAD] = true
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_ITEM_USED, EFFECT_RELOAD, {"side": "self", "selector": "this_item"}, {"type": EFFECT_RELOAD, "amount": 1}, {"event_source_not_owner": true, "event_source_any_tags": ["Aquatic", "Ammo"], "event_source_size": "large"}))
+		"tortuga":
+			handled_keywords[EFFECT_HASTE] = true
+			handled_keywords[EFFECT_CHARGE] = true
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_COOLDOWN_READY, EFFECT_HASTE, {"side": "self", "selector": "other_items"}, {"type": EFFECT_HASTE, "amount": 1}))
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_TAG_USED, EFFECT_CHARGE, {"side": "self", "selector": "this_item"}, {"type": EFFECT_CHARGE, "amount": 2}, {"tag": "Friend", "event_source_not_owner": true}))
+		"trebuchet":
+			handled_keywords[EFFECT_CHARGE] = true
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_TAG_USED, EFFECT_CHARGE, {"side": "self", "selector": "this_item"}, {"type": EFFECT_CHARGE, "amount": 2}, {"tag": "Weapon"}))
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_TAG_USED, EFFECT_CHARGE, {"side": "self", "selector": "this_item"}, {"type": EFFECT_CHARGE, "amount": 2}, {"tag": EFFECT_HASTE}))
+		"void_shield":
+			handled_keywords[EFFECT_SHIELD] = true
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_COOLDOWN_READY, EFFECT_SHIELD, {"side": "self", "selector": "hero"}, {"type": EFFECT_SHIELD, "amount_from": "enemy_status.burn"}))
+		"ylw_m4nt1s":
+			handled_keywords[EFFECT_CHARGE] = true
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_ENEMY_STATUS_APPLIED, EFFECT_CHARGE, {"side": "self", "selector": "this_item"}, {"type": EFFECT_CHARGE, "amount": 1}, {"status_type": EFFECT_BURN, "event_source_is_adjacent": true}))
+		"yo_yo":
+			handled_keywords[EFFECT_CHARGE] = true
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_ITEM_USED, EFFECT_CHARGE, {"side": "self", "selector": "this_item"}, {"type": EFFECT_CHARGE, "amount_by_rarity": [1, 2, 3, 4]}, {"event_source_is_adjacent": true}))
+		"zoarcid":
+			handled_keywords[EFFECT_CHARGE] = true
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_ENEMY_STATUS_APPLIED, EFFECT_CHARGE, {"side": "self", "selector": "this_item"}, {"type": EFFECT_CHARGE, "amount": 1}, {"status_type": EFFECT_BURN}))
 		"void_ray":
 			handled_keywords[EFFECT_MULTICAST] = true
 			handled_keywords[EFFECT_RUNTIME_BONUS] = true
@@ -924,6 +1015,14 @@ static func _runtime_bonus_marker(source_id: String, runtime_path: String) -> Di
 		"trigger": "",
 		"target": {"selector": "runtime_service"},
 		"effect": {"type": EFFECT_RUNTIME_BONUS, "runtime_path": runtime_path},
+	}
+
+static func _trigger_condition_marker(source_id: String, effect_type: String, runtime_path: String) -> Dictionary:
+	return {
+		"id": "%s_%s_trigger_condition_supported" % [source_id, effect_type],
+		"trigger": "",
+		"target": {"selector": "runtime_service"},
+		"effect": {"type": effect_type, "runtime_path": runtime_path},
 	}
 
 static func _runtime_bonus_runtime_path(source_id: String) -> String:

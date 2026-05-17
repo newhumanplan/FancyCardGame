@@ -1,0 +1,19 @@
+{
+  "task_id": "T-FCG-P2B-DIRECT-STATUS-FAMILIES-003",
+  "status": "pass",
+  "tests_run": [
+    {"command": "git diff --check", "result": "pass"},
+    {"command": "/Applications/Godot.app/Contents/MacOS/Godot --headless --path /Users/Allenz/Projects/FancyCardGame --script tests/run_node_test.gd -- res://tests/test_full_content_parity_p2b_direct_status_families.gd", "result": "pass", "summary": "115/115 passed"},
+    {"command": "/Applications/Godot.app/Contents/MacOS/Godot --headless --path /Users/Allenz/Projects/FancyCardGame --script tests/run_node_test.gd -- res://tests/test_full_content_parity_p2b_item_effect_families_batch2.gd", "result": "pass", "summary": "176/176 passed"},
+    {"command": "/Applications/Godot.app/Contents/MacOS/Godot --headless --path /Users/Allenz/Projects/FancyCardGame --script tests/run_node_test.gd -- res://tests/test_full_content_parity_p2b_item_effect_families.gd", "result": "pass", "summary": "102/102 passed"},
+    {"command": "/Applications/Godot.app/Contents/MacOS/Godot --headless --path /Users/Allenz/Projects/FancyCardGame --script tests/run_node_test.gd -- res://tests/test_full_content_parity_p2b_status_semantics.gd", "result": "pass", "summary": "20/20 passed"},
+    {"command": "/Applications/Godot.app/Contents/MacOS/Godot --headless --path /Users/Allenz/Projects/FancyCardGame --script tests/run_node_test.gd -- res://tests/test_full_content_parity_p2a_hard_mechanics_aggregate.gd", "result": "pass", "summary": "44/44 passed"},
+    {"command": "/Applications/Godot.app/Contents/MacOS/Godot --headless --path /Users/Allenz/Projects/FancyCardGame --script tests/run_node_test.gd -- res://tests/test_full_content_parity_p1r_safe_runtime_residuals.gd", "result": "pass", "summary": "49/49 passed"},
+    {"command": "/Applications/Godot.app/Contents/MacOS/Godot --headless --path /Users/Allenz/Projects/FancyCardGame --script tests/run_node_test.gd -- res://tests/test_item_effect_reachable_coverage.gd", "result": "pass", "summary": "180/180 passed", "notes": "Known pre-existing ObjectDB/resource cleanup warning remains visible."},
+    {"command": "/Applications/Godot.app/Contents/MacOS/Godot --headless --path /Users/Allenz/Projects/FancyCardGame --script tests/run_node_test.gd -- res://tests/test_full_content_parity_p1e_monster_report.gd", "result": "pass", "summary": "585/585 passed", "notes": "Known pre-existing ObjectDB/resource cleanup warning remains visible."}
+  ],
+  "known_warnings": [
+    "ObjectDB/resource cleanup warning in broad coverage/report gates; assertions passed and warning was not filtered.",
+    "runtime_bonus residual warnings remain explicit for out-of-scope P2B-4/backlog semantics."
+  ]
+}

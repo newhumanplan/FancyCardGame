@@ -1,0 +1,11 @@
+{
+  "task_id": "T-FCG-P2B-DIRECT-STATUS-FAMILIES-003",
+  "changed_files": [
+    "scripts/battle_system.gd",
+    "scripts/data/effect_definition.gd",
+    "tests/test_full_content_parity_p2b_direct_status_families.gd"
+  ],
+  "forbidden_files_touched": [],
+  "generated_gd_uid_staged": false,
+  "parked_p1_ui_stash_touched": false
+}

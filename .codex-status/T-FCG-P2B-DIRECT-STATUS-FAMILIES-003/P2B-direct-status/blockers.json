@@ -1,0 +1,13 @@
+{
+  "task_id": "T-FCG-P2B-DIRECT-STATUS-FAMILIES-003",
+  "status": "no_terminal_blocker",
+  "blockers": [],
+  "deferred_scope": [
+    "Broad runtime_bonus bucket remains explicit for P2B-4/backlog.",
+    "Enemy item-use reactive effects such as Iceberg/Lightning Rod/Tripwire remain explicit because runtime ordering/targeting is outside this packet.",
+    "Flying-start reloads such as Fire Bomb/Ice Bomb remain explicit because Flying start-event semantics are outside this packet.",
+    "Value/economy/board-destruction and design-heavy residuals were not mixed into this direct/status family batch."
+  ],
+  "p1_ui_stash": "not touched; parked task remains in stash from Main interruption",
+  "pushed": false
+}
