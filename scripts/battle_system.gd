@@ -379,6 +379,48 @@ func _set_no_damage_window(owner_side: String, seconds: float) -> void:
 func _has_no_damage_window(owner_side: String) -> bool:
 	return _battle_elapsed_time < float(_effect_runtime_state.get("%s_no_damage_until" % owner_side, 0.0))
 
+func _enter_enrage(owner_side: String, duration: float = 5.0) -> void:
+	if duration <= 0.0:
+		return
+	_effect_runtime_state["%s_enrage_until" % owner_side] = maxf(float(_effect_runtime_state.get("%s_enrage_until" % owner_side, 0.0)), _battle_elapsed_time + duration)
+	_clear_own_item_slow_freeze(owner_side)
+	_apply_enrage_cooldown_entry_modifier(owner_side)
+	_record_effect_trace({"kind": "runtime", "id": "%s_enrage" % owner_side}, {"id": "%s_enter_enrage_clear_slow_freeze_cooldown_modifier" % owner_side, "trigger": "enrage_enter", "effect": {"type": EffectDefinitionClass.EFFECT_RUNTIME_BONUS}}, "enrage_enter", duration, 1)
+
+func _exit_enrage(owner_side: String) -> void:
+	_effect_runtime_state["%s_enrage_until" % owner_side] = 0.0
+
+func _is_enraged(owner_side: String) -> bool:
+	return _battle_elapsed_time < float(_effect_runtime_state.get("%s_enrage_until" % owner_side, 0.0))
+
+func _clear_own_item_slow_freeze(owner_side: String) -> void:
+	if owner_side == "player" and inventory != null:
+		for item in inventory.items:
+			if item == null or _is_player_item_destroyed(item):
+				continue
+			var base_cooldown: float = _get_effective_cooldown(_get_player_item_effective_cooldown(item, false))
+			item.current_cooldown = minf(item.current_cooldown, base_cooldown)
+	if owner_side == "monster" and current_monster != null:
+		for index in range(current_monster.monster_items.size()):
+			if _is_monster_item_destroyed(index):
+				continue
+			var monster_item: Dictionary = current_monster.monster_items[index]
+			var base_cooldown: float = _get_effective_cooldown(float(monster_item.get("cooldown", 0.0)))
+			monster_item["current_cooldown"] = minf(float(monster_item.get("current_cooldown", 0.0)), base_cooldown)
+
+func _apply_enrage_cooldown_entry_modifier(owner_side: String) -> void:
+	if owner_side == "player" and inventory != null:
+		for item in inventory.items:
+			if item != null and not _is_player_item_destroyed(item) and item.current_cooldown > 0.0:
+				item.current_cooldown *= 0.9
+	if owner_side == "monster" and current_monster != null:
+		for index in range(current_monster.monster_items.size()):
+			if _is_monster_item_destroyed(index):
+				continue
+			var monster_item: Dictionary = current_monster.monster_items[index]
+			if float(monster_item.get("current_cooldown", 0.0)) > 0.0:
+				monster_item["current_cooldown"] = float(monster_item.get("current_cooldown", 0.0)) * 0.9
+
 func _player_destroyed_item_ids() -> Array:
 	if not _effect_runtime_state.has("destroyed_player_item_ids"):
 		_effect_runtime_state["destroyed_player_item_ids"] = []
@@ -874,7 +916,7 @@ func _trigger_monster_items() -> void:
 				print("🔄 反弹 %d 伤害!" % reflected)
 		if game_manager.player_health <= 0:
 			break
-		item["current_cooldown"] = _get_effective_cooldown(item_cooldown)
+		item["current_cooldown"] = _get_monster_item_effective_cooldown(item_cooldown)
 		_after_monster_item_used(item_index)
 
 func _new_use_context() -> Dictionary:
@@ -1124,7 +1166,13 @@ func _has_root_item_effect_definition(item: ItemData) -> bool:
 		return true
 	return false
 
-func _get_player_item_effective_cooldown(item: ItemData) -> float:
+func _get_monster_item_effective_cooldown(cooldown: float) -> float:
+	var effective_cooldown: float = cooldown
+	if _is_enraged("monster"):
+		effective_cooldown *= 0.9
+	return _get_effective_cooldown(effective_cooldown)
+
+func _get_player_item_effective_cooldown(item: ItemData, include_enrage: bool = true) -> float:
 	if item == null or item.cooldown <= 0.0:
 		return 0.0
 	var cooldown: float = item.cooldown
@@ -1156,6 +1204,8 @@ func _get_player_item_effective_cooldown(item: ItemData) -> float:
 		cooldown *= 1.0 + (_get_player_skill_value("one_shot_one_kill") / 100.0)
 	var passive_reduction: float = float(_get_passive_combat_stats().get("cd_reduction", 0.0))
 	cooldown *= 1.0 - passive_reduction
+	if include_enrage and _is_enraged("player"):
+		cooldown *= 0.9
 	cooldown -= _get_item_runtime_bonus(item, "cooldown_flat_reduction")
 	return maxf(cooldown, 0.0)
 
@@ -3177,7 +3227,7 @@ func _process_status_state(target: String, state: Dictionary, elapsed_time: floa
 		if burn_value <= 0.0:
 			continue
 		_apply_status_damage(target, int(round(burn_value)), true)
-		state["burn"] = maxf(burn_value - 1.0, 0.0)
+		state["burn"] = _decay_burn_amount(burn_value)
 
 	state["poison_regen_tick"] = float(state.get("poison_regen_tick", 0.0)) + delta
 	while float(state["poison_regen_tick"]) >= POISON_REGEN_TICK_SECONDS:
@@ -3190,33 +3240,52 @@ func _process_status_state(target: String, state: Dictionary, elapsed_time: floa
 		if poison_value > 0.0:
 			_apply_status_damage(target, int(round(poison_value)), false)
 
+func _decay_burn_amount(burn_value: float) -> float:
+	var decayed: float = burn_value * 0.97
+	return 0.0 if decayed < 0.001 else decayed
+
 func _apply_status_damage(target: String, raw_damage: int, is_burn: bool) -> void:
 	var damage: int = maxi(raw_damage, 0)
 	if damage <= 0:
 		return
 	if target == "enemy":
-		if current_monster == null or not current_monster.is_alive():
-			return
-		if is_burn and current_monster.current_shield > 0.0:
-			damage = maxi(int(ceil(float(damage) * 0.5)), 1)
 		if is_burn:
-			_damage_current_monster(damage)
+			_apply_burn_damage_to_monster(damage)
 		else:
 			_damage_current_monster(damage, false)
 		return
 
-	if game_manager == null:
-		return
-	var hero: HeroData = null if game_manager.selected_hero == null else game_manager.selected_hero
 	if is_burn:
-		if hero != null and hero.current_shield > 0.0:
-			damage = maxi(int(ceil(float(damage) * 0.5)), 1)
-			var absorbed: float = hero.remove_shield(float(damage))
-			damage = maxi(damage - int(absorbed), 0)
-		if damage > 0:
-			_damage_player(damage)
+		_apply_burn_damage_to_player(damage)
 	else:
 		_damage_player(damage)
+
+func _apply_burn_damage_to_monster(damage: int) -> void:
+	if current_monster == null or not current_monster.is_alive() or damage <= 0:
+		return
+	if _has_no_damage_window("monster"):
+		return
+	var remaining_damage: int = damage
+	if current_monster.current_shield > 0.0:
+		var shield_spent: float = minf(current_monster.current_shield, float(damage) * 0.5)
+		current_monster.current_shield = maxf(current_monster.current_shield - shield_spent, 0.0)
+		remaining_damage = maxi(damage - int(floor(shield_spent * 2.0)), 0)
+	if remaining_damage > 0:
+		_damage_current_monster(remaining_damage, false)
+
+func _apply_burn_damage_to_player(damage: int) -> void:
+	if game_manager == null or damage <= 0:
+		return
+	if _has_no_damage_window("player"):
+		return
+	var remaining_damage: int = damage
+	var hero: HeroData = null if game_manager.selected_hero == null else game_manager.selected_hero
+	if hero != null and hero.current_shield > 0.0:
+		var shield_spent: float = minf(hero.current_shield, float(damage) * 0.5)
+		hero.remove_shield(shield_spent)
+		remaining_damage = maxi(damage - int(floor(shield_spent * 2.0)), 0)
+	if remaining_damage > 0:
+		_damage_player(remaining_damage)
 
 func _apply_status_heal(target: String, amount: int) -> void:
 	var heal_amount: int = maxi(amount, 0)
