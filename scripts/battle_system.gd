@@ -129,10 +129,18 @@ func _apply_monster_start_skills() -> void:
 				str(skill.get("name", "怪物技能")),
 				start_shield
 			])
+		var skill_id: String = str(skill.get("id", ""))
+		match skill_id:
+			"power_broker":
+				_apply_monster_power_broker(skill)
+			"prosperity":
+				_apply_monster_prosperity(skill)
 
 func _apply_monster_skill_item_used_triggers(item_index: int, item: Dictionary, is_crit: bool) -> void:
 	if current_monster == null:
 		return
+	if _monster_item_starts_flying(item):
+		_set_monster_item_flying(item_index, "source_item_start_flying")
 	for skill_ref in PlayerSkillCatalogClass.resolve_skill_refs(current_monster.monster_skills):
 		var skill_id: String = str(skill_ref.get("id", ""))
 		match skill_id:
@@ -153,6 +161,20 @@ func _apply_monster_skill_item_used_triggers(item_index: int, item: Dictionary, 
 				var reload_amount: int = maxi(int(round(PlayerSkillCatalogClass.get_tier_value(skill_ref))), 1)
 				if _reload_other_monster_ammo_item(item_index, reload_amount):
 					_record_monster_skill_trace(skill_id, "flashy_reload_on_crit_reload_ammo", EffectDefinitionClass.TRIGGER_ON_CRIT, EffectDefinitionClass.EFFECT_RELOAD, float(reload_amount), 1)
+			"haunting_flight":
+				if bool(_effect_runtime_state.get("monster_haunting_flight_triggered", false)):
+					continue
+				var flying_count: int = maxi(int(round(PlayerSkillCatalogClass.get_tier_value(skill_ref))), 1)
+				var started_count: int = _start_monster_small_items_flying(flying_count)
+				if started_count > 0:
+					_effect_runtime_state["monster_haunting_flight_triggered"] = true
+					_record_monster_skill_trace(skill_id, "haunting_flight_first_item_small_items_start_flying", EffectDefinitionClass.TRIGGER_ON_ITEM_USED, EffectDefinitionClass.EFFECT_RUNTIME_BONUS, float(started_count), started_count)
+			"into_the_void":
+				if bool(_effect_runtime_state.get("monster_into_the_void_triggered", false)):
+					continue
+				_effect_runtime_state["monster_into_the_void_triggered"] = true
+				var destroyed_total: int = _destroy_random_player_item_for_fight("into_the_void") + _destroy_random_monster_item_for_fight("into_the_void")
+				_record_monster_skill_trace(skill_id, "into_the_void_first_item_destroy_each_board_for_fight", EffectDefinitionClass.TRIGGER_ON_ITEM_USED, EffectDefinitionClass.EFFECT_RUNTIME_BONUS, float(destroyed_total), destroyed_total)
 
 func _apply_monster_skill_status_trigger(status_type: String, trigger_count: int) -> void:
 	if current_monster == null or trigger_count <= 0:
@@ -199,6 +221,11 @@ func _apply_monster_first_below_half_health_triggers() -> void:
 				if frozen_count <= 0:
 					continue
 				_record_monster_skill_trace(skill_id, "petrifying_gaze_first_below_half_health_freeze_all_enemy_items", EffectDefinitionClass.TRIGGER_ON_DAMAGE_TAKEN, EffectDefinitionClass.EFFECT_FREEZE, freeze_seconds, frozen_count)
+			"ravenous":
+				var destroyed_count: int = _destroy_random_player_item_for_fight("ravenous")
+				if destroyed_count <= 0:
+					continue
+				_record_monster_skill_trace(skill_id, "ravenous_first_below_half_health_destroy_enemy_item_for_fight", EffectDefinitionClass.TRIGGER_ON_DAMAGE_TAKEN, EffectDefinitionClass.EFFECT_RUNTIME_BONUS, float(destroyed_count), destroyed_count)
 
 func _check_monster_first_below_half_health(previous_hp: int) -> void:
 	if current_monster == null or current_monster.max_hp <= 0 or not current_monster.is_alive():
@@ -213,6 +240,8 @@ func _check_monster_first_below_half_health(previous_hp: int) -> void:
 func _damage_current_monster(damage: int, use_shield: bool = true) -> int:
 	if current_monster == null or damage <= 0:
 		return 0
+	if _has_no_damage_window("monster"):
+		return 0
 	var previous_hp: int = current_monster.current_hp
 	var actual_damage: int = 0
 	var pending_damage: int = maxi(damage, 0)
@@ -223,7 +252,7 @@ func _damage_current_monster(damage: int, use_shield: bool = true) -> int:
 	if pending_damage <= 0:
 		return 0
 	actual_damage = mini(pending_damage, current_monster.current_hp)
-	if actual_damage >= current_monster.current_hp and _try_fiery_rebirth("monster"):
+	if actual_damage >= current_monster.current_hp and _try_would_die_prevention("monster"):
 		return actual_damage
 	current_monster.current_hp = maxi(current_monster.current_hp - actual_damage, 0)
 	_check_monster_first_below_half_health(previous_hp)
@@ -232,14 +261,73 @@ func _damage_current_monster(damage: int, use_shield: bool = true) -> int:
 func _damage_player(damage: int) -> int:
 	if game_manager == null or damage <= 0:
 		return 0
+	if _has_no_damage_window("player"):
+		return 0
 	var current_hp: int = int(game_manager.get("player_health"))
 	var actual_damage: int = mini(maxi(damage, 0), current_hp)
 	if actual_damage <= 0:
 		return 0
-	if actual_damage >= current_hp and _try_fiery_rebirth("player"):
+	if actual_damage >= current_hp and _try_would_die_prevention("player"):
 		return actual_damage
 	game_manager.take_damage(actual_damage)
 	return actual_damage
+
+func _try_would_die_prevention(owner_side: String) -> bool:
+	return _try_memento_mori(owner_side) or _try_sparring_partner_rebirth(owner_side) or _try_fiery_rebirth(owner_side)
+
+func _try_memento_mori(owner_side: String) -> bool:
+	if owner_side == "monster":
+		if current_monster == null or bool(_effect_runtime_state.get("monster_memento_mori_triggered", false)):
+			return false
+		for item_index in range(current_monster.monster_items.size()):
+			var monster_item: Dictionary = current_monster.monster_items[item_index]
+			if str(monster_item.get("source_id", "")) != "memento_mori" or _is_monster_item_destroyed(item_index):
+				continue
+			_effect_runtime_state["monster_memento_mori_triggered"] = true
+			current_monster.current_hp = mini(1, current_monster.max_hp)
+			_set_no_damage_window("monster", float(_rarity_value_from_monster_item(monster_item, [1, 2])))
+			_record_monster_skill_trace("memento_mori", "memento_mori_would_die_heal_1_no_damage", EffectDefinitionClass.TRIGGER_ON_DAMAGE_TAKEN, EffectDefinitionClass.EFFECT_HEAL, 1.0, 1)
+			return true
+	if owner_side == "player":
+		if inventory == null or bool(_effect_runtime_state.get("player_memento_mori_triggered", false)):
+			return false
+		for item in inventory.items:
+			if item == null or item.source_id != "memento_mori" or _is_player_item_destroyed(item):
+				continue
+			_effect_runtime_state["player_memento_mori_triggered"] = true
+			game_manager.set("player_health", mini(1, game_manager.get_max_health()))
+			_set_no_damage_window("player", _get_rarity_value(item, [1, 2], 1.0))
+			_record_effect_trace({"kind": "item", "id": "memento_mori"}, {"id": "memento_mori_would_die_heal_1_no_damage", "trigger": EffectDefinitionClass.TRIGGER_ON_DAMAGE_TAKEN, "effect": {"type": EffectDefinitionClass.EFFECT_HEAL}}, EffectDefinitionClass.TRIGGER_ON_DAMAGE_TAKEN, 1.0, 1)
+			return true
+	return false
+
+func _try_sparring_partner_rebirth(owner_side: String) -> bool:
+	if owner_side == "monster":
+		if current_monster == null or not _monster_has_skill("sparring_partner_skill"):
+			return false
+		if bool(_effect_runtime_state.get("monster_sparring_partner_triggered", false)):
+			return false
+		_effect_runtime_state["monster_sparring_partner_triggered"] = true
+		_clear_statuses(enemy_status_state, [EffectDefinitionClass.EFFECT_BURN, EffectDefinitionClass.EFFECT_POISON])
+		current_monster.max_hp = maxi(current_monster.max_hp * 2, 1)
+		current_monster.current_hp = current_monster.max_hp
+		if game_manager != null:
+			game_manager.add_gold(1)
+		_record_monster_skill_trace("sparring_partner_skill", "sparring_partner_would_die_cleanse_double_max_health_enemy_gold", EffectDefinitionClass.TRIGGER_ON_DAMAGE_TAKEN, EffectDefinitionClass.EFFECT_HEAL, float(current_monster.max_hp), 1)
+		return true
+	if owner_side == "player":
+		if not _has_player_skill("sparring_partner_skill"):
+			return false
+		if bool(_effect_runtime_state.get("player_sparring_partner_triggered", false)):
+			return false
+		_effect_runtime_state["player_sparring_partner_triggered"] = true
+		_clear_statuses(player_status_state, [EffectDefinitionClass.EFFECT_BURN, EffectDefinitionClass.EFFECT_POISON])
+		if game_manager != null and game_manager.selected_hero != null:
+			game_manager.selected_hero.max_hp = maxi(int(game_manager.selected_hero.max_hp) * 2, 1)
+			game_manager.set("player_health", int(game_manager.selected_hero.max_hp))
+			_record_effect_trace({"kind": "player_skill", "id": "sparring_partner_skill"}, {"id": "sparring_partner_would_die_cleanse_double_max_health_enemy_gold", "trigger": EffectDefinitionClass.TRIGGER_ON_DAMAGE_TAKEN, "effect": {"type": EffectDefinitionClass.EFFECT_HEAL}}, EffectDefinitionClass.TRIGGER_ON_DAMAGE_TAKEN, float(game_manager.selected_hero.max_hp), 1)
+			return true
+	return false
 
 func _try_fiery_rebirth(owner_side: String) -> bool:
 	if owner_side == "monster":
@@ -278,6 +366,220 @@ func _monster_has_skill(skill_id: String) -> bool:
 		if str(skill_ref.get("id", "")) == skill_id:
 			return true
 	return false
+
+func _clear_statuses(status_state: Dictionary, status_types: Array) -> void:
+	for status_type in status_types:
+		status_state[str(status_type)] = 0.0
+
+func _set_no_damage_window(owner_side: String, seconds: float) -> void:
+	if seconds <= 0.0:
+		return
+	_effect_runtime_state["%s_no_damage_until" % owner_side] = maxf(float(_effect_runtime_state.get("%s_no_damage_until" % owner_side, 0.0)), _battle_elapsed_time + seconds)
+
+func _has_no_damage_window(owner_side: String) -> bool:
+	return _battle_elapsed_time < float(_effect_runtime_state.get("%s_no_damage_until" % owner_side, 0.0))
+
+func _player_destroyed_item_ids() -> Array:
+	if not _effect_runtime_state.has("destroyed_player_item_ids"):
+		_effect_runtime_state["destroyed_player_item_ids"] = []
+	return _effect_runtime_state["destroyed_player_item_ids"]
+
+func _monster_destroyed_item_indexes() -> Array:
+	if not _effect_runtime_state.has("destroyed_monster_item_indexes"):
+		_effect_runtime_state["destroyed_monster_item_indexes"] = []
+	return _effect_runtime_state["destroyed_monster_item_indexes"]
+
+func _is_player_item_destroyed(item: ItemData) -> bool:
+	return item != null and _player_destroyed_item_ids().has(item.get_instance_id())
+
+func _is_monster_item_destroyed(item_index: int) -> bool:
+	return _monster_destroyed_item_indexes().has(item_index)
+
+func _destroy_random_player_item_for_fight(reason_id: String) -> int:
+	if inventory == null:
+		return 0
+	var candidates: Array[ItemData] = []
+	for item in inventory.items:
+		if item != null and not _is_player_item_destroyed(item):
+			candidates.append(item)
+	if candidates.is_empty():
+		return 0
+	var item: ItemData = candidates[randi() % candidates.size()]
+	_player_destroyed_item_ids().append(item.get_instance_id())
+	_record_effect_trace({"kind": "runtime", "id": reason_id}, {"id": "%s_destroy_player_item_for_fight" % reason_id, "trigger": EffectDefinitionClass.TRIGGER_ON_DAMAGE_TAKEN, "effect": {"type": EffectDefinitionClass.EFFECT_RUNTIME_BONUS}}, EffectDefinitionClass.TRIGGER_ON_DAMAGE_TAKEN, 1.0, 1)
+	_apply_destroy_item_triggers("player", reason_id)
+	return 1
+
+func _destroy_random_monster_item_for_fight(reason_id: String) -> int:
+	if current_monster == null:
+		return 0
+	var candidates: Array[int] = []
+	for index in range(current_monster.monster_items.size()):
+		if not _is_monster_item_destroyed(index):
+			candidates.append(index)
+	if candidates.is_empty():
+		return 0
+	var item_index: int = candidates[randi() % candidates.size()]
+	_monster_destroyed_item_indexes().append(item_index)
+	_record_effect_trace({"kind": "runtime", "id": reason_id}, {"id": "%s_destroy_monster_item_for_fight" % reason_id, "trigger": EffectDefinitionClass.TRIGGER_ON_DAMAGE_TAKEN, "effect": {"type": EffectDefinitionClass.EFFECT_RUNTIME_BONUS}}, EffectDefinitionClass.TRIGGER_ON_DAMAGE_TAKEN, 1.0, 1)
+	_apply_destroy_item_triggers("monster", reason_id)
+	return 1
+
+func _player_flying_item_ids() -> Array:
+	if not _effect_runtime_state.has("player_flying_item_ids"):
+		_effect_runtime_state["player_flying_item_ids"] = []
+	return _effect_runtime_state["player_flying_item_ids"]
+
+func _monster_flying_item_indexes() -> Array:
+	if not _effect_runtime_state.has("monster_flying_item_indexes"):
+		_effect_runtime_state["monster_flying_item_indexes"] = []
+	return _effect_runtime_state["monster_flying_item_indexes"]
+
+func _is_player_item_flying(item: ItemData) -> bool:
+	return item != null and _player_flying_item_ids().has(item.get_instance_id())
+
+func _is_monster_item_flying(item_index: int) -> bool:
+	return _monster_flying_item_indexes().has(item_index)
+
+func _set_player_item_flying(item: ItemData, reason_id: String) -> bool:
+	if item == null or _is_player_item_flying(item) or _is_player_item_destroyed(item):
+		return false
+	_player_flying_item_ids().append(item.get_instance_id())
+	_apply_flying_start_triggers("player")
+	_record_effect_trace({"kind": "runtime", "id": reason_id}, {"id": "%s_player_item_start_flying" % reason_id, "trigger": EffectDefinitionClass.TRIGGER_ON_ITEM_USED, "effect": {"type": EffectDefinitionClass.EFFECT_RUNTIME_BONUS}}, EffectDefinitionClass.TRIGGER_ON_ITEM_USED, 1.0, 1)
+	return true
+
+func _set_monster_item_flying(item_index: int, reason_id: String) -> bool:
+	if current_monster == null or item_index < 0 or item_index >= current_monster.monster_items.size() or _is_monster_item_flying(item_index) or _is_monster_item_destroyed(item_index):
+		return false
+	_monster_flying_item_indexes().append(item_index)
+	_apply_flying_start_triggers("monster")
+	_record_effect_trace({"kind": "runtime", "id": reason_id}, {"id": "%s_monster_item_start_flying" % reason_id, "trigger": EffectDefinitionClass.TRIGGER_ON_ITEM_USED, "effect": {"type": EffectDefinitionClass.EFFECT_RUNTIME_BONUS}}, EffectDefinitionClass.TRIGGER_ON_ITEM_USED, 1.0, 1)
+	return true
+
+func _start_player_small_items_flying(count: int) -> int:
+	if inventory == null:
+		return 0
+	var started: int = 0
+	for item in inventory.items:
+		if started >= count:
+			break
+		if item != null and _matches_player_item_selector(item, "small") and _set_player_item_flying(item, "haunting_flight"):
+			started += 1
+	return started
+
+func _start_monster_small_items_flying(count: int) -> int:
+	if current_monster == null:
+		return 0
+	var started: int = 0
+	for index in range(current_monster.monster_items.size()):
+		if started >= count:
+			break
+		var item: Dictionary = current_monster.monster_items[index]
+		if _monster_item_size_matches(item, "Small") and _set_monster_item_flying(index, "haunting_flight"):
+			started += 1
+	return started
+
+func _apply_flying_start_triggers(owner_side: String) -> void:
+	if owner_side == "monster" and _monster_has_skill("aerial_assault"):
+		if _charge_monster_weapon(1.0):
+			_record_monster_skill_trace("aerial_assault", "aerial_assault_item_start_flying_charge_weapon", EffectDefinitionClass.TRIGGER_ON_ITEM_USED, EffectDefinitionClass.EFFECT_CHARGE, 1.0, 1)
+	if owner_side == "player" and _has_player_skill("aerial_assault"):
+		if _charge_matching_player_item("weapon", 1.0):
+			_record_effect_trace({"kind": "player_skill", "id": "aerial_assault"}, {"id": "aerial_assault_item_start_flying_charge_weapon", "trigger": EffectDefinitionClass.TRIGGER_ON_ITEM_USED, "effect": {"type": EffectDefinitionClass.EFFECT_CHARGE}}, EffectDefinitionClass.TRIGGER_ON_ITEM_USED, 1.0, 1)
+
+func _monster_item_starts_flying(item: Dictionary) -> bool:
+	var effect_text: String = str(item.get("effect", "")).to_lower()
+	return effect_text.contains("starts flying") or effect_text.contains("start flying")
+
+func _monster_item_size_matches(item: Dictionary, size_name: String) -> bool:
+	return str(item.get("size", "")).to_lower() == size_name.to_lower()
+
+func _charge_monster_weapon(seconds: float) -> bool:
+	if current_monster == null or seconds <= 0.0:
+		return false
+	var best_index: int = -1
+	var best_cooldown: float = -1.0
+	for index in range(current_monster.monster_items.size()):
+		if _is_monster_item_destroyed(index):
+			continue
+		var item: Dictionary = current_monster.monster_items[index]
+		if not _monster_item_has_tag(item, "Weapon"):
+			continue
+		var current_cooldown: float = float(item.get("current_cooldown", 0.0))
+		if current_cooldown > best_cooldown:
+			best_index = index
+			best_cooldown = current_cooldown
+	if best_index < 0:
+		return false
+	var weapon: Dictionary = current_monster.monster_items[best_index]
+	weapon["current_cooldown"] = maxf(float(weapon.get("current_cooldown", 0.0)) - seconds, 0.0)
+	return true
+
+func _apply_destroy_item_triggers(destroyed_owner_side: String, reason_id: String) -> void:
+	if destroyed_owner_side == "player" and current_monster != null and _monster_has_skill("void_render"):
+		var damage_bonus: int = 100
+		var burn_bonus: int = 10
+		for skill_ref in PlayerSkillCatalogClass.resolve_skill_refs(current_monster.monster_skills):
+			if str(skill_ref.get("id", "")) == "void_render":
+				damage_bonus = int(round(PlayerSkillCatalogClass.get_tier_value(skill_ref)))
+				burn_bonus = int(round(PlayerSkillCatalogClass.get_tier_value(skill_ref, "burn_values", 10.0)))
+		for index in range(current_monster.monster_items.size()):
+			if _is_monster_item_destroyed(index):
+				continue
+			var item: Dictionary = current_monster.monster_items[index]
+			if _monster_item_has_tag(item, "Weapon"):
+				item["damage"] = int(item.get("damage", 0)) + damage_bonus
+			if _monster_item_has_tag(item, "Burn"):
+				item["burn"] = int(item.get("burn", 0)) + burn_bonus
+		_record_monster_skill_trace("void_render", "void_render_destroy_item_weapon_damage_burn_bonus", EffectDefinitionClass.TRIGGER_ON_DAMAGE_TAKEN, EffectDefinitionClass.EFFECT_RUNTIME_BONUS, float(damage_bonus), 1)
+	if destroyed_owner_side == "monster" and _has_player_skill("void_render") and inventory != null:
+		var player_damage_bonus: int = int(round(_get_player_skill_value("void_render")))
+		var player_burn_bonus: int = int(round(_get_player_skill_value("void_render", "burn_values")))
+		for item in inventory.items:
+			if item == null or _is_player_item_destroyed(item):
+				continue
+			if _is_weapon_item(item):
+				_add_item_runtime_bonus(item, EffectDefinitionClass.EFFECT_DAMAGE, float(player_damage_bonus))
+			if _is_burn_item(item):
+				_add_item_runtime_bonus(item, EffectDefinitionClass.EFFECT_BURN, float(player_burn_bonus))
+		_record_effect_trace({"kind": "player_skill", "id": "void_render"}, {"id": "void_render_destroy_item_weapon_damage_burn_bonus", "trigger": EffectDefinitionClass.TRIGGER_ON_DAMAGE_TAKEN, "effect": {"type": EffectDefinitionClass.EFFECT_RUNTIME_BONUS}}, EffectDefinitionClass.TRIGGER_ON_DAMAGE_TAKEN, float(player_damage_bonus), 1)
+
+func _apply_monster_power_broker(skill_ref: Dictionary) -> void:
+	if current_monster == null or game_manager == null:
+		return
+	var income_bonus: int = int(round(PlayerSkillCatalogClass.get_tier_value(skill_ref) * float(game_manager.get("income"))))
+	if income_bonus <= 0:
+		return
+	var applied_count: int = 0
+	for index in range(current_monster.monster_items.size()):
+		if _is_monster_item_destroyed(index):
+			continue
+		var item: Dictionary = current_monster.monster_items[index]
+		if _monster_item_has_tag(item, "Weapon"):
+			item["damage"] = int(item.get("damage", 0)) + income_bonus
+			applied_count += 1
+	if applied_count > 0:
+		_record_monster_skill_trace("power_broker", "power_broker_weapon_damage_from_income", EffectDefinitionClass.TRIGGER_ON_BATTLE_START, EffectDefinitionClass.EFFECT_RUNTIME_BONUS, float(income_bonus), applied_count)
+
+func _apply_monster_prosperity(skill_ref: Dictionary) -> void:
+	if current_monster == null:
+		return
+	var total_value: int = 0
+	for item in current_monster.monster_items:
+		total_value += maxi(int(item.get("cost", item.get("value", 0))), 0)
+	if total_value <= 0:
+		return
+	var applied_count: int = 0
+	for index in range(current_monster.monster_items.size()):
+		if _is_monster_item_destroyed(index):
+			continue
+		var candidate: Dictionary = current_monster.monster_items[index]
+		if _monster_item_has_tag(candidate, "Shield") or int(candidate.get("shield", 0)) > 0:
+			candidate["shield"] = int(candidate.get("shield", 0)) + int(round(float(total_value) * PlayerSkillCatalogClass.get_tier_value(skill_ref)))
+			applied_count += 1
+	if applied_count > 0:
+		_record_monster_skill_trace("prosperity", "prosperity_shield_from_total_item_value", EffectDefinitionClass.TRIGGER_ON_BATTLE_START, EffectDefinitionClass.EFFECT_RUNTIME_BONUS, float(total_value), applied_count)
 
 func _record_monster_skill_trace(skill_id: String, definition_id: String, trigger: String, effect_type: String, amount: float, target_count: int) -> void:
 	_record_effect_trace(
@@ -334,6 +636,9 @@ func _apply_passive_combat_effects() -> void:
 
 func end_battle() -> void:
 	_ensure_game_manager()
+	var player_won: bool = current_monster != null and not current_monster.is_alive()
+	if player_won:
+		_apply_player_fight_win_value_effects()
 	is_battle_active = false
 	_restore_transformed_items()
 	player_status_state = _new_status_state()
@@ -405,11 +710,14 @@ func reduce_cooldowns(delta: float) -> void:
 		return
 	if inventory != null:
 		for item in inventory.items:
-			if item != null and item.current_cooldown > 0:
+			if item != null and not _is_player_item_destroyed(item) and item.current_cooldown > 0:
 				item.current_cooldown = maxf(item.current_cooldown - cooldown_delta, 0.0)
 	if current_monster == null or not current_monster.is_alive():
 		return
-	for item in current_monster.monster_items:
+	for index in range(current_monster.monster_items.size()):
+		if _is_monster_item_destroyed(index):
+			continue
+		var item: Dictionary = current_monster.monster_items[index]
 		if item.get("current_cooldown", 0.0) > 0:
 			item["current_cooldown"] = maxf(float(item["current_cooldown"]) - cooldown_delta, 0.0)
 
@@ -426,7 +734,7 @@ func _trigger_player_items() -> void:
 	var burn_bonus: float = 0.0 if hero == null else hero.skill_burn_bonus
 	var poison_bonus: float = 0.0 if hero == null else hero.skill_poison_bonus
 	for item in inventory.items.duplicate():
-		if item == null or item.current_cooldown > 0:
+		if item == null or item.current_cooldown > 0 or _is_player_item_destroyed(item):
 			continue
 		if not _is_active_player_item(item):
 			continue
@@ -484,6 +792,8 @@ func _trigger_monster_items() -> void:
 		print("👹 [%s] 自我治疗! 恢复 %d HP" % [current_monster.monster_name, heal_amount])
 	var damage_mult: float = 1.0 if current_monster.ai == null else current_monster.ai.get_current_damage_multiplier(current_monster)
 	for item_index in range(current_monster.monster_items.size()):
+		if _is_monster_item_destroyed(item_index):
+			continue
 		var item: Dictionary = current_monster.monster_items[item_index]
 		var item_cooldown: float = float(item.get("cooldown", 0.0))
 		if item_cooldown <= 0.0:
@@ -710,6 +1020,17 @@ func _after_player_item_used(item: ItemData, context: Dictionary) -> void:
 	if item == null or int(context.get("use_count", 0)) <= 0:
 		return
 	var use_count: int = int(context.get("use_count", 0))
+	if _item_starts_flying(item):
+		_set_player_item_flying(item, "source_item_start_flying")
+	if _has_player_skill("haunting_flight") and not bool(_effect_runtime_state.get("player_haunting_flight_triggered", false)):
+		var started_count: int = _start_player_small_items_flying(maxi(int(round(_get_player_skill_value("haunting_flight"))), 1))
+		if started_count > 0:
+			_effect_runtime_state["player_haunting_flight_triggered"] = true
+			_record_effect_trace({"kind": "player_skill", "id": "haunting_flight"}, {"id": "haunting_flight_first_item_small_items_start_flying", "trigger": EffectDefinitionClass.TRIGGER_ON_ITEM_USED, "effect": {"type": EffectDefinitionClass.EFFECT_RUNTIME_BONUS}}, EffectDefinitionClass.TRIGGER_ON_ITEM_USED, float(started_count), started_count)
+	if _has_player_skill("into_the_void") and not bool(_effect_runtime_state.get("player_into_the_void_triggered", false)):
+		_effect_runtime_state["player_into_the_void_triggered"] = true
+		var destroyed_total: int = _destroy_random_player_item_for_fight("into_the_void") + _destroy_random_monster_item_for_fight("into_the_void")
+		_record_effect_trace({"kind": "player_skill", "id": "into_the_void"}, {"id": "into_the_void_first_item_destroy_each_board_for_fight", "trigger": EffectDefinitionClass.TRIGGER_ON_ITEM_USED, "effect": {"type": EffectDefinitionClass.EFFECT_RUNTIME_BONUS}}, EffectDefinitionClass.TRIGGER_ON_ITEM_USED, float(destroyed_total), destroyed_total)
 	if item.source_id == "magic_carpet" and int(context.get("crit_count", 0)) > 0:
 		_add_item_runtime_bonus(item, "cooldown_flat_reduction", float(context.get("crit_count", 0)))
 
@@ -2185,6 +2506,11 @@ func _apply_run_battle_start_status_bonuses() -> void:
 		})
 
 func _apply_player_skill_battle_start_effects() -> void:
+	if _has_player_skill("pickpocket") and game_manager != null:
+		var gold_amount: int = maxi(int(round(_get_player_skill_value("pickpocket"))), 0)
+		if gold_amount > 0:
+			game_manager.add_gold(gold_amount)
+			_record_effect_trace({"kind": "player_skill", "id": "pickpocket"}, {"id": "pickpocket_battle_start_gain_gold", "trigger": EffectDefinitionClass.TRIGGER_ON_BATTLE_START, "effect": {"type": "gold"}}, EffectDefinitionClass.TRIGGER_ON_BATTLE_START, float(gold_amount), 1)
 	_apply_player_skill_start_item_bonuses()
 	_apply_player_skill_start_status_bonuses()
 	_process_reactive_effect_events([
@@ -2337,9 +2663,11 @@ func _charge_matching_player_item(selector: String, seconds: float) -> bool:
 	return true
 
 func _matches_player_item_selector(item: ItemData, selector: String) -> bool:
+	if item == null or _is_player_item_destroyed(item):
+		return false
 	match selector:
 		"any":
-			return item != null
+			return true
 		"ammo":
 			return item != null and item.has_ammo_limit()
 		"aquatic":
@@ -2370,6 +2698,12 @@ func _matches_player_item_selector(item: ItemData, selector: String) -> bool:
 			return _is_weapon_item(item)
 		_:
 			return false
+
+func _item_starts_flying(item: ItemData) -> bool:
+	if item == null:
+		return false
+	var effect_text: String = item.source_effect_text.to_lower()
+	return effect_text.contains("starts flying") or effect_text.contains("start flying")
 
 func _count_player_items_matching(selector: String) -> int:
 	if inventory == null:
@@ -2418,7 +2752,52 @@ func _get_player_item_skill_damage_bonus(item: ItemData) -> int:
 		bonus += _get_player_skill_value("left_handed")
 	if _is_edge_weapon_item(item, false):
 		bonus += _get_player_skill_value("right_handed")
+	if _has_player_skill("power_broker") and game_manager != null:
+		bonus += _get_player_skill_value("power_broker") * float(game_manager.get("income"))
+	if _has_player_item("lockbox"):
+		bonus += float(_get_total_player_item_combat_value("lockbox"))
 	return int(round(bonus))
+
+func _has_player_item(source_id: String) -> bool:
+	if inventory == null:
+		return false
+	for item in inventory.items:
+		if item != null and item.source_id == source_id and not _is_player_item_destroyed(item):
+			return true
+	return false
+
+func _get_total_player_item_combat_value(source_id: String = "") -> int:
+	if inventory == null:
+		return 0
+	var total: int = 0
+	for item in inventory.items:
+		if item == null or _is_player_item_destroyed(item):
+			continue
+		if not source_id.is_empty() and item.source_id != source_id:
+			continue
+		total += _get_player_item_combat_value(item)
+	return total
+
+func _get_player_item_combat_value(item: ItemData) -> int:
+	if item == null:
+		return 0
+	var value: int = maxi(item.buy_price, 0)
+	if _has_player_skill("trader"):
+		value += int(round(_get_player_skill_value("trader")))
+	if _has_player_skill("clean_storefront") and _get_edge_matching_player_item("any", true) == item:
+		value += int(round(_get_player_skill_value("clean_storefront")))
+	if _has_player_skill("master_salesman"):
+		value = int(round(float(value) * _get_player_skill_value("master_salesman")))
+	return value
+
+func _apply_player_fight_win_value_effects() -> void:
+	if inventory == null:
+		return
+	for item in inventory.items:
+		if item != null and item.source_id == "lockbox":
+			var gain: int = int(round(_get_rarity_value(item, [3, 6, 9], 3.0)))
+			item.buy_price += gain
+			_record_effect_trace({"kind": "item", "id": "lockbox"}, {"id": "lockbox_win_gain_value", "trigger": "on_win", "effect": {"type": "value_gain"}}, "on_win", float(gain), 1)
 
 func _is_edge_weapon_item(item: ItemData, leftmost: bool) -> bool:
 	if inventory == null or item == null or not _is_weapon_item(item):
@@ -2435,7 +2814,10 @@ func _get_player_item_skill_shield_bonus(item: ItemData) -> int:
 	if item == null or item.shield <= 0:
 		return 0
 	var hero: HeroData = null if game_manager == null else game_manager.selected_hero
-	return 0 if hero == null else int(round(hero.skill_shield_bonus))
+	var bonus: float = 0.0 if hero == null else hero.skill_shield_bonus
+	if _has_player_skill("prosperity"):
+		bonus += _get_player_skill_value("prosperity") * float(_get_total_player_item_combat_value())
+	return int(round(bonus))
 
 func _get_player_item_skill_crit_bonus(item: ItemData) -> int:
 	if item == null:
@@ -2543,6 +2925,8 @@ func _slow_monster_items(count: int, seconds: float) -> int:
 		return 0
 	var candidates: Array[int] = []
 	for index in range(current_monster.monster_items.size()):
+		if _is_monster_item_destroyed(index):
+			continue
 		var monster_item: Dictionary = current_monster.monster_items[index]
 		if float(monster_item.get("cooldown", 0.0)) > 0.0:
 			candidates.append(index)
@@ -2554,7 +2938,8 @@ func _slow_monster_items(count: int, seconds: float) -> int:
 		if applied >= count:
 			break
 		var monster_item: Dictionary = current_monster.monster_items[index]
-		monster_item["current_cooldown"] = maxf(float(monster_item.get("current_cooldown", 0.0)) + seconds, 0.0)
+		var applied_seconds: float = seconds * (0.5 if _is_monster_item_flying(index) else 1.0)
+		monster_item["current_cooldown"] = maxf(float(monster_item.get("current_cooldown", 0.0)) + applied_seconds, 0.0)
 		applied += 1
 	return applied
 
@@ -2563,7 +2948,7 @@ func _slow_player_items(count: int, seconds: float) -> int:
 		return 0
 	var candidates: Array[ItemData] = []
 	for item in inventory.items:
-		if item != null and item.cooldown > 0.0:
+		if item != null and not _is_player_item_destroyed(item) and item.cooldown > 0.0:
 			candidates.append(item)
 	candidates.sort_custom(func(a: ItemData, b: ItemData) -> bool:
 		return a.current_cooldown > b.current_cooldown
@@ -2572,7 +2957,8 @@ func _slow_player_items(count: int, seconds: float) -> int:
 	for item in candidates:
 		if applied >= count:
 			break
-		item.current_cooldown = maxf(item.current_cooldown + seconds, 0.0)
+		var applied_seconds: float = seconds * (0.5 if _is_player_item_flying(item) else 1.0)
+		item.current_cooldown = maxf(item.current_cooldown + applied_seconds, 0.0)
 		applied += 1
 	return applied
 
@@ -2581,7 +2967,7 @@ func _haste_player_items(count: int, seconds: float, source_item: ItemData = nul
 		return 0
 	var candidates: Array[ItemData] = []
 	for item in inventory.items:
-		if item != null and item != source_item and item.cooldown > 0.0:
+		if item != null and item != source_item and not _is_player_item_destroyed(item) and item.cooldown > 0.0:
 			candidates.append(item)
 	candidates.sort_custom(func(a: ItemData, b: ItemData) -> bool:
 		return a.current_cooldown > b.current_cooldown
@@ -2600,7 +2986,7 @@ func _haste_monster_items(count: int, seconds: float, source_index: int = -1) ->
 		return 0
 	var candidates: Array[int] = []
 	for index in range(current_monster.monster_items.size()):
-		if index == source_index:
+		if index == source_index or _is_monster_item_destroyed(index):
 			continue
 		var monster_item: Dictionary = current_monster.monster_items[index]
 		if float(monster_item.get("cooldown", 0.0)) > 0.0:

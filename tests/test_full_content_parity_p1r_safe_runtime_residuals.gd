@@ -36,7 +36,7 @@ func test_p1r_reasons_are_resolved() -> void:
 		"skill:tracer_fire:player_skill_runtime_not_bound_to_monster_ai:battle_runtime_numeric",
 	]:
 		_assert_true(not reason_counts.has(reason), "P1R residual reason resolved: %s" % reason)
-	_assert_true(reason_counts.has("item:lockbox:unsupported_item_effect:lockbox:runtime_bonus"), "Lockbox remains explicit because value/economy semantics are out of scope")
+	_assert_true(not reason_counts.has("item:lockbox:unsupported_item_effect:lockbox:runtime_bonus"), "P2A-4 resolves Lockbox value/economy runtime residual")
 
 func test_p1r_item_definitions_are_explicit() -> void:
 	var expected_ids := {

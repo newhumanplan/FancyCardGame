@@ -387,6 +387,13 @@ static func build_item_effects(item: ItemDataClass) -> Array[Dictionary]:
 			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_COOLDOWN_READY, EFFECT_RELOAD, {"side": "self", "selector": "right_item"}, {"type": EFFECT_RELOAD, "amount_by_rarity": [1, 2, 3, 4]}))
 		"ice_claw":
 			handled_keywords[EFFECT_RUNTIME_BONUS] = true
+		"memento_mori":
+			handled_keywords[EFFECT_DAMAGE] = true
+			handled_keywords[EFFECT_HEAL] = true
+			handled_keywords[EFFECT_RUNTIME_BONUS] = true
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_DAMAGE_TAKEN, EFFECT_HEAL, {"side": "self", "selector": "hero"}, {"type": EFFECT_HEAL, "amount": 1}))
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_DAMAGE_TAKEN, EFFECT_DAMAGE, {"side": "self", "selector": "hero"}, {"type": EFFECT_DAMAGE, "prevented": true}))
+			definitions.append(_runtime_bonus_marker(item.source_id, "BattleSystem would-die Heal 1 and no-damage window runtime"))
 		"jellyfish":
 			handled_keywords[EFFECT_HASTE] = true
 			handled_keywords[EFFECT_RUNTIME_BONUS] = true
@@ -801,6 +808,8 @@ static func _runtime_bonus_runtime_path(source_id: String) -> String:
 			return "BattleSystem item aura runtime bonus"
 		"incendiary_rounds", "jellyfish":
 			return "BattleSystem adjacent item-use and battle-start item runtime bonus"
+		"lockbox":
+			return "BattleSystem fight-win value gain and Value-scaled weapon Damage runtime"
 		"amber", "blue_piggles_l", "cosmic_plumage", "elemental_depth_charge", "fire_claw", "hot_sauce", "nargile", "pesky_pete", "poppy_field", "seaweed", "spices":
 			return "BattleSystem high-frequency item runtime bonus"
 		"rapid_injection_system":

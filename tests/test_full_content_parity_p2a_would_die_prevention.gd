@@ -80,8 +80,8 @@ func test_p2a3_report_resolves_fiery_rebirth_reason_only() -> void:
 	var report: Dictionary = BazaarContentClass.get_all_monster_parity_report()
 	var reason_counts: Dictionary = report.get("grouped_missing_mechanics", {}).get("reason_counts", {})
 	_assert_true(not reason_counts.has("skill:fiery_rebirth:death_prevention_heal_to_full_runtime_not_modelled"), "P2A-3 resolves Fiery Rebirth death-prevention reason")
-	_assert_true(reason_counts.has("skill:sparring_partner_skill:death_prevention_cleanse_double_max_health_and_enemy_gold_not_modelled"), "Sparring Partner remains explicit complex death-prevention residual")
-	_assert_true(reason_counts.has("skill:ravenous:first_self_below_half_health_temporary_destroy_item_not_modelled"), "Ravenous remains explicit board-destruction residual")
+	_assert_true(not reason_counts.has("skill:sparring_partner_skill:death_prevention_cleanse_double_max_health_and_enemy_gold_not_modelled"), "P2A-4 resolves Sparring Partner death-prevention residual")
+	_assert_true(not reason_counts.has("skill:ravenous:first_self_below_half_health_temporary_destroy_item_not_modelled"), "P2A-4 resolves Ravenous board-destruction residual")
 
 func _start_custom_monster(items: Array, skills: Array, player_items: Array = [], hero = null) -> MonsterDataClass:
 	var selected_hero = hero if hero != null else BazaarContentClass.create_mak_hero()

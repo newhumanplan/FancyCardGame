@@ -44,14 +44,26 @@ const MONSTER_DIRECT_NUMERIC_SKILL_BINDINGS: Dictionary = {
 }
 
 const MONSTER_TRIGGER_SKILL_BINDINGS: Dictionary = {
+	"aerial_assault": {"mechanic": "skill:aerial_assault:item_start_flying_charge_weapon_trigger"},
 	"chilling_touch": {"mechanic": "skill:chilling_touch:monster_first_freeze_slow_all_enemy_items_trigger"},
+	"clean_storefront": {"mechanic": "skill:clean_storefront:leftmost_item_combat_value_runtime"},
 	"flashy_mechanic": {"mechanic": "skill:flashy_mechanic:monster_tool_adjacent_crit_trigger"},
 	"flashy_reload": {"mechanic": "skill:flashy_reload:monster_crit_reload_other_ammo_trigger"},
 	"fiery_rebirth": {"mechanic": "skill:fiery_rebirth:would_die_heal_to_full_trigger"},
 	"hard_shell": {"mechanic": "skill:hard_shell:monster_first_below_half_health_shield_percent_trigger"},
+	"haunting_flight": {"mechanic": "skill:haunting_flight:first_item_small_items_start_flying_trigger"},
 	"hunker_down": {"mechanic": "skill:hunker_down:monster_first_below_half_health_shield_percent_trigger"},
+	"into_the_void": {"mechanic": "skill:into_the_void:first_item_destroy_each_board_for_fight_trigger"},
+	"master_salesman": {"mechanic": "skill:master_salesman:combat_value_multiplier_runtime"},
 	"petrifying_gaze": {"mechanic": "skill:petrifying_gaze:monster_first_below_half_health_freeze_all_enemy_items_trigger"},
+	"pickpocket": {"mechanic": "skill:pickpocket:battle_start_gold_runtime"},
+	"power_broker": {"mechanic": "skill:power_broker:weapon_damage_from_income_runtime"},
+	"prosperity": {"mechanic": "skill:prosperity:shield_from_total_item_value_runtime"},
+	"ravenous": {"mechanic": "skill:ravenous:first_below_half_health_destroy_item_for_fight_trigger"},
+	"sparring_partner_skill": {"mechanic": "skill:sparring_partner_skill:would_die_cleanse_double_max_health_enemy_gold_trigger"},
 	"time_to_tinker": {"mechanic": "skill:time_to_tinker:monster_haste_shield_trigger"},
+	"trader": {"mechanic": "skill:trader:item_value_runtime"},
+	"void_render": {"mechanic": "skill:void_render:destroy_item_weapon_damage_burn_bonus_trigger"},
 }
 
 const TOP_MONSTER_SPECIAL_IDS: Array[String] = [
