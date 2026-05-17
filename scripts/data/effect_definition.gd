@@ -856,11 +856,99 @@ static func build_item_effects(item: ItemDataClass) -> Array[Dictionary]:
 			handled_keywords[EFFECT_MULTICAST] = true
 			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_COOLDOWN_READY, EFFECT_MULTICAST, {"side": "self", "selector": "this_item"}, {"type": EFFECT_MULTICAST, "amount": 1}, {"has_item_size": "large"}))
 
+	_append_p2b_runtime_bonus_family_definitions(definitions, handled_keywords, item)
 	_append_non_combat_hook_definitions(definitions, handled_keywords, item)
 	var runtime_bonus_path: String = _runtime_bonus_runtime_path(item.source_id)
 	if not runtime_bonus_path.is_empty() and not _definitions_handle_effect(definitions, EFFECT_RUNTIME_BONUS):
 		definitions.append(_runtime_bonus_marker(item.source_id, runtime_bonus_path))
 	return definitions
+
+static func _append_p2b_runtime_bonus_family_definitions(definitions: Array[Dictionary], handled_keywords: Dictionary, item: ItemDataClass) -> void:
+	if item == null:
+		return
+	match item.source_id:
+		"atm", "citrus", "dog", "holsters", "improvised_bludgeon", "myrrh", "necronomicon", "salamander_pup", "silk_scarf", "solar_farm", "temporary_shelter":
+			_append_runtime_marker_definition(definitions, handled_keywords, item.source_id, "existing root or service hook models this source-backed runtime text")
+		"biomerge_arm":
+			_append_runtime_marker_definition(definitions, handled_keywords, item.source_id, "BattleSystem battle-start left-item crit and Max Ammo aura")
+			handled_keywords[EFFECT_AMMO] = true
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_BATTLE_START, "left_item_crit", {"side": "self", "selector": "left_item"}, {"type": EFFECT_RUNTIME_BONUS, "bonus_key": "crit_rate", "amount": 100, "scope": "combat"}))
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_BATTLE_START, EFFECT_AMMO, {"side": "self", "selector": "left_item"}, {"type": EFFECT_AMMO, "amount": 1}))
+		"bill_dozer":
+			definitions.append(_p2b_runtime_bonus_definition(item.source_id, TRIGGER_ON_TAG_USED, {"side": "self", "selector": "this_item"}, {"bonus_key": EFFECT_DAMAGE, "amount_by_rarity": [10, 15, 30]}, {"tag": "Friend", "event_source_not_owner": true}))
+		"cosmic_amulet", "thermal_lance", "sharkray":
+			_append_runtime_marker_definition(definitions, handled_keywords, item.source_id, "BattleSystem on-Haste item runtime bonus")
+		"death_caps":
+			definitions.append(_p2b_runtime_bonus_definition(item.source_id, TRIGGER_ON_COOLDOWN_READY, {"side": "self", "selector": "matching_tag_items", "tag": "Poison"}, {"bonus_key": EFFECT_POISON, "amount_by_rarity": [0, 2, 4, 6]}))
+		"dishwasher":
+			definitions.append(_p2b_runtime_bonus_definition(item.source_id, TRIGGER_ON_COOLDOWN_READY, {"side": "self", "selector": "matching_tag_items", "tag": "Weapon"}, {"bonus_key": EFFECT_DAMAGE, "amount_by_rarity": [10, 20, 40, 80]}))
+		"ethergy_conduit":
+			definitions.append(_p2b_runtime_bonus_definition(item.source_id, TRIGGER_ON_ENEMY_STATUS_APPLIED, {"side": "self", "selector": "all_items"}, {"bonus_key": "crit_rate", "amount": 4}, {"status_type": EFFECT_POISON}))
+		"forgotten_god":
+			definitions.append(_p2b_runtime_bonus_definition(item.source_id, TRIGGER_ON_ENEMY_STATUS_APPLIED, {"side": "self", "selector": "this_item"}, {"bonus_key": EFFECT_POISON, "amount": 8}, {"status_type": EFFECT_SLOW, "event_source_is_adjacent": true}))
+		"friendly_doll":
+			definitions.append(_p2b_runtime_bonus_definition(item.source_id, TRIGGER_ON_BATTLE_START, {"side": "self", "selector": "this_item"}, {"bonus_key": "crit_rate", "amount_by_rarity": [50, 75, 100]}, {"player_tag_count_equals": {"tag": "Friend", "count": 1}}))
+		"ganjo":
+			for tag in ["Weapon", "Heal", "Shield"]:
+				var bonus_key: String = EFFECT_DAMAGE if tag == "Weapon" else (EFFECT_HEAL if tag == "Heal" else EFFECT_SHIELD)
+				definitions.append(_p2b_runtime_bonus_definition(item.source_id, TRIGGER_ON_BATTLE_START, {"side": "self", "selector": "adjacent_matching_tag_items", "tag": tag}, {"bonus_key": bonus_key, "amount_by_rarity": [10, 15, 20, 25]}, {}, "%s_runtime_bonus" % tag.to_lower()))
+		"grindstone":
+			definitions.append(_p2b_runtime_bonus_definition(item.source_id, TRIGGER_ON_BATTLE_START, {"side": "self", "selector": "left_matching_tag", "tag": "Weapon"}, {"bonus_key": EFFECT_DAMAGE, "amount_by_rarity": [0, 10, 20, 30]}))
+		"honing_steel":
+			definitions.append(_p2b_runtime_bonus_definition(item.source_id, TRIGGER_ON_BATTLE_START, {"side": "self", "selector": "right_matching_tag", "tag": "Weapon"}, {"bonus_key": EFFECT_DAMAGE, "amount_by_rarity": [8, 12, 16, 20]}))
+		"ice_pick":
+			definitions.append(_p2b_runtime_bonus_definition(item.source_id, TRIGGER_ON_ENEMY_STATUS_APPLIED, {"side": "self", "selector": "this_item"}, {"bonus_key": EFFECT_DAMAGE, "amount_by_rarity": [0, 15, 20, 25]}, {"status_type": EFFECT_FREEZE}))
+		"infernal_greatsword":
+			definitions.append(_p2b_runtime_bonus_definition(item.source_id, TRIGGER_ON_COOLDOWN_READY, {"side": "self", "selector": "this_item"}, {"bonus_key": EFFECT_DAMAGE, "amount_from": "enemy_status.burn"}, {}, EFFECT_RUNTIME_BONUS, "after_consume"))
+		"jitte":
+			definitions.append(_p2b_runtime_bonus_definition(item.source_id, TRIGGER_ON_ENEMY_STATUS_APPLIED, {"side": "self", "selector": "this_item"}, {"bonus_key": EFFECT_DAMAGE, "amount_by_rarity": [0, 10, 20, 30]}, {"status_type": EFFECT_SLOW}))
+		"mantis_shrimp":
+			definitions.append(_p2b_runtime_bonus_definition(item.source_id, TRIGGER_ON_ENEMY_STATUS_APPLIED, {"side": "self", "selector": "this_item"}, {"bonus_key": EFFECT_DAMAGE, "amount_by_rarity": [10, 15, 20, 25]}, {"status_type": EFFECT_SLOW}, "damage_runtime_bonus"))
+			definitions.append(_p2b_runtime_bonus_definition(item.source_id, TRIGGER_ON_ENEMY_STATUS_APPLIED, {"side": "self", "selector": "this_item"}, {"bonus_key": EFFECT_BURN, "amount_by_rarity": [2, 4, 6, 8]}, {"status_type": EFFECT_SLOW}, "burn_runtime_bonus"))
+		"nitrogen_hammer":
+			definitions.append(_p2b_runtime_bonus_definition(item.source_id, TRIGGER_ON_ENEMY_STATUS_APPLIED, {"side": "self", "selector": "this_item"}, {"bonus_key": EFFECT_DAMAGE, "amount_by_rarity": [0, 50, 100, 200]}, {"status_type": EFFECT_FREEZE}))
+		"old_saltclaw":
+			definitions.append(_p2b_runtime_bonus_definition(item.source_id, TRIGGER_ON_ENEMY_STATUS_APPLIED, {"side": "self", "selector": "this_item"}, {"bonus_key": EFFECT_DAMAGE, "amount_by_rarity": [0, 5, 10, 15]}, {"status_type": EFFECT_SLOW}))
+		"orbital_polisher":
+			definitions.append(_p2b_runtime_bonus_definition(item.source_id, TRIGGER_ON_BATTLE_START, {"side": "self", "selector": "adjacent"}, {"bonus_key": EFFECT_DAMAGE, "amount_by_rarity": [0, 0, 5, 10]}, {}, "adjacent_damage_runtime_bonus"))
+			definitions.append(_p2b_runtime_bonus_definition(item.source_id, TRIGGER_ON_BATTLE_START, {"side": "self", "selector": "adjacent"}, {"bonus_key": EFFECT_SHIELD, "amount_by_rarity": [0, 0, 5, 10]}, {}, "adjacent_shield_runtime_bonus"))
+		"pickled_peppers":
+			definitions.append(_p2b_runtime_bonus_definition(item.source_id, TRIGGER_ON_ENEMY_STATUS_APPLIED, {"side": "self", "selector": "this_item"}, {"bonus_key": EFFECT_BURN, "amount_by_rarity": [0, 0, 5, 10]}, {"status_type": EFFECT_BURN}))
+		"red_piggles_r":
+			definitions.append(_p2b_runtime_bonus_definition(item.source_id, TRIGGER_ON_BATTLE_START, {"side": "self", "selector": "right_matching_tag", "tag": "Weapon"}, {"bonus_key": EFFECT_DAMAGE, "amount_by_rarity": [4, 8, 12, 16]}))
+		"red_piggles_x":
+			definitions.append(_p2b_runtime_bonus_definition(item.source_id, TRIGGER_ON_BATTLE_START, {"side": "self", "selector": "matching_tag_items", "tag": "Weapon"}, {"bonus_key": EFFECT_DAMAGE, "amount_by_rarity": [1, 2, 3, 4]}))
+		"runic_great_axe":
+			definitions.append(_p2b_runtime_bonus_definition(item.source_id, TRIGGER_ON_BATTLE_START, {"side": "self", "selector": "lifesteal_weapon_items"}, {"bonus_key": "crit_rate", "amount": 100}))
+		"salt":
+			definitions.append(_p2b_runtime_bonus_definition(item.source_id, TRIGGER_ON_BATTLE_START, {"side": "self", "selector": "adjacent"}, {"bonus_key": "crit_rate", "amount_by_rarity": [0, 10, 15, 20]}))
+		"sharkclaws":
+			definitions.append(_p2b_runtime_bonus_definition(item.source_id, TRIGGER_ON_COOLDOWN_READY, {"side": "self", "selector": "other_matching_tag_items", "tag": "Weapon"}, {"bonus_key": EFFECT_DAMAGE, "amount_by_rarity": [10, 20, 30, 40]}))
+		"silencer":
+			definitions.append(_p2b_runtime_bonus_definition(item.source_id, TRIGGER_ON_BATTLE_START, {"side": "self", "selector": "left_matching_tag", "tag": "Weapon"}, {"bonus_key": EFFECT_DAMAGE, "amount_by_rarity": [10, 20, 30, 50]}))
+		"slumbering_primordial":
+			definitions.append(_p2b_runtime_bonus_definition(item.source_id, TRIGGER_ON_ENEMY_STATUS_APPLIED, {"side": "self", "selector": "this_item"}, {"bonus_key": EFFECT_DAMAGE, "amount_by_rarity": [0, 0, 75, 100]}, {"status_type_any": [EFFECT_POISON, EFFECT_FREEZE, EFFECT_BURN]}))
+		"sunlight_spear":
+			_append_runtime_marker_definition(definitions, handled_keywords, item.source_id, "BattleSystem battle-start/source Regeneration runtime")
+		"torpedo":
+			definitions.append(_p2b_runtime_bonus_definition(item.source_id, TRIGGER_ON_ITEM_USED, {"side": "self", "selector": "this_item"}, {"bonus_key": EFFECT_DAMAGE, "amount_by_rarity": [0, 30, 60, 90]}, {"event_source_not_owner": true, "event_source_any_tags": ["Aquatic", "Ammo"]}))
+		"tropical_island":
+			definitions.append(_p2b_runtime_bonus_definition(item.source_id, TRIGGER_ON_ENEMY_STATUS_APPLIED, {"side": "self", "selector": "this_item"}, {"bonus_key": EFFECT_REGENERATION, "amount_by_rarity": [0, 0, 5, 10]}, {"status_type": EFFECT_SLOW}))
+		"wanted_poster":
+			definitions.append(_p2b_runtime_bonus_definition(item.source_id, TRIGGER_ON_BATTLE_START, {"side": "self", "selector": "all_items"}, {"bonus_key": "crit_rate", "amount_by_rarity": [0, 10, 20, 30]}))
+	if _definitions_handle_effect(definitions, EFFECT_RUNTIME_BONUS):
+		handled_keywords[EFFECT_RUNTIME_BONUS] = true
+
+static func _append_runtime_marker_definition(definitions: Array[Dictionary], handled_keywords: Dictionary, source_id: String, runtime_path: String) -> void:
+	handled_keywords[EFFECT_RUNTIME_BONUS] = true
+	if not _definitions_handle_effect(definitions, EFFECT_RUNTIME_BONUS):
+		definitions.append(_runtime_bonus_marker(source_id, runtime_path))
+
+static func _p2b_runtime_bonus_definition(source_id: String, trigger: String, target: Dictionary, runtime_effect: Dictionary, condition: Dictionary = {}, effect_name: String = EFFECT_RUNTIME_BONUS, timing: String = "") -> Dictionary:
+	var effect: Dictionary = {"type": EFFECT_RUNTIME_BONUS, "scope": "combat"}
+	for key in runtime_effect.keys():
+		effect[key] = runtime_effect[key]
+	return _hook_definition(source_id, trigger, effect_name, target, effect, condition, timing)
 
 static func _append_non_combat_hook_definitions(definitions: Array[Dictionary], handled_keywords: Dictionary, item: ItemDataClass) -> void:
 	_append_sell_service_hook_definitions(definitions, handled_keywords, item)

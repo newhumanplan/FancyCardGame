@@ -1139,6 +1139,17 @@ func _handle_player_item_gained_haste(item: ItemData, trigger_count: int) -> voi
 		for adjacent in _get_adjacent_player_items(item):
 			if adjacent != null:
 				_add_item_runtime_bonus(adjacent, "crit_rate", bonus)
+	elif item.source_id == "cosmic_amulet":
+		var bonus: float = _get_rarity_value(item, [0, 0, 3, 5], 3.0) * float(trigger_count)
+		for candidate in inventory.items:
+			if candidate != null:
+				_add_item_runtime_bonus(candidate, "crit_rate", bonus)
+	elif item.source_id == "thermal_lance":
+		var bonus: float = _get_rarity_value(item, [0, 5, 10, 15], 5.0) * float(trigger_count)
+		_add_item_runtime_bonus(item, EffectDefinitionClass.EFFECT_BURN, bonus)
+	elif item.source_id == "sharkray":
+		var bonus: float = _get_rarity_value(item, [0, 20, 40, 60], 20.0) * float(trigger_count)
+		_add_item_runtime_bonus(item, EffectDefinitionClass.EFFECT_DAMAGE, bonus)
 
 func _is_active_player_item(item: ItemData) -> bool:
 	if item == null:
@@ -1914,6 +1925,12 @@ func _resolve_effect_targets(
 				var right_item: ItemData = inventory.get_right_adjacent_item(owner_item)
 				if right_item != null:
 					targets.append({"kind": "player_item", "item": right_item})
+		"left_matching_tag":
+			if inventory != null and owner_item != null:
+				var left_item: ItemData = inventory.get_left_adjacent_item(owner_item)
+				var tag: String = str(target_data.get("tag", ""))
+				if left_item != null and _item_has_tag(left_item, tag):
+					targets.append({"kind": "player_item", "item": left_item})
 		"right_matching_tag":
 			if inventory != null and owner_item != null:
 				var right_item: ItemData = inventory.get_right_adjacent_item(owner_item)
@@ -1990,6 +2007,12 @@ func _resolve_effect_targets(
 			)
 			for index in range(mini(count, candidates.size())):
 				targets.append({"kind": "player_item", "item": candidates[index]})
+		"matching_size_items":
+			var size_name: String = str(target_data.get("size", "")).to_lower()
+			if inventory != null:
+				for item in inventory.items:
+					if item != null and _item_size_matches(item, size_name):
+						targets.append({"kind": "player_item", "item": item})
 		"matching_size_highest_cooldown", "other_matching_size_highest_cooldown":
 			var size_name: String = str(target_data.get("size", "")).to_lower()
 			var candidates: Array[ItemData] = []
