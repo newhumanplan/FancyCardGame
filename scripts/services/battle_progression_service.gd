@@ -72,6 +72,7 @@ func apply_battle_result(won: bool, is_pvp: bool, monster = null, primary_invent
 		else:
 			print("PvE 战斗失败!")
 
+	_restore_player_health_after_battle(result)
 	battle_result_applied.emit(result)
 	return result
 
@@ -83,6 +84,18 @@ func _record_loss() -> void:
 	RunStateService.losses += 1
 	RunStateService.wins = 0
 	GameManager.record_battle_loss()
+
+func _restore_player_health_after_battle(result: Dictionary) -> void:
+	if bool(result.get("run_failed", false)):
+		result["health_restored"] = false
+		result["player_health_after"] = GameManager.player_health
+		result["player_max_health"] = GameManager.get_max_health()
+		return
+	var max_health: int = GameManager.get_max_health()
+	GameManager.player_health = max_health
+	result["health_restored"] = true
+	result["player_health_after"] = GameManager.player_health
+	result["player_max_health"] = max_health
 
 func _get_monster_reward(monster) -> Dictionary:
 	if monster != null and monster.has_method("get_reward"):
