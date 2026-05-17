@@ -1614,6 +1614,9 @@ func _definition_condition_matches(
 	if condition.has("event_source_has_ammo"):
 		if source_item == null or source_item.has_ammo_limit() != bool(condition.get("event_source_has_ammo", false)):
 			return false
+	if condition.has("event_source_any_tags"):
+		if source_item == null or not _item_has_any_tag(source_item, condition.get("event_source_any_tags", [])):
+			return false
 	if bool(condition.get("event_source_is_owner", false)):
 		if owner_item == null or source_item == null or owner_item != source_item:
 			return false
@@ -1689,6 +1692,9 @@ func _definition_condition_matches(
 			return false
 	if condition.has("adjacent_status_type"):
 		if owner_item == null or not _has_adjacent_status_item(owner_item, str(condition.get("adjacent_status_type", ""))):
+			return false
+	if condition.has("has_item_size"):
+		if not _has_player_item_size(str(condition.get("has_item_size", "")).to_lower()):
 			return false
 	if condition.has("no_other_tag"):
 		if owner_item == null or _has_other_tag_item(owner_item, str(condition.get("no_other_tag", ""))):
@@ -1797,6 +1803,8 @@ func _resolve_effect_amount(
 				amount = 0.0 if owner_item == null else owner_item.freeze_duration + _get_item_runtime_bonus(owner_item, "freeze_duration")
 			"source.haste_duration":
 				amount = 0.0 if owner_item == null else owner_item.haste_duration
+			"source.ammo":
+				amount = 0.0 if owner_item == null else float(_get_player_item_effective_max_ammo(owner_item))
 			"enemy_status.poison":
 				amount = _get_status_total("enemy", EffectDefinitionClass.EFFECT_POISON)
 			"player_status.regeneration":
@@ -1808,6 +1816,10 @@ func _resolve_effect_amount(
 				amount = _get_other_items_status_total(owner_item, EffectDefinitionClass.EFFECT_BURN) * _get_rarity_value(owner_item, effect_data.get("percent_by_rarity", []), 0.0)
 			"other_items.matching_tag_count":
 				amount = float(_count_other_player_items_matching_tag(owner_item, str(effect_data.get("tag", ""))))
+			"other_items.matching_any_tag_count":
+				amount = float(_count_other_player_items_matching_any_tag(owner_item, effect_data.get("tags", [])))
+			"adjacent_items.matching_tag_count":
+				amount = float(_count_adjacent_player_items_matching_tag(owner_item, str(effect_data.get("tag", ""))))
 			"adjacent_items.matching_any_tag_count":
 				amount = float(_count_adjacent_player_items_matching_any_tag(owner_item, effect_data.get("tags", [])))
 			"weakest_weapon.damage":
@@ -2946,6 +2958,42 @@ func _count_adjacent_player_items_matching_any_tag(source_item: ItemData, tags: 
 				count += 1
 				break
 	return count
+
+func _count_other_player_items_matching_any_tag(source_item: ItemData, tags: Array) -> int:
+	if inventory == null or tags.is_empty():
+		return 0
+	var count: int = 0
+	for candidate in inventory.items:
+		if candidate == null or candidate == source_item:
+			continue
+		if _item_has_any_tag(candidate, tags):
+			count += 1
+	return count
+
+func _count_adjacent_player_items_matching_tag(source_item: ItemData, tag: String) -> int:
+	if source_item == null or tag.is_empty():
+		return 0
+	var count: int = 0
+	for adjacent in _get_adjacent_player_items(source_item):
+		if adjacent != null and _item_has_tag(adjacent, tag):
+			count += 1
+	return count
+
+func _has_player_item_size(size_name: String) -> bool:
+	if inventory == null:
+		return false
+	for candidate in inventory.items:
+		if candidate != null and _item_size_matches(candidate, size_name):
+			return true
+	return false
+
+func _item_has_any_tag(item: ItemData, tags: Array) -> bool:
+	if item == null:
+		return false
+	for tag_variant in tags:
+		if _item_has_tag(item, str(tag_variant)):
+			return true
+	return false
 
 func _get_weakest_weapon_damage() -> float:
 	if inventory == null:
