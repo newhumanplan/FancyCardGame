@@ -260,6 +260,9 @@ static func build_item_effects(item: ItemDataClass) -> Array[Dictionary]:
 					"amount_by_rarity": [1.0, 2.0, 3.0, 4.0],
 				},
 			})
+		"bayonet":
+			handled_keywords[EFFECT_DAMAGE] = true
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_TAG_USED, EFFECT_DAMAGE, {"side": "enemy", "selector": "hero"}, {"type": EFFECT_DAMAGE, "amount_by_rarity": [10, 15, 20, 25]}, {"tag": "Weapon", "event_source_relation": "left_adjacent"}))
 		"boiling_flask":
 			handled_keywords[EFFECT_RELOAD] = true
 			handled_keywords[EFFECT_MULTICAST] = true
@@ -319,6 +322,10 @@ static func build_item_effects(item: ItemDataClass) -> Array[Dictionary]:
 			handled_keywords[EFFECT_CHARGE] = true
 			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_ENEMY_STATUS_APPLIED, EFFECT_CHARGE, {"side": "self", "selector": "this_item"}, {"type": EFFECT_CHARGE, "amount_by_rarity": [1, 2]}, {"status_type_any": [EFFECT_HASTE, EFFECT_SLOW, EFFECT_POISON, EFFECT_FREEZE, EFFECT_BURN]}))
 			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_TAG_USED, EFFECT_SHIELD, {"side": "self", "selector": "hero"}, {"type": EFFECT_SHIELD, "amount_by_rarity": [50, 100]}, {"tag": "Friend"}))
+		"dragon_heart":
+			handled_keywords[EFFECT_CHARGE] = true
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_ENEMY_STATUS_APPLIED, EFFECT_CHARGE, {"side": "self", "selector": "this_item"}, {"type": EFFECT_CHARGE, "amount": 2}, {"status_type": EFFECT_BURN}))
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_TAG_USED, EFFECT_CHARGE, {"side": "self", "selector": "this_item"}, {"type": EFFECT_CHARGE, "amount": 2}, {"tag": "Flying"}))
 		"dragon_wing":
 			handled_keywords[EFFECT_CHARGE] = true
 			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_ENEMY_STATUS_APPLIED, EFFECT_CHARGE, {"side": "self", "selector": "this_item"}, {"type": EFFECT_CHARGE, "amount": 2}, {"status_type": EFFECT_BURN}))
@@ -341,6 +348,9 @@ static func build_item_effects(item: ItemDataClass) -> Array[Dictionary]:
 		"frozen_bludgeon":
 			handled_keywords[EFFECT_RUNTIME_BONUS] = true
 			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_ENEMY_STATUS_APPLIED, EFFECT_RUNTIME_BONUS, {"side": "self", "selector": "matching_tag_items", "tag": "Weapon"}, {"type": EFFECT_RUNTIME_BONUS, "bonus_key": EFFECT_DAMAGE, "amount_by_rarity": [4, 6, 8, 10], "scope": "combat"}, {"status_type": EFFECT_FREEZE}))
+		"force_field":
+			handled_keywords[EFFECT_DAMAGE] = true
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_COOLDOWN_READY, EFFECT_DAMAGE, {"side": "enemy", "selector": "hero"}, {"type": EFFECT_DAMAGE, "amount_from": "hero.shield"}, {}, "after_consume"))
 		"gatling_gun":
 			handled_keywords[EFFECT_MULTICAST] = true
 			handled_keywords[EFFECT_RUNTIME_BONUS] = true
@@ -361,6 +371,11 @@ static func build_item_effects(item: ItemDataClass) -> Array[Dictionary]:
 		"black_rose":
 			handled_keywords[EFFECT_RUNTIME_BONUS] = true
 			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_ENEMY_STATUS_APPLIED, EFFECT_RUNTIME_BONUS, {"side": "self", "selector": "this_item"}, {"type": EFFECT_RUNTIME_BONUS, "bonus_key": EFFECT_REGENERATION, "amount_by_rarity": [0, 1, 2, 3], "scope": "combat"}, {"status_type": EFFECT_POISON}))
+		"crusher_claw":
+			handled_keywords[EFFECT_DAMAGE] = true
+			handled_keywords[EFFECT_RUNTIME_BONUS] = true
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_COOLDOWN_READY, EFFECT_RUNTIME_BONUS, {"side": "self", "selector": "matching_tag_items", "tag": "Shield"}, {"type": EFFECT_RUNTIME_BONUS, "bonus_key": EFFECT_SHIELD, "amount_by_rarity": [2, 4, 6, 8], "scope": "combat"}))
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_COOLDOWN_READY, EFFECT_DAMAGE, {"side": "enemy", "selector": "hero"}, {"type": EFFECT_DAMAGE, "amount_from": "items.highest_shield"}, {}, "after_consume"))
 		"dock_lines":
 			if not _definitions_handle_effect(definitions, EFFECT_SLOW):
 				handled_keywords[EFFECT_SLOW] = true
@@ -374,6 +389,9 @@ static func build_item_effects(item: ItemDataClass) -> Array[Dictionary]:
 		"grapeshot":
 			handled_keywords[EFFECT_RELOAD] = true
 			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_ITEM_USED, EFFECT_RELOAD, {"side": "self", "selector": "this_item"}, {"type": EFFECT_RELOAD, "amount": 1}, {"event_source_has_ammo": true, "event_source_not_owner": true}))
+		"grn_w4sp":
+			handled_keywords[EFFECT_CHARGE] = true
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_ENEMY_STATUS_APPLIED, EFFECT_CHARGE, {"side": "self", "selector": "this_item"}, {"type": EFFECT_CHARGE, "amount": 1}, {"status_type_any": [EFFECT_SLOW, EFFECT_FREEZE], "event_source_is_adjacent": true}))
 		"guardian_shell":
 			handled_keywords[EFFECT_SHIELD] = true
 			handled_keywords[EFFECT_CHARGE] = true
@@ -393,6 +411,10 @@ static func build_item_effects(item: ItemDataClass) -> Array[Dictionary]:
 		"hot_sauce":
 			handled_keywords[EFFECT_MULTICAST] = true
 			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_COOLDOWN_READY, EFFECT_MULTICAST, {"side": "self", "selector": "this_item"}, {"type": EFFECT_MULTICAST, "amount_from": "adjacent_items.matching_any_tag_count", "tags": ["Food"]}))
+		"icebreaker":
+			handled_keywords[EFFECT_CHARGE] = true
+			handled_keywords[EFFECT_FREEZE] = true
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_ENEMY_STATUS_APPLIED, EFFECT_CHARGE, {"side": "self", "selector": "this_item"}, {"type": EFFECT_CHARGE, "amount_by_rarity": [1, 2, 3]}, {"status_type": EFFECT_FREEZE}))
 		"illusoray":
 			handled_keywords[EFFECT_RUNTIME_BONUS] = true
 			handled_keywords[EFFECT_MULTICAST] = true
@@ -409,6 +431,11 @@ static func build_item_effects(item: ItemDataClass) -> Array[Dictionary]:
 		"powder_flask":
 			handled_keywords[EFFECT_RELOAD] = true
 			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_COOLDOWN_READY, EFFECT_RELOAD, {"side": "self", "selector": "right_item"}, {"type": EFFECT_RELOAD, "amount_by_rarity": [1, 2, 3, 4]}))
+		"powder_keg":
+			handled_keywords[EFFECT_DAMAGE] = true
+			handled_keywords[EFFECT_CHARGE] = true
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_COOLDOWN_READY, EFFECT_DAMAGE, {"side": "enemy", "selector": "hero"}, {"type": EFFECT_DAMAGE, "amount_from": "enemy.max_health_percent", "percent_by_rarity": [0.0, 0.3, 0.35, 0.4], "crit_scaled": true}))
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_ENEMY_STATUS_APPLIED, EFFECT_CHARGE, {"side": "self", "selector": "this_item"}, {"type": EFFECT_CHARGE, "amount": 2}, {"status_type": EFFECT_BURN}))
 		"ice_claw":
 			handled_keywords[EFFECT_RUNTIME_BONUS] = true
 		"memento_mori":
@@ -422,6 +449,11 @@ static func build_item_effects(item: ItemDataClass) -> Array[Dictionary]:
 			handled_keywords[EFFECT_HASTE] = true
 			handled_keywords[EFFECT_RUNTIME_BONUS] = true
 			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_ITEM_USED, EFFECT_HASTE, {"side": "self", "selector": "this_item"}, {"type": EFFECT_HASTE, "amount_by_rarity": [1, 2, 3, 4]}, {"tag": "Aquatic", "event_source_is_owner_or_adjacent": true, "event_source_not_owner": true}))
+		"kinetic_cannon":
+			handled_keywords[EFFECT_CHARGE] = true
+			handled_keywords[EFFECT_RUNTIME_BONUS] = true
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_ITEM_USED, EFFECT_CHARGE, {"side": "self", "selector": "this_item"}, {"type": EFFECT_CHARGE, "amount": 1}, {"event_source_size": "small"}))
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_ITEM_USED, EFFECT_RUNTIME_BONUS, {"side": "self", "selector": "this_item"}, {"type": EFFECT_RUNTIME_BONUS, "bonus_key": EFFECT_DAMAGE, "amount_by_rarity": [25, 50, 75], "scope": "combat"}, {"event_source_size": "small"}))
 		"knife_set":
 			handled_keywords[EFFECT_CHARGE] = true
 			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_TAG_USED, EFFECT_CHARGE, {"side": "self", "selector": "this_item"}, {"type": EFFECT_CHARGE, "amount": 2}, {"tag": "Weapon"}))
@@ -497,6 +529,11 @@ static func build_item_effects(item: ItemDataClass) -> Array[Dictionary]:
 				"target": {"side": "self", "selector": "this_item"},
 				"effect": {"type": EFFECT_MULTICAST, "amount": 1},
 			})
+		"pulse_rifle":
+			handled_keywords[EFFECT_RUNTIME_BONUS] = true
+			handled_keywords[EFFECT_MULTICAST] = true
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_COOLDOWN_READY, "adjacent_friend_multicast", {"side": "self", "selector": "this_item"}, {"type": EFFECT_MULTICAST, "amount": 1}, {"adjacent_any_tags": ["Friend"]}))
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_COOLDOWN_READY, "only_friend_multicast", {"side": "self", "selector": "this_item"}, {"type": EFFECT_MULTICAST, "amount": 1}, {"adjacent_any_tags": ["Friend"], "player_tag_count_equals": {"tag": "Friend", "count": 1}}))
 		"rocket_launcher":
 			handled_keywords[EFFECT_MULTICAST] = true
 			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_COOLDOWN_READY, EFFECT_MULTICAST, {"side": "self", "selector": "this_item"}, {"type": EFFECT_MULTICAST, "amount": 2}))
@@ -505,6 +542,9 @@ static func build_item_effects(item: ItemDataClass) -> Array[Dictionary]:
 			handled_keywords[EFFECT_MULTICAST] = true
 			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_COOLDOWN_READY, EFFECT_MULTICAST, {"side": "self", "selector": "this_item"}, {"type": EFFECT_MULTICAST, "amount": 1}))
 			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_CRIT, EFFECT_CHARGE, {"side": "self", "selector": "this_item"}, {"type": EFFECT_CHARGE, "amount": 1}, {"event_source_not_owner": true}))
+		"runic_double_bow":
+			handled_keywords[EFFECT_MULTICAST] = true
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_COOLDOWN_READY, EFFECT_MULTICAST, {"side": "self", "selector": "this_item"}, {"type": EFFECT_MULTICAST, "amount": 1}))
 		"ruby":
 			handled_keywords[EFFECT_RUNTIME_BONUS] = true
 		"satchel":
@@ -513,6 +553,9 @@ static func build_item_effects(item: ItemDataClass) -> Array[Dictionary]:
 			handled_keywords[EFFECT_RUNTIME_BONUS] = true
 			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_COOLDOWN_READY, EFFECT_RELOAD, {"side": "self", "selector": "ammo_items", "count": 2}, {"type": EFFECT_RELOAD, "amount": 1}))
 			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_RELOAD, EFFECT_REGENERATION, {"side": "self", "selector": "hero"}, {"type": EFFECT_REGENERATION, "amount": 2}))
+		"the_boulder":
+			handled_keywords[EFFECT_DAMAGE] = true
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_COOLDOWN_READY, EFFECT_DAMAGE, {"side": "enemy", "selector": "hero"}, {"type": EFFECT_DAMAGE, "amount_from": "enemy.max_health_percent", "percent": 1.0, "crit_scaled": true}))
 		"flagship":
 			handled_keywords[EFFECT_RUNTIME_BONUS] = true
 			handled_keywords[EFFECT_MULTICAST] = true
@@ -552,10 +595,21 @@ static func build_item_effects(item: ItemDataClass) -> Array[Dictionary]:
 			handled_keywords[EFFECT_RUNTIME_BONUS] = true
 			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_ITEM_USED, EFFECT_HASTE, {"side": "self", "selector": "source_item"}, {"type": EFFECT_HASTE, "amount_by_rarity": [1, 2, 3, 4]}, {"event_source_relation": "right_adjacent"}))
 			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_ITEM_USED, EFFECT_RUNTIME_BONUS, {"side": "self", "selector": "source_item"}, {"type": EFFECT_RUNTIME_BONUS, "bonus_key": EFFECT_DAMAGE, "amount_by_rarity": [3, 5, 7, 9], "scope": "combat"}, {"event_source_relation": "right_adjacent", "tag": "Weapon"}))
+		"scythe":
+			handled_keywords[EFFECT_DAMAGE] = true
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_COOLDOWN_READY, EFFECT_DAMAGE, {"side": "enemy", "selector": "hero"}, {"type": EFFECT_DAMAGE, "amount_from": "enemy.max_health_percent", "percent": 0.333333333333, "crit_scaled": true}))
+		"skillet":
+			handled_keywords[EFFECT_RUNTIME_BONUS] = true
+			handled_keywords[EFFECT_MULTICAST] = true
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_COOLDOWN_READY, EFFECT_MULTICAST, {"side": "self", "selector": "this_item"}, {"type": EFFECT_MULTICAST, "amount": 1}, {"adjacent_matching_tag_count_at_least": {"tag": "Food", "count": 2}}))
 		"snow_globe":
 			handled_keywords[EFFECT_RUNTIME_BONUS] = true
 			handled_keywords[EFFECT_MULTICAST] = true
 			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_COOLDOWN_READY, EFFECT_MULTICAST, {"side": "self", "selector": "this_item"}, {"type": EFFECT_MULTICAST, "amount_from": "adjacent_items.matching_any_tag_count", "tags": ["Property"]}))
+		"stopwatch":
+			handled_keywords[EFFECT_FREEZE] = true
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_COOLDOWN_READY, "freeze_player_items", {"side": "self", "selector": "slowest_items", "count": 99}, {"type": EFFECT_FREEZE, "amount_by_rarity": [0, 0, 1, 2]}))
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_COOLDOWN_READY, "freeze_enemy_items", {"side": "enemy", "selector": "slowest_items", "count": 99}, {"type": EFFECT_FREEZE, "amount_by_rarity": [0, 0, 1, 2]}))
 		"spices":
 			handled_keywords[EFFECT_RUNTIME_BONUS] = true
 			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_BATTLE_START, EFFECT_RUNTIME_BONUS, {"side": "self", "selector": "matching_tag_items", "tag": "Weapon"}, {"type": EFFECT_RUNTIME_BONUS, "bonus_key": EFFECT_DAMAGE, "amount_from": "weakest_weapon.damage", "scope": "combat"}))
@@ -598,6 +652,17 @@ static func build_item_effects(item: ItemDataClass) -> Array[Dictionary]:
 			handled_keywords[EFFECT_AMMO] = true
 			handled_keywords[EFFECT_RUNTIME_BONUS] = true
 			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_BATTLE_START, EFFECT_AMMO, {"side": "self", "selector": "left_item"}, {"type": EFFECT_AMMO, "amount_by_rarity": [1, 2, 3, 4]}))
+		"tommoo_gun":
+			handled_keywords[EFFECT_DAMAGE] = true
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_COOLDOWN_READY, EFFECT_DAMAGE, {"side": "enemy", "selector": "hero"}, {"type": EFFECT_DAMAGE, "amount_from": "source.ammo", "crit_scaled": true}))
+		"turtle_shell":
+			handled_keywords[EFFECT_CHARGE] = true
+			handled_keywords[EFFECT_RUNTIME_BONUS] = true
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_BATTLE_START, EFFECT_RUNTIME_BONUS, {"side": "self", "selector": "matching_tag_items", "tag": "Shield"}, {"type": EFFECT_RUNTIME_BONUS, "bonus_key": EFFECT_SHIELD, "amount_by_rarity": [0, 0, 10, 15], "scope": "combat"}))
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_ITEM_USED, EFFECT_CHARGE, {"side": "self", "selector": "this_item"}, {"type": EFFECT_CHARGE, "amount": 1}, {"event_source_not_owner": true, "no_event_source_tag": "Weapon"}))
+		"tusked_helm":
+			handled_keywords[EFFECT_MULTICAST] = true
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_COOLDOWN_READY, EFFECT_MULTICAST, {"side": "self", "selector": "this_item"}, {"type": EFFECT_MULTICAST, "amount": 1}))
 		"apothecary":
 			handled_keywords[EFFECT_CHARGE] = true
 			for status_type in [EFFECT_POISON, EFFECT_BURN, EFFECT_SLOW]:
@@ -672,6 +737,21 @@ static func build_item_effects(item: ItemDataClass) -> Array[Dictionary]:
 			handled_keywords[EFFECT_RUNTIME_BONUS] = true
 			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_BATTLE_START, EFFECT_RUNTIME_BONUS, {"side": "self", "selector": "matching_tag_items", "tag": "Weapon"}, {"type": EFFECT_RUNTIME_BONUS, "bonus_key": EFFECT_DAMAGE, "amount_by_rarity": [5, 10, 15, 20], "scope": "combat"}))
 			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_ENEMY_STATUS_APPLIED, EFFECT_CHARGE, {"side": "self", "selector": "this_item"}, {"type": EFFECT_CHARGE, "amount": 2.0}, {"status_type": EFFECT_SLOW}))
+		"weather_glass":
+			handled_keywords[EFFECT_RUNTIME_BONUS] = true
+			handled_keywords[EFFECT_MULTICAST] = true
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_COOLDOWN_READY, EFFECT_MULTICAST, {"side": "self", "selector": "this_item"}, {"type": EFFECT_MULTICAST, "amount_from": "other_items.matching_any_tag_count", "tags": ["Burn", "Poison", "Slow", "Freeze"]}))
+		"weather_machine":
+			handled_keywords[EFFECT_SLOW] = true
+			handled_keywords[EFFECT_FREEZE] = true
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_COOLDOWN_READY, EFFECT_FREEZE, {"side": "enemy", "selector": "slowest_items", "count": 1}, {"type": EFFECT_FREEZE, "amount_by_rarity": [0, 0, 1, 2]}))
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_COOLDOWN_READY, EFFECT_SLOW, {"side": "enemy", "selector": "slowest_items", "count": 1}, {"type": EFFECT_SLOW, "amount_by_rarity": [0, 0, 2, 3]}))
+		"weights":
+			handled_keywords[EFFECT_CHARGE] = true
+			handled_keywords[EFFECT_RUNTIME_BONUS] = true
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_BATTLE_START, "weapon_damage", {"side": "self", "selector": "matching_tag_items", "tag": "Weapon"}, {"type": EFFECT_RUNTIME_BONUS, "bonus_key": EFFECT_DAMAGE, "amount_by_rarity": [10, 15, 20, 25], "scope": "combat"}))
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_BATTLE_START, "heal_item_heal", {"side": "self", "selector": "matching_tag_items", "tag": "Heal"}, {"type": EFFECT_RUNTIME_BONUS, "bonus_key": EFFECT_HEAL, "amount_by_rarity": [10, 15, 20, 25], "scope": "combat"}))
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_HEAL, EFFECT_CHARGE, {"side": "self", "selector": "this_item"}, {"type": EFFECT_CHARGE, "amount": 1}, {"overheal": true}))
 		"vitality_potion":
 			handled_keywords[EFFECT_HEAL] = true
 			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_COOLDOWN_READY, EFFECT_HEAL, {"side": "self", "selector": "hero"}, {"type": EFFECT_HEAL, "amount_from": "hero.max_health_percent", "percent_by_rarity": [0.0, 0.0, 0.5, 1.0]}))
@@ -870,6 +950,8 @@ static func _runtime_bonus_runtime_path(source_id: String) -> String:
 			return "BattleSystem fight-win value gain and Value-scaled weapon Damage runtime"
 		"amber", "blue_piggles_l", "cosmic_plumage", "elemental_depth_charge", "fire_claw", "hot_sauce", "nargile", "pesky_pete", "poppy_field", "seaweed", "spices":
 			return "BattleSystem high-frequency item runtime bonus"
+		"flagship", "illusoray", "pulse_rifle", "skillet", "snow_globe", "weather_glass", "z_sword":
+			return "BattleSystem multicast DSL handles source has/gains +Multicast text"
 		"rapid_injection_system":
 			return "BattleSystem adjacent item-use self-poison and regeneration runtime"
 		"ouroboros_statue":

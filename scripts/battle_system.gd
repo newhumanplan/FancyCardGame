@@ -1690,6 +1690,19 @@ func _definition_condition_matches(
 				break
 		if not has_match:
 			return false
+	if condition.has("adjacent_matching_tag_count_at_least"):
+		var adjacent_requirement: Dictionary = condition.get("adjacent_matching_tag_count_at_least", {})
+		var adjacent_tag: String = str(adjacent_requirement.get("tag", ""))
+		var adjacent_minimum: int = int(adjacent_requirement.get("count", 1))
+		if _count_adjacent_player_items_matching_tag(owner_item, adjacent_tag) < adjacent_minimum:
+			return false
+	if condition.has("player_tag_count_equals"):
+		var tag_requirement: Dictionary = condition.get("player_tag_count_equals", {})
+		if _count_player_items_with_tag(str(tag_requirement.get("tag", ""))) != int(tag_requirement.get("count", 0)):
+			return false
+	if condition.has("player_item_count_at_most"):
+		if _count_active_player_items() > int(condition.get("player_item_count_at_most", 0)):
+			return false
 	if condition.has("adjacent_status_type"):
 		if owner_item == null or not _has_adjacent_status_item(owner_item, str(condition.get("adjacent_status_type", ""))):
 			return false
@@ -1759,6 +1772,9 @@ func _resolve_effect_amount(
 						+ int(round(_get_item_runtime_bonus(owner_item, "shield")))
 						+ _get_player_item_skill_shield_bonus(owner_item)
 					)
+			"hero.shield":
+				var shield_hero: HeroData = null if game_manager == null else game_manager.selected_hero
+				amount = 0.0 if shield_hero == null else shield_hero.current_shield
 			"source.heal":
 				if owner_item != null:
 					amount = float(ItemEffectsClass.calculate_heal(owner_item) + int(round(_get_item_runtime_bonus(owner_item, "heal"))))
@@ -1818,6 +1834,8 @@ func _resolve_effect_amount(
 				amount = float(_count_other_player_items_matching_tag(owner_item, str(effect_data.get("tag", ""))))
 			"other_items.matching_any_tag_count":
 				amount = float(_count_other_player_items_matching_any_tag(owner_item, effect_data.get("tags", [])))
+			"items.highest_shield":
+				amount = _get_highest_player_item_shield()
 			"adjacent_items.matching_tag_count":
 				amount = float(_count_adjacent_player_items_matching_tag(owner_item, str(effect_data.get("tag", ""))))
 			"adjacent_items.matching_any_tag_count":
@@ -2970,6 +2988,24 @@ func _count_other_player_items_matching_any_tag(source_item: ItemData, tags: Arr
 			count += 1
 	return count
 
+func _count_player_items_with_tag(tag: String) -> int:
+	if inventory == null or tag.is_empty():
+		return 0
+	var count: int = 0
+	for candidate in inventory.items:
+		if candidate != null and _item_has_tag(candidate, tag):
+			count += 1
+	return count
+
+func _count_active_player_items() -> int:
+	if inventory == null:
+		return 0
+	var count: int = 0
+	for candidate in inventory.items:
+		if candidate != null:
+			count += 1
+	return count
+
 func _count_adjacent_player_items_matching_tag(source_item: ItemData, tag: String) -> int:
 	if source_item == null or tag.is_empty():
 		return 0
@@ -3005,6 +3041,19 @@ func _get_weakest_weapon_damage() -> float:
 		var damage_value: float = float(candidate.get_rarity_adjusted_damage()) + _get_item_runtime_bonus(candidate, EffectDefinitionClass.EFFECT_DAMAGE)
 		weakest = minf(weakest, damage_value)
 	return 0.0 if weakest == INF else maxf(weakest, 0.0)
+
+func _get_highest_player_item_shield() -> float:
+	if inventory == null:
+		return 0.0
+	var highest: float = 0.0
+	for candidate in inventory.items:
+		if candidate == null:
+			continue
+		var shield_value: float = float(ItemEffectsClass.calculate_shield(candidate))
+		shield_value += _get_item_runtime_bonus(candidate, EffectDefinitionClass.EFFECT_SHIELD)
+		shield_value += float(_get_player_item_skill_shield_bonus(candidate))
+		highest = maxf(highest, shield_value)
+	return highest
 
 func _charge_items_by_source_id(source_id: String, seconds: float) -> void:
 	if inventory == null or seconds <= 0.0:
