@@ -857,6 +857,7 @@ static func build_item_effects(item: ItemDataClass) -> Array[Dictionary]:
 			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_COOLDOWN_READY, EFFECT_MULTICAST, {"side": "self", "selector": "this_item"}, {"type": EFFECT_MULTICAST, "amount": 1}, {"has_item_size": "large"}))
 
 	_append_p2b_runtime_bonus_family_definitions(definitions, handled_keywords, item)
+	_append_p2b_confirmed_remainder_definitions(definitions, handled_keywords, item)
 	_append_non_combat_hook_definitions(definitions, handled_keywords, item)
 	var runtime_bonus_path: String = _runtime_bonus_runtime_path(item.source_id)
 	if not runtime_bonus_path.is_empty() and not _definitions_handle_effect(definitions, EFFECT_RUNTIME_BONUS):
@@ -949,6 +950,60 @@ static func _p2b_runtime_bonus_definition(source_id: String, trigger: String, ta
 	for key in runtime_effect.keys():
 		effect[key] = runtime_effect[key]
 	return _hook_definition(source_id, trigger, effect_name, target, effect, condition, timing)
+
+static func _append_p2b_confirmed_remainder_definitions(definitions: Array[Dictionary], handled_keywords: Dictionary, item: ItemDataClass) -> void:
+	if item == null:
+		return
+	match item.source_id:
+		"ethergy_conduit":
+			handled_keywords[EFFECT_CHARGE] = true
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_CRIT, EFFECT_CHARGE, {"side": "self", "selector": "matching_tag_items", "tag": "Relic"}, {"type": EFFECT_CHARGE, "amount": 1}, {"event_source_is_owner": true}))
+		"eye_of_the_colossus":
+			handled_keywords[EFFECT_CHARGE] = true
+			definitions.append(_runtime_bonus_marker(item.source_id, "BattleSystem enemy item destruction runtime"))
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_ITEM_USED, EFFECT_CHARGE, {"side": "self", "selector": "this_item"}, {"type": EFFECT_CHARGE, "amount": 1}, {"event_source_is_adjacent": true}))
+		"ice_cream_truck":
+			handled_keywords[EFFECT_CHARGE] = true
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_ITEM_USED, EFFECT_CHARGE, {"side": "self", "selector": "this_item"}, {"type": EFFECT_CHARGE, "amount": 1}, {"event_source_not_owner": true, "no_event_source_tag": "Weapon"}))
+		"iceberg":
+			handled_keywords[EFFECT_FREEZE] = true
+			definitions.append(_trigger_condition_marker(item.source_id, EFFECT_FREEZE, "BattleSystem enemy item-use Freeze runtime"))
+		"tripwire":
+			handled_keywords[EFFECT_SLOW] = true
+			definitions.append(_trigger_condition_marker(item.source_id, EFFECT_SLOW, "BattleSystem enemy item-use Slow runtime"))
+		"void_shield":
+			handled_keywords[EFFECT_BURN] = true
+			_append_runtime_marker_definition(definitions, handled_keywords, item.source_id, "BattleSystem enemy item-use Burn runtime")
+			definitions.append(_trigger_condition_marker(item.source_id, EFFECT_BURN, "BattleSystem enemy item-use Burn runtime"))
+		"fire_bomb", "ice_bomb":
+			handled_keywords[EFFECT_RELOAD] = true
+			definitions.append(_trigger_condition_marker(item.source_id, EFFECT_RELOAD, "BattleSystem start-Flying self Reload runtime"))
+		"flare_gun":
+			handled_keywords[EFFECT_BURN] = true
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_COOLDOWN_READY, EFFECT_BURN, {"side": "enemy", "selector": "hero"}, {"type": EFFECT_BURN, "amount_by_rarity": [0, 0, 9, 0]}))
+		"golf_clubs":
+			handled_keywords[EFFECT_RUNTIME_BONUS] = true
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_HEAL, EFFECT_RUNTIME_BONUS, {"side": "self", "selector": "this_item"}, {"type": EFFECT_RUNTIME_BONUS, "bonus_key": EFFECT_DAMAGE, "amount_by_rarity": [10, 20, 30, 40], "scope": "combat"}))
+		"holsters":
+			handled_keywords[EFFECT_HASTE] = true
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_BATTLE_START, EFFECT_HASTE, {"side": "self", "selector": "matching_size_items", "size": "small"}, {"type": EFFECT_HASTE, "amount_by_rarity": [0, 1, 2, 2]}))
+		"infernal_greatsword":
+			handled_keywords[EFFECT_BURN] = true
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_COOLDOWN_READY, EFFECT_BURN, {"side": "enemy", "selector": "hero"}, {"type": EFFECT_BURN, "amount_from": "source.damage"}))
+		"refractor":
+			handled_keywords[EFFECT_RUNTIME_BONUS] = true
+			handled_keywords[EFFECT_FREEZE] = true
+			definitions.append(_trigger_condition_marker(item.source_id, EFFECT_FREEZE, "status-triggered runtime bonus handles Freeze text"))
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_ENEMY_STATUS_APPLIED, EFFECT_RUNTIME_BONUS, {"side": "self", "selector": "this_item"}, {"type": EFFECT_RUNTIME_BONUS, "bonus_key": EFFECT_DAMAGE, "amount_by_rarity": [10, 20, 30, 40], "scope": "combat"}, {"status_type_any": [EFFECT_SLOW, EFFECT_FREEZE, EFFECT_BURN, EFFECT_POISON]}))
+		"ritual_dagger":
+			handled_keywords[EFFECT_REGENERATION] = true
+			_append_runtime_marker_definition(definitions, handled_keywords, item.source_id, "BattleSystem Damage-scaled Regen runtime")
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_COOLDOWN_READY, EFFECT_REGENERATION, {"side": "self", "selector": "hero"}, {"type": EFFECT_REGENERATION, "amount_from": "source.damage"}))
+		"soul_of_the_district":
+			handled_keywords[EFFECT_SHIELD] = true
+			handled_keywords[EFFECT_DAMAGE] = true
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_COOLDOWN_READY, EFFECT_SHIELD, {"side": "self", "selector": "hero"}, {"type": EFFECT_SHIELD, "amount_from": "hero.current_health"}))
+			definitions.append(_hook_definition(item.source_id, TRIGGER_ON_COOLDOWN_READY, EFFECT_DAMAGE, {"side": "enemy", "selector": "hero"}, {"type": EFFECT_DAMAGE, "amount_from": "hero.shield"}, {}, "after_consume"))
 
 static func _append_non_combat_hook_definitions(definitions: Array[Dictionary], handled_keywords: Dictionary, item: ItemDataClass) -> void:
 	_append_sell_service_hook_definitions(definitions, handled_keywords, item)

@@ -487,6 +487,7 @@ func _set_player_item_flying(item: ItemData, reason_id: String) -> bool:
 	if item == null or _is_player_item_flying(item) or _is_player_item_destroyed(item):
 		return false
 	_player_flying_item_ids().append(item.get_instance_id())
+	_apply_player_item_start_flying_runtime(item)
 	_apply_flying_start_triggers("player")
 	_record_effect_trace({"kind": "runtime", "id": reason_id}, {"id": "%s_player_item_start_flying" % reason_id, "trigger": EffectDefinitionClass.TRIGGER_ON_ITEM_USED, "effect": {"type": EffectDefinitionClass.EFFECT_RUNTIME_BONUS}}, EffectDefinitionClass.TRIGGER_ON_ITEM_USED, 1.0, 1)
 	return true
@@ -521,6 +522,13 @@ func _start_monster_small_items_flying(count: int) -> int:
 		if _monster_item_size_matches(item, "Small") and _set_monster_item_flying(index, "haunting_flight"):
 			started += 1
 	return started
+
+func _apply_player_item_start_flying_runtime(item: ItemData) -> void:
+	if item == null:
+		return
+	if item.source_id in ["fire_bomb", "ice_bomb"]:
+		if item.refill_ammo(1) > 0:
+			_record_effect_trace({"kind": "item", "id": item.source_id, "item": item}, {"id": "%s_start_flying_reload" % item.source_id, "trigger": EffectDefinitionClass.TRIGGER_ON_ITEM_USED, "effect": {"type": EffectDefinitionClass.EFFECT_RELOAD}}, EffectDefinitionClass.TRIGGER_ON_ITEM_USED, 1.0, 1)
 
 func _apply_flying_start_triggers(owner_side: String) -> void:
 	if owner_side == "monster" and _monster_has_skill("aerial_assault"):
@@ -1111,6 +1119,7 @@ func _after_monster_item_used(item_index: int) -> void:
 	if current_monster == null:
 		return
 	_apply_electric_eels_enemy_use_charge()
+	_apply_enemy_item_use_player_item_reactions(item_index)
 	if item_index < 0 or item_index + 1 >= current_monster.monster_items.size():
 		return
 	var observer: Dictionary = current_monster.monster_items[item_index + 1]
@@ -1121,6 +1130,31 @@ func _after_monster_item_used(item_index: int) -> void:
 		return
 	current_monster.current_shield = maxf(current_monster.current_shield + float(shield_amount), 0.0)
 	print("🛡️ [%s] 的 [Duct Tape] 响应左侧物品，获得 %d 护盾" % [current_monster.monster_name, shield_amount])
+
+func _apply_enemy_item_use_player_item_reactions(item_index: int) -> void:
+	if inventory == null or current_monster == null or item_index < 0 or item_index >= current_monster.monster_items.size():
+		return
+	for item in inventory.items:
+		if item == null or _is_player_item_destroyed(item):
+			continue
+		match item.source_id:
+			"iceberg":
+				var seconds: float = _get_rarity_value(item, [0, 0, 0.5, 1.0], 0.5)
+				_add_monster_item_cooldown(item_index, seconds)
+				_record_effect_trace({"kind": "item", "id": item.source_id, "item": item}, {"id": "iceberg_enemy_item_use_freeze", "trigger": EffectDefinitionClass.TRIGGER_ON_ITEM_USED, "effect": {"type": EffectDefinitionClass.EFFECT_FREEZE}}, EffectDefinitionClass.TRIGGER_ON_ITEM_USED, seconds, 1)
+			"tripwire":
+				var seconds: float = _get_rarity_value(item, [0, 0, 1.0, 2.0], 1.0)
+				_add_monster_item_cooldown(item_index, seconds)
+				_record_effect_trace({"kind": "item", "id": item.source_id, "item": item}, {"id": "tripwire_enemy_item_use_slow", "trigger": EffectDefinitionClass.TRIGGER_ON_ITEM_USED, "effect": {"type": EffectDefinitionClass.EFFECT_SLOW}}, EffectDefinitionClass.TRIGGER_ON_ITEM_USED, seconds, 1)
+			"void_shield":
+				_apply_status_effect({"type": EffectDefinitionClass.EFFECT_BURN, "value": 1.0, "duration": 0.0, "item_name": item.item_name, "target": "enemy"})
+				_record_effect_trace({"kind": "item", "id": item.source_id, "item": item}, {"id": "void_shield_enemy_item_use_burn", "trigger": EffectDefinitionClass.TRIGGER_ON_ITEM_USED, "effect": {"type": EffectDefinitionClass.EFFECT_BURN}}, EffectDefinitionClass.TRIGGER_ON_ITEM_USED, 1.0, 1)
+
+func _add_monster_item_cooldown(item_index: int, seconds: float) -> void:
+	if current_monster == null or seconds <= 0.0 or item_index < 0 or item_index >= current_monster.monster_items.size():
+		return
+	var monster_item: Dictionary = current_monster.monster_items[item_index]
+	monster_item["current_cooldown"] = maxf(float(monster_item.get("current_cooldown", 0.0)) + seconds, 0.0)
 
 func _apply_electric_eels_enemy_use_charge() -> void:
 	if inventory == null:
@@ -1800,6 +1834,8 @@ func _resolve_effect_amount(
 					percent = _get_rarity_value(owner_item, effect_data.get("percent_by_rarity", []), 0.0)
 				var hero: HeroData = null if game_manager == null else game_manager.selected_hero
 				amount = 0.0 if hero == null else float(hero.max_hp) * percent
+			"hero.current_health":
+				amount = 0.0 if game_manager == null else float(game_manager.get("player_health"))
 			"enemy.max_health_percent":
 				var percent: float = 0.0
 				if effect_data.has("percent"):
